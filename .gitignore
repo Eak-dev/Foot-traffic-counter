@@ -1,0 +1,36 @@
+# ความลับ
+.env
+*.key
+service-account*.json
+credentials*.json
+secrets/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# โมเดล (ดาวน์โหลด/แปลงใหม่ได้)
+*.pt
+*_ncnn_model/
+*.onnx
+
+# ภาพและวิดีโอจากกล้อง (ห้ามขึ้น repo)
+*.mp4
+*.mov
+*.avi
+snap_*.png
+snapshot*.png
+*.jpg
+*.jpeg
+
+# ไฟล์ที่เกิดตอนรัน
+config.yaml
+buffer.csv
+*.log
+*.log.*
+
+# macOS
+.DS_Store

@@ -1,0 +1,12 @@
+# คัดลอกเป็น config.yaml (draw_lines.py จะเขียนค่าเส้นให้)
+model: yolo26n_ncnn_model     # บน Mac ใช้ yolo26n.pt
+process_fps: 5
+frame_width: 960
+conf: 0.35
+report_every_minutes: 15
+timezone: Asia/Bangkok
+
+# พิกัดสัดส่วน 0–1 ของภาพ (x, y) — 2 จุดต่อเส้น
+lines:
+  front_aisle: [[0.20, 0.55], [0.60, 0.55]]
+  side_aisle:  [[0.70, 0.45], [0.95, 0.70]]
