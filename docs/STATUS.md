@@ -7,10 +7,10 @@
 
 - [ ] 1. ซื้อและติดตั้ง Raspberry Pi ที่ร้าน + Tailscale — คุณ Eak
 - [ ] 2. Camera Account, IP คงที่, Google Sheet + service account — คุณ Eak
-- [ ] 3. หาสตรีมเลนส์ Fixed, snapshot, วิดีโอตัวอย่าง — Claude on Mac
-- [ ] 4. เขียนโปรแกรมและเปิด Pull Request — ChatGPT Codex
-- [ ] 5. รีวิว PR และติดตั้งบน Pi จนแถวแรกขึ้น Sheet — Claude + Claude on Mac
-- [ ] 6. วัดความแม่นยำ ≥ 80% และรันต่อเนื่อง 3 วัน — คุณ Eak + Claude on Mac
+- [ ] 3. หาสตรีมเลนส์ Fixed, snapshot, วิดีโอตัวอย่าง — Claude CLI (ChatGPT สั่ง)
+- [ ] 4. เขียนโปรแกรมและเปิด Pull Request — Claude CLI (ChatGPT สั่ง)
+- [ ] 5. รีวิว PR และติดตั้งบน Pi จนแถวแรกขึ้น Sheet — ChatGPT รีวิว, คุณ Eak merge, Claude CLI ติดตั้ง
+- [ ] 6. วัดความแม่นยำ ≥ 80% และรันต่อเนื่อง 3 วัน — คุณ Eak + Claude CLI
 
 ## ค่าที่ยืนยันแล้ว
 
@@ -24,8 +24,10 @@
 
 ## เรื่องที่รอตัดสินใจ
 
+- [ ] ChatGPT ที่ใช้อยู่รันคำสั่งบน MacBook ได้ไหม (ใช้ทาง A) หรือต้องตั้งทาง B — คุณ Eak
 - [ ] ใช้ Raspberry Pi หรือคอมเก่าที่ร้าน (ดูตารางทางเลือกใน PLAN.md) — คุณ Eak
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
 
+- 2026-10-06 · Claude · เปลี่ยนวิธีทำงาน: คุณ Eak คุยกับ ChatGPT ที่เดียว ChatGPT วางแผนและสั่ง Claude CLI (ดู WORKFLOW.md)
 - 2026-10-06 · Claude · ตั้ง repo: PLAN.md, AGENTS.md, STATUS.md และไฟล์ตั้งค่าตัวอย่าง

@@ -5,6 +5,7 @@
 
 - แผนงานและสเปก: [docs/PLAN.md](docs/PLAN.md)
 - ความคืบหน้า: [docs/STATUS.md](docs/STATUS.md)
-- กติกาสำหรับ AI (Codex / Claude): [AGENTS.md](AGENTS.md)
+- วิธีทำงานร่วมกัน ChatGPT ↔ Claude: [docs/WORKFLOW.md](docs/WORKFLOW.md)
+- กติกาสำหรับ AI: [AGENTS.md](AGENTS.md)
 
-> วิธีติดตั้งและรันจะเพิ่มในเฟส 4 โดย ChatGPT Codex
+> วิธีติดตั้งและรันจะเพิ่มในเฟส 4

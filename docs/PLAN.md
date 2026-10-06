@@ -1,6 +1,6 @@
 # แผนงาน: ระบบนับคนเดินผ่านหน้าร้าน (Tapo C545D → Google Sheets)
 
-> ไฟล์นี้คือสเปกกลางของโปรเจกต์ ทั้ง Claude และ ChatGPT Codex อ่านและแก้ไฟล์นี้ใน repo เดียวกัน
+> ไฟล์นี้คือสเปกกลางของโปรเจกต์ ทั้ง ChatGPT และ Claude อ่านและแก้ไฟล์นี้ใน repo เดียวกัน
 > ไม่ต้องคัดลอกข้อความส่งไปมา ความคืบหน้ารายวันอยู่ที่ [STATUS.md](STATUS.md)
 
 ## ภาพรวมและเป้าหมาย
@@ -34,7 +34,7 @@ flowchart LR
     s4 -- "ทุก 15 นาที" --> sheets["Google Sheets<br/>เวลา · เส้น · ทิศ · ยอดรวม"]
     s4 -. "เน็ตหลุด" .-> buf["buffer.csv บน Pi<br/>ส่งซ้ำรอบถัดไป"]
     buf -.-> sheets
-    mac["MacBook ที่บ้าน<br/>Claude on Mac / Codex"] <-. "Tailscale · SSH" .-> pi
+    mac["MacBook ที่บ้าน<br/>ChatGPT สั่ง Claude CLI"] <-. "Tailscale · SSH" .-> pi
 ```
 
 ภาพจากกล้องถูกประมวลผลบน Raspberry Pi ในร้านแล้วทิ้งทันที สิ่งที่ออกจากร้านมีแค่ตัวเลขยอดนับทุก 15 นาที
@@ -70,19 +70,20 @@ Ultralytics ใช้สัญญาอนุญาต AGPL-3.0 ซึ่งใ�
 
 ## การแบ่งทีมและหน้าที่
 
+คุณ Eak คุยกับ ChatGPT ที่เดียว ChatGPT วางแผนแล้วสั่ง Claude เขียนโค้ด (วิธีสั่งงาน: [WORKFLOW.md](WORKFLOW.md))
+
 | ทีม | บทบาท | งานที่ต้องส่ง | เฟส |
 | --- | --- | --- | --- |
-| Claude (claude.ai) | ผู้ออกแบบและผู้ตรวจ | PLAN.md, สเปก, รีวิวโค้ดผ่าน Pull Request, วิเคราะห์ผลทดสอบ | 4, 5, 6 |
-| ChatGPT Codex | ผู้เขียนโค้ดหลัก | `counter.py`, `draw_lines.py`, `tests/`, `requirements.txt`, `foot-counter.service`, README | 4 |
-| Claude on Mac | ผู้ติดตั้งและทดสอบจากระยะไกล | SSH เข้า Pi ผ่าน Tailscale, หาสตรีมเลนส์ Fixed, ติดตั้ง, แปลงโมเดล, ปรับจูน, ตั้งให้รันอัตโนมัติ | 3, 5, 6 |
+| ChatGPT | ผู้วางแผนและผู้ประสานงาน | แตกงานจาก PLAN.md, สั่ง Claude ผ่าน `claude -p` หรือ Issue `[claude]`, สรุปผลให้คุณ Eak | ทุกเฟส |
+| Claude (Claude CLI บน MacBook) | ผู้เขียนโค้ดและติดตั้ง | `counter.py`, `draw_lines.py`, `tests/`, `requirements.txt`, `foot-counter.service`, README, PR, SSH เข้า Pi เพื่อหาสตรีม ติดตั้ง แปลงโมเดล ปรับจูน | 3, 4, 5, 6 |
 | คุณ Eak | เจ้าของงานและผู้ตัดสินใจ | ซื้อและติดตั้ง Pi, Camera Account, Google Sheet + service account, นับมือเพื่อเทียบ, เลือกตำแหน่งเส้น, merge PR | 1, 2, 5, 6 |
 
 **กติกาทำงานร่วมกันผ่าน GitHub** (รายละเอียดใน [AGENTS.md](../AGENTS.md))
 
-1. ทุกคนอ่าน `docs/PLAN.md` และ `docs/STATUS.md` ก่อนเริ่มงาน
-2. งานโค้ดทำใน branch ของตัวเอง แล้วเปิด Pull Request เข้า `main`
+1. ทุกฝ่ายอ่าน `docs/PLAN.md` และ `docs/STATUS.md` ก่อนเริ่มงาน
+2. งานโค้ดทำใน branch แยก แล้วเปิด Pull Request เข้า `main` คุณ Eak เป็นคนกด merge
 3. ทำเสร็จแล้วอัปเดต `docs/STATUS.md` ในคอมมิตเดียวกัน
-4. คำถามหรือปัญหาที่ต้องให้อีกฝั่งดู เขียนเป็น GitHub Issue แทนการคัดลอกข้อความ
+4. คำถามที่ต้องให้อีกฝั่งดู เขียนเป็น GitHub Issue หรือคำอธิบาย PR แทนการคัดลอกข้อความ
 
 ## ลำดับขั้นการทำงาน
 
@@ -98,16 +99,16 @@ Ultralytics ใช้สัญญาอนุญาต AGPL-3.0 ซึ่งใ�
     - ตั้ง IP คงที่ให้กล้องและ Pi ในเราเตอร์ร้าน (DHCP reservation)
     - สร้าง Google Sheet ชื่อ FootTraffic, สร้าง service account ใน Google Cloud ดาวน์โหลดไฟล์ key (.json) แล้วแชร์ชีตให้อีเมลของ service account เป็น Editor
     - เสร็จเมื่อ: มีชื่อผู้ใช้ รหัส IP กล้อง และไฟล์ key ครบ (เก็บไว้นอก repo)
-3. **หาสตรีมของเลนส์ Fixed** — Claude on Mac ผ่าน SSH, ประมาณ 30 นาที
+3. **หาสตรีมของเลนส์ Fixed** — ChatGPT สั่ง Claude CLI ให้ SSH เข้า Pi, ประมาณ 30 นาที
     - C545D มี 2 เลนส์ ต้องยืนยันว่า path ไหนคือภาพมุมกว้าง
     - เสร็จเมื่อ: ได้ RTSP path ที่ใช้จริง (บันทึกใน STATUS.md โดยไม่ใส่รหัสผ่าน), snapshot 1 ภาพ และวิดีโอตัวอย่าง 2 นาทีไว้บน MacBook
-4. **เขียนโปรแกรม** — ChatGPT Codex, ประมาณ 1 ชั่วโมง
+4. **เขียนโปรแกรม** — ChatGPT สั่ง Claude CLI, ประมาณ 1 ชั่วโมง
     - ทำตามสเปกในหัวข้อถัดไป ทดสอบกับวิดีโอตัวอย่างบน MacBook ก่อน
     - เสร็จเมื่อ: รันกับวิดีโอได้ ชุดทดสอบผ่าน และเปิด Pull Request แล้ว
-5. **รีวิวและติดตั้งจริงบน Pi** — Claude รีวิว PR แล้ว Claude on Mac ติดตั้ง
-    - Claude รีวิว PR บน GitHub แก้ตามที่พบ คุณ Eak merge แล้ว Claude on Mac `git pull` บน Pi แปลงโมเดลเป็น NCNN และวาดเส้นบน snapshot
+5. **รีวิวและติดตั้งจริงบน Pi** — ChatGPT รีวิว PR, คุณ Eak merge, Claude CLI ติดตั้ง
+    - ChatGPT อ่าน PR และสรุปให้คุณ Eak ตัดสินใจ merge แล้ว Claude CLI `git pull` บน Pi แปลงโมเดลเป็น NCNN และวาดเส้นบน snapshot
     - เสร็จเมื่อ: แถวแรกขึ้นใน Google Sheet
-6. **วัดความแม่นยำและรันถาวร** — คุณ Eak กับ Claude on Mac
+6. **วัดความแม่นยำและรันถาวร** — คุณ Eak นับมือ, Claude CLI ปรับจูน
     - นับมือเทียบ 2 ช่วง ปรับจูนจนถึง 80% แล้วตั้ง systemd ให้รันเองเมื่อเปิดเครื่องและกลับมาเองเมื่อหลุด
     - เสร็จเมื่อ: รันต่อเนื่อง 3 วันโดยไม่มีช่วงข้อมูลหาย
 
