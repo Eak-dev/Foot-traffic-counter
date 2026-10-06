@@ -9,7 +9,8 @@
 ## ก่อนเริ่มงานทุกครั้ง
 
 1. อ่าน `PROJECT_CONTROL.md`, `docs/PLAN.md` (สเปกกลาง), `docs/PREPROJECT_PLAN.md` (หลักฐานและเกต) และ `docs/STATUS.md` (ใครทำอะไร เฟสไหนเสร็จ)
-2. ดูงานค้างใน GitHub Issues ที่เกี่ยวข้อง Issue ไม่ใช่ worker อัตโนมัติ ไม่มีการตรวจเองตามรอบ
+2. อ่าน `docs/DECISIONS.md` และ `docs/WORKFLOW.md` ส่วน Conversation-to-GitHub sync; ยืนยัน branch/commit, phase, blockers และ next action ก่อนลงมือ ไม่ขอข้อมูลที่ Owner ยืนยันแล้วซ้ำ
+3. ดูงานค้างใน GitHub Issues ที่เกี่ยวข้องผ่านข้อมูลที่ PO ตรวจจาก GitHub ล่าสุด; หากไม่มี network tools ให้ PO เตรียม checkout/บริบทให้ ห้ามใช้เครื่องมือนอก scope. Issue ไม่ใช่ worker อัตโนมัติ
 
 ## ขอบเขต
 
@@ -56,3 +57,7 @@
 | คุณ Eak (Owner) | ตัดสินใจ, merge PR, งานหน้าร้าน, อนุมัติรายจ่ายซอฟต์แวร์ (ไม่ซื้อฮาร์ดแวร์เพิ่ม) |
 
 ถ้าได้รับคำสั่งผ่าน `claude -p` ให้จบงานด้วยข้อความสรุปภาษาไทยสั้น ๆ: ทำอะไรไป, ไฟล์ที่เปลี่ยน, ผลทดสอบ (หรือ NOT_RUN_BY_DEVELOPER), และสิ่งที่ยังเป็น UNKNOWN
+
+## การส่งต่อระหว่างบทสนทนา
+
+PO อัปเดต STATUS/DECISIONS และแผนที่เปลี่ยนในเทิร์นที่มีสาระงานใหม่ พร้อม push/read-back บน review branch ตาม WORKFLOW. ทุกงานของ Claude ต้องอ่านสถานะล่าสุดที่ commit ระบุจริงก่อนเริ่มและรายงานผลที่พิสูจน์ได้เมื่อจบ. ไม่มีข้อมูลเปลี่ยนไม่สร้าง commit ซ้ำ. คำสั่งนี้ไม่เปิด background worker หรือเพิ่มสิทธิ์กล้อง/merge/deploy และห้ามเก็บข้อมูลลับหรือบทสนทนาทั้งหมดใน repo

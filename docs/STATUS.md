@@ -1,52 +1,63 @@
-# สถานะงาน
+# สถานะงานและจุดส่งต่อให้ Claude
 
-> ไฟล์นี้คือกระดานความคืบหน้าที่ทุกฝ่ายใช้ร่วมกัน ทำงานเสร็จแล้วติ๊กและเขียนบันทึกในคอมมิตเดียวกัน
-> ห้ามใส่รหัสผ่าน, IP ภายนอกของร้าน, หมายเลขซีเรียล หรือข้อมูลส่วนบุคคลในไฟล์นี้
-> คำอธิบายเกตและหลักฐานอยู่ที่ [PREPROJECT_PLAN.md](PREPROJECT_PLAN.md)
+> อัปเดต: 2026-10-07 03:53 +0700 · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
+> อ่าน HEAD ของ branch/PR ที่ active ไม่ใช่ main ที่ยังไม่ได้ merge. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
+> [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
-## เฟส (ตามแผนใหม่ Owner 2026-10-06)
+## สรุปปัจจุบัน
 
-- [ ] D0. เตรียมงาน: เอกสาร + `tools/ft_data.py` + unittest — Claude พัฒนา, PO ทดสอบแล้ว 52/52 และ regression แยก 7/7 ผ่าน — implementation พร้อม review; ยังรอ Owner merge ไม่ถือว่าจบเกต
-- [ ] D1. เส้นทางที่ปลอดภัย + อินเทอร์เฟซอ่านอย่างเดียว + นโยบายพื้นที่ — Owner ให้ข้อมูล, PO ตรวจหลักฐาน; การตั้งค่าเส้นทางจริงเป็นขั้นแยกที่ได้รับอนุมัติเป็นรายครั้ง
-- [ ] D2. ดึงคลิปเดียวแบบทำซ้ำได้ (แสดงรายการช่วงสั้น → ดึง 1 คลิป → ตรวจ)
-- [ ] D3. ดึงรายวัน: resume, dedup (ไบต์เหมือนกัน), manifest, งบ, retry จำกัด
-- [ ] D4. นับคนเดินผ่าน + ตัวกรองช่วงเวลา (ต้องมีข้อเสนอและอนุมัติแยก)
-- [ ] D5. นำร่องและตั้งงานอัตโนมัติ (ต้องได้รับอนุมัติ Owner เป็นลายลักษณ์อักษร)
+- **เฟส:** D0 implementation พร้อม review; PR #2 ยังเปิด/unmerged. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
+- **ทีม:** PO รีโมต Mac/เรียก Claude/ตรวจงาน/push GitHub ได้แล้ว; ไม่ต้องสร้างระบบสั่ง AI ใหม่
+- **โค้ดที่มีจริง:** `doctor` และ local `inventory` เท่านั้น; **ยังไม่มี downloader**
+- **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
+- **Claude ล่าสุด:** ให้คำแนะนำข้อมูลที่ต้องใช้และ Tapo settings แล้ว เป็น advisory ไม่ใช่การตั้งค่า/ทดสอบจริง
+- **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
+- **Owner instruction:** อัปเดตข้อสรุป/ความคืบหน้า/blockers ใน GitHub ระหว่างที่คุยกัน; ไม่คัดลอกบทสนทนาทั้งหมดหรือข้อมูลลับ
 
-## ค่าที่ยืนยันแล้ว
+## ข้อมูลยืนยันแล้ว — ไม่ขอซ้ำ
 
-| รายการ | ค่า | ยืนยันโดย |
+| รายการ | ค่า / สถานะ | หลักฐาน |
 | --- | --- | --- |
-| เข้า shell ระยะไกลของ Mac ที่บ้าน | ผ่าน (macOS 14.8.9 x86_64) | PO |
-| Python ของ Mac | 3.9.6 | PO |
-| ฮาร์ดแวร์ Mac | 16 GiB RAM, 8 logical CPU | PO |
-| Claude CLI บน Mac | 2.1.288 · **PASS** (smoke: READY, exit 0, is_error=false, modelUsage claude-sonnet-5) | PO |
-| การตั้งค่าพลังงาน | idle sleep = 1 ทั้ง AC และ battery (อ่านอย่างเดียว ไม่ได้เปลี่ยน) | PO |
-| การเปิดเครื่องทั้งคืน (active wake assertions) | UNKNOWN (ยังไม่ได้ตรวจ) | — |
-| พื้นที่ว่างที่บ้าน (ค่าณ เวลาตรวจ) | ประมาณ 20.8 GiB | PO |
-| ช่องทาง GitHub สำหรับงานนี้ | Connector สร้าง Issue #1 ได้; git push dry-run ผ่าน; gh auth ไม่ได้ตรวจและไม่จำเป็นต้องเปลี่ยน | PO |
-| รุ่น/firmware กล้อง | UNKNOWN | — |
-| รุ่นเราเตอร์ร้านและความสามารถ VPN | UNKNOWN | — |
-| เส้นทางจาก Mac ที่บ้านไปเครือข่ายร้าน | UNKNOWN | — |
-| การดึงคลิปอัตโนมัติจาก Mac ที่บ้าน | UNKNOWN (พิสูจน์ใน D2) | — |
+| กล้อง | Tapo C545D; camera Hardware/Firmware ยัง UNKNOWN | Owner; comment 6013505806 |
+| เราเตอร์ | ZTE ZXHN F6107A; HW V9.0.09; FW F6107A_PON_4.1 | ภาพ Owner; comments 6013831335 / 6014086882 |
+| อินเทอร์เน็ต | AIS Fibre 1000/200 Mbps; เป็นแพ็กเกจ Owner แจ้ง ไม่ใช่ speed test | Owner |
+| บ้าน/ร้าน | คนละที่คนละ network แม้ Owner แจ้งอุปกรณ์ยี่ห้อ/แบบเดียวกัน | ไม่พิสูจน์ reachability |
+| ต้นฉบับ | microSD, event clips ความยาวต่างกันและมีช่วงว่าง; มือถือที่ร้านดาวน์โหลดได้ | Owner |
+| Mac/Claude | D0 ตรวจ macOS 14.8.9 x86_64 / Python 3.9.6; `claude-sonnet-5` รันจริงได้ | FT_D0_EVIDENCE / comment 6014447731 |
+| พื้นที่/sleep | ผลตรวจเดิมราว 20.8 GiB และ idle sleep=1; ต้องตรวจใหม่ก่อนดึง/รันรายคืน | ไม่ใช่พื้นที่รับรองหรืออนุญาตเปลี่ยนค่า |
 
-## เรื่องที่รอตัดสินใจ
+## อุปสรรคและผู้รับผิดชอบ
 
-- [ ] รุ่นเราเตอร์ร้าน, ความสามารถ VPN, สรุป ISP routing — คุณ Eak
-- [ ] รุ่น/firmware ของกล้องที่แน่นอน และยืนยันว่าเป็น C545D หรือไม่ — คุณ Eak
-- [ ] ประเภทการเข้าถึงกล้องในเครื่องที่จะใช้ (ไม่ส่งรหัสผ่านในแชตหรือ Issue) — คุณ Eak + PO
-- [ ] นโยบายเก็บรักษาและพื้นที่สำรอง (เกณฑ์เสนอ 10 GiB ยังไม่อนุมัติ) — คุณ Eak
-- [ ] เพดานคลิป/ไบต์/ช่วงวันที่ — คุณ Eak (หลังมีตัวอย่างจริงจาก D2)
-- [ ] ช่วงเวลาดึงที่ต้องการ — คุณ Eak (D5)
-- [ ] ใช้ ffprobe เพื่อตรวจคลิปหรือไม่ — PO/คุณ Eak (ก่อน D2)
-- [x] ใช้ทาง A: Owner อนุญาตรีโมต; ChatGPT เรียก Claude CLI บน Mac สำเร็จจริง ไม่ต้องรอ Actions
-- [ ] เลือก release ของ candidate downloader (`pytapo`) และ runtime แยก (README ระบุ Python 3.13; ต้อง pin และตรวจก่อนติดตั้ง) — PO + คุณ Eak
-- [ ] ยืนยันความหมายของเขตเวลาและแหล่ง timestamp ของดัชนีกล้อง — PO/คุณ Eak (D2)
-- [ ] ตรวจ active wake assertions แบบอ่านอย่างเดียวเพื่อประเมินการเปิดเครื่องทั้งคืน — PO เมื่อคุณ Eak ต้องการ (ห้ามเปลี่ยนค่า)
-- [ ] ยืนยันเกณฑ์ความแม่นยำ: baseline 80% (aggregate) ยังไม่บรรลุ ต้องมีชุดทดสอบ seated-person negatives และรายงาน FP/FN รายเหตุการณ์ — คุณ Eak + PO (D4)
+| ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
+| --- | --- | --- |
+| B1 | Downloader ยังไม่เขียน | PO + Claude เลือก adapter/release และทำคำสั่งดึงหนึ่งคลิปตาม scope ทดลอง |
+| B2 | ไม่พบ endpoint/บัญชีในไฟล์โปรเจกต์ที่ตรวจ ไม่ใช่ค้นทั้ง Mac | ทีมจัด private local input; Owner กรอกเฉพาะในเครื่อง ไม่ส่ง secret ในแชต/GitHub |
+| B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED | ทีมตรวจเป้าหมายที่ระบุจริง/ทางเข้าถึง ไม่เดา IP หรือสแกนอุปกรณ์อื่น |
+| B4 | Camera firmware/auth/compatibility ยัง UNKNOWN | Owner ส่ง camera version และสถานะบัญชี; ทีมตรวจวิธีที่เลือก ไม่ถือ RTSP ผ่านว่า SD ผ่าน |
+| B5 | ยังไม่มีคลิปเป้าหมายและเพดานทดลอง | Owner แจ้งวัน/เวลา/มุมหนึ่งคลิป; ทีมเสนอพื้นที่/bytes และตรวจไฟล์หลังดึง |
+
+## รอจาก Owner และงานถัดไป
+
+1. Hardware/Firmware **ของกล้อง**; ไม่ขอชื่อ C545D หรือ router version ซ้ำ
+2. พบ IP กล้องแล้วหรือยัง; บัญชีเจ้าของ Tapo พร้อมหรือไม่; Camera Account และ Third-Party Compatibility อยู่สถานะใด — ขอเฉพาะสถานะ ไม่ขอค่าลับ/ไม่สั่งให้เปิดเอง
+3. วัน/เวลาของหนึ่งคลิปที่ยังเปิดย้อนหลังได้ และมุม/เลนส์ถ้ามีหลายภาพ; ไม่ต้องส่งคลิปเดิมใหม่
+4. **ทีมรับผิดชอบ:** private input, adapter, runtime, เส้นทาง, ตัวดาวน์โหลด, ขอบเขต/rollback และผลตรวจ. Owner สั่งให้ทดลองแล้ว ไม่วนขออนุมัติทั่วไปซ้ำหรือบังคับทดลอง 4G/5G/รูปเราเตอร์เพิ่ม
+5. ก่อนแตะกล้อง PO บันทึก control ที่ระบุ target/สิทธิ์/bytes/rollback ตามคำสั่งทดลอง; ไม่ตีความรวมสิทธิ์ reset/เปิดพอร์ต/ติดตั้งทั่วเครื่อง/ซื้อ/merge/deploy/schedule. คำสั่ง sync รอบนี้เป็นเอกสารเท่านั้น
+6. D3 ดึงรายวัน → D4 นับ/filters → D5 งานประจำ ยังไม่เริ่ม; แต่ละขั้นใช้เกณฑ์ใน PLAN/PREPROJECT ไม่ลดเกณฑ์เพื่อให้ผ่าน
+
+## หลักฐานและการส่งต่อ
+
+D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent checks ผ่านในรอบเดิม. Roadmap `9698f56` รัน 52 tests ซ้ำแล้ว. ไม่ใช่หลักฐานดึงกล้อง
+[ผล inspection ล่าสุดที่เผยแพร่](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6014447731) · [Router version](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6014086882)
+ก่อน Claude เริ่มงาน PO ต้องยืนยัน branch/commit ตรง GitHub; Claude อ่าน CONTROL/AGENTS/PLAN/STATUS/DECISIONS และสรุป phase/blockers/next action ก่อนลงมือ. ถ้าไม่มี network tools PO ส่งบริบทที่ตรวจแล้วให้
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
 
+- 2026-10-07 · PO validation · รอบ sync เอกสารนี้: UTF-8/Markdown fences/local links/diff check ผ่าน, ตรวจ patterns ข้อมูลลับไม่พบในเอกสารที่แก้, code/tests/PROJECT_CONTROL ไม่เปลี่ยน. รัน unittest เดิมซ้ำ **52/52 PASS**; 7 independent checks เป็นหลักฐานรอบ D0 ไม่ได้รันใหม่. ไม่อ้างการตรวจ patterns เป็น full security audit
+
+- 2026-10-07 03:53 +0700 · PO · Owner สั่ง sync GitHub ระหว่างสนทนา: รวมข้อมูลอุปกรณ์/ผล Claude advisory/อุปสรรคที่เคยอยู่ใน PR comments ลงสถานะกลาง เพิ่ม DECISIONS และกติกาอ่านก่อนเริ่มงาน. รอบนี้เอกสารเท่านั้น ไม่เรียก Claude ใหม่ ไม่เปลี่ยนโค้ดหรือ control ไม่แตะกล้อง/บัญชี/เครือข่าย/main. ตรวจ publish/read-back ก่อนสรุป; ประวัติผล tests ด้านล่างไม่ใช่การทดสอบกล้องใหม่
+
+### ประวัติก่อน sync รอบนี้ (ไม่ใช่สถานะปัจจุบัน)
 - 2026-10-06 · PO · ตามคำขอ Owner เพิ่ม Execution Roadmap และ Checklist O1–O10 ใน PREPROJECT_PLAN §12–13: งานที่ส่งตอนนี้/ก่อนทดลอง/ภายหลัง เจ้าของงาน blockers และเกณฑ์รับงาน. แก้เฉพาะ docs/PLAN.md, docs/PREPROJECT_PLAN.md และ docs/STATUS.md ใน PR #2; ไม่เปลี่ยน code/control ไม่เรียก Claude ใหม่. รันชุดทดสอบเดิมซ้ำ 52/52 ผ่าน; regression 7/7 เป็นหลักฐานเดิมไม่ได้รันใหม่รอบเอกสารนี้. ยังอยู่ D0 review; ไม่มีสิทธิ์ใหม่สำหรับกล้อง เครือข่าย การติดตั้ง scheduler หรือ merge. เป้าหมายถัดไปคือเลือกช่องทางรับข้อมูลแล้วทดลองดึงหนึ่งคลิปจริงตามเกต.
 
 - 2026-10-06 · PO · ตรวจ source ที่ Claude แก้รอบ 2 และรันบน Mac จริง: compile PASS, unittest **52/52 PASS**, independent regression **7/7 PASS**. doctor: preparation PASS แต่ **live_ready=false**. หลักฐาน [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md). แก้ WORKFLOW ให้ใช้คำสั่ง restricted file tools ที่ทดสอบจริง ไม่มี Bash/auto-checkout/resume ที่ขัดกับ control. งานพร้อม PR review; main และ Production ไม่ได้เปลี่ยน; Issue ยังเปิด.

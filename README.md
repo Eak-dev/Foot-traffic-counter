@@ -8,7 +8,7 @@
 
 - คำสั่งควบคุมปัจจุบัน: [PROJECT_CONTROL.md](PROJECT_CONTROL.md)
 - แผนงาน: [docs/PLAN.md](docs/PLAN.md) · แผนก่อนโครงการและเกต: [docs/PREPROJECT_PLAN.md](docs/PREPROJECT_PLAN.md)
-- ความคืบหน้า: [docs/STATUS.md](docs/STATUS.md)
+- ความคืบหน้าและจุดส่งต่อ: [docs/STATUS.md](docs/STATUS.md) · ข้อตัดสินใจ Owner: [docs/DECISIONS.md](docs/DECISIONS.md)
 - วิธีทำงานร่วมกัน: [docs/WORKFLOW.md](docs/WORKFLOW.md)
 - กติกาสำหรับ AI: [AGENTS.md](AGENTS.md)
 
@@ -56,10 +56,14 @@ python3 -m unittest discover -s tests -t . -v
 ```
 
 ใช้ข้อมูลจำลองที่เป็นไบต์สังเคราะห์เท่านั้น ไม่ใช่วิดีโอจากกล้องจริง
-สถานะการทดสอบ: **NOT_RUN_BY_DEVELOPER** จนกว่า PO จะรันและรายงานผล (ดู [docs/STATUS.md](docs/STATUS.md))
+ผู้พัฒนาไม่ได้รันทดสอบเอง (NOT_RUN_BY_DEVELOPER); PO เคยรันบน Mac แล้ว 52/52 tests และตรวจแยก 7/7 ตาม [หลักฐาน D0](docs/FT_D0_EVIDENCE.md). ไม่ใช่ผลดึงคลิปจากกล้อง; ผลรอบใหม่ดู [STATUS](docs/STATUS.md)
 
 ## ยังไม่มี
 
 - การดึงข้อมูลจากกล้อง (เฟส D1–D3 รอเกตและการอนุมัติ)
 - การนับคน (เฟส D4)
 - การตั้งงานอัตโนมัติ (เฟส D5)
+
+## ข้อมูลเดียวกันระหว่าง Owner / PO / Claude
+
+ทุกข้อมูลใหม่ที่เปลี่ยนงานให้ PO sync STATUS/DECISIONS/แผนที่เกี่ยวข้องใน review branch และตรวจอ่านกลับจาก GitHub; PR comments เป็นหลักฐานเสริม. Claude ต้องอ่าน branch/commit ล่าสุดที่ PO ระบุก่อนเริ่มงานตาม WORKFLOW. ยังไม่มีการ sync เบื้องหลังหรือเปิดใช้กล้องจากการอัปเดตเอกสาร และไม่เผยแพร่ข้อมูลลับ

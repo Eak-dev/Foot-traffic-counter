@@ -1,7 +1,7 @@
 # วิธีทำงาน: ChatGPT เป็น PO/PM · Claude เป็น Developer
 
 คุณเอกคุยกับ ChatGPT จุดเดียว งานปัจจุบันคือ Issue #1, branch `claude/ft-d0-preflight`.
-อ่าน `PROJECT_CONTROL.md`, `AGENTS.md`, `docs/PLAN.md`, `docs/PREPROJECT_PLAN.md` และ `docs/STATUS.md` ก่อนทำงานทุกครั้ง.
+อ่าน `PROJECT_CONTROL.md`, `AGENTS.md`, `docs/PLAN.md`, `docs/PREPROJECT_PLAN.md` และ `docs/STATUS.md`, `docs/DECISIONS.md` ก่อนทำงานทุกครั้ง.
 Owner Decision มีอำนาจสูงสุด; ผู้พัฒนาห้ามเปลี่ยน control หรือขยาย scope เอง.
 
 ## ทางที่พิสูจน์แล้วใน FT-D0
@@ -55,3 +55,31 @@ Model/Effort, baseline/branch, Issue/phase, allowed/forbidden paths, Definition 
 รายละเอียดที่ลงเครื่องจริงต้องให้ Owner กรอกในช่องทางเฉพาะเมื่อมีการอนุมัติขั้นเชื่อมต่อแล้ว.
 
 อ้างอิงการใช้ CLI: https://code.claude.com/docs/en/headless และ https://code.claude.com/docs/en/model-config.
+
+## Conversation-to-GitHub sync
+
+Owner ให้บันทึกข้อสรุปและความคืบหน้าระหว่างสนทนาลง GitHub เพื่อให้ทีมใช้ข้อมูลเดียวกัน; ทำในเทิร์นที่มีสาระงานเปลี่ยน ไม่ใช่ background monitoring
+
+1. ก่อนแก้ อ่าน Issue/PR/สถานะ remote และตรวจ local branch/HEAD/dirty state. ไม่ overwrite งานผู้อื่นหรือ pull/reset โดยอัตโนมัติ
+2. ทุก requirement, decision, ข้อมูลอุปกรณ์, ผลทดสอบ, blocker หรือ next action ใหม่ ให้ PO อัปเดต `docs/STATUS.md` และ `docs/DECISIONS.md` ตามประเภทข้อมูลก่อนตอบสรุป ไม่รอจบเฟส. ไม่มีข้อมูลเปลี่ยนไม่สร้าง commit ซ้ำ
+3. STATUS ระบุ phase, สิ่งที่ทำจริง, สิ่งที่ยังไม่ได้ทำ, evidence, blocker/ผู้รับผิดชอบ, รอ Owner อะไร และ next action. DECISIONS แยก OWNER_DECISION, PROPOSED และ OBSERVED; ไม่ลบประวัติ ให้ระบุสิ่งที่ถูกแทนที่
+4. ถ้าแผน/กติกาเปลี่ยน อัปเดต PLAN/PREPROJECT/AGENTS/WORKFLOW ที่เกี่ยวข้องใน commit เดียวกัน. PR comment เป็นหลักฐานเสริม ไม่ใช่ที่เดียวที่เก็บสถานะล่าสุด
+5. push เฉพาะ branch review ที่ตรวจแล้ว และอ่านกลับจาก GitHub ที่ commit ใหม่พร้อมตรวจ PR head ก่อนรายงานว่า SYNCED; อัปเดต PR summary ถ้าข้อมูลเก่า. ไม่ merge/main push/ปิด Issue เพื่อให้การ sync ผ่าน
+6. หากแก้/push/read-back ไม่สำเร็จ ให้แจ้ง SYNC_PENDING พร้อมสิ่งที่ค้างจริง; ไม่อ้างว่า Claude มีข้อมูลล่าสุด. ก่อนลองใหม่ต้องตรวจสถานะ remote ไม่ทับงานใหม่
+7. ทุกครั้งที่ส่งงาน Claude ระบุ Issue/PR/branch/commit ให้ชัด และให้อ่าน PROJECT_CONTROL, AGENTS, PLAN, STATUS, DECISIONS และ PREPROJECT/WORKFLOW ส่วนที่เกี่ยวข้อง. ก่อนเริ่มต้องยืนยัน baseline/phase/blockers/next action; เมื่อจบรายงาน changed files/tests/evidence/blockers/next step
+8. Claude ไม่มี network/Bash ใน D0: PO อ่าน GitHub และเตรียม checkout ที่ตรง commit ให้ ไม่สั่งให้ Claude ใช้เครื่องมือที่ไม่มีสิทธิ์. การมีไฟล์ใน GitHubไม่ใช่หลักฐานว่า session เดิมของ Claude โหลดข้อมูลใหม่แล้ว ต้องอ่านใหม่เมื่อมอบหมายงาน
+9. ไม่คัดลอก full transcript, รูปลูกค้า/อุปกรณ์, raw video, password, token, OTP, IP จริง, SSID, serial, MAC address หรือพาธข้อมูลลับ. เก็บเฉพาะข้อสรุปและ readiness ที่จำเป็น
+10. Standing permission นี้คือการบันทึกเอกสารระหว่างที่ทำงานในบทสนทนา ไม่ต้องขออนุมัติ docs-only sync ซ้ำ. ไม่เปิด scheduler/worker ไม่ปลุก Claude เอง และไม่ขยายสิทธิ์อุปกรณ์/production/merge/deploy
+
+### สรุปส่งต่อที่ Claude ต้องรายงานก่อนลงมือ
+
+```text
+BASELINE: repo / branch / commit ที่ได้รับและอ่านจริง
+PHASE: เฟสและ action ที่อนุญาตในงานนี้
+CONFIRMED: ข้อมูลที่ยืนยันแล้ว ไม่ถาม Owner ซ้ำ
+BLOCKERS: สิ่งที่ติด พร้อม evidence และผู้รับผิดชอบ
+NEXT_ACTION: งานเล็กที่สุดที่ทำได้ภายใน scope
+NOT_AUTHORIZED: สิ่งที่จะไม่ทำในงานนี้
+```
+
+หาก baseline หรือสิทธิ์ขัดกันให้หยุดเฉพาะจุดและแจ้ง PO ไม่ขยาย scope เอง. คำสั่ง sync เอกสารไม่ใช่คำสั่งให้ทดลองกล้องรอบใหม่

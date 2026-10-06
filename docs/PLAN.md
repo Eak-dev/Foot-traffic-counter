@@ -58,6 +58,10 @@
 
 รายละเอียด: [Owner Execution Roadmap](PREPROJECT_PLAN.md#12-owner-execution-roadmap) และ [Owner Checklist](PREPROJECT_PLAN.md#13-owner-checklist).
 ลำดับ: D0 เตรียม/Owner review → D1 วิธีรับข้อมูลและสิทธิ์ → D2 หนึ่งคลิป → D3 คลิปรายวัน → D4 นับ/กรอง → D5 งานตามเวลาและ pilot.
-ส่งตอนนี้: รุ่นเราเตอร์และผู้ดูแลเน็ต รุ่น/firmware กล้อง สถานะ SD/การบันทึก; ไม่ต้องให้ Owner วิเคราะห์ VPN หรือ CGNAT เอง.
+อุปกรณ์ยืนยันแล้ว: Tapo C545D; ZTE F6107A HW V9.0.09/FW F6107A_PON_4.1; AIS Fibre 1000/200. รอเฉพาะ camera Hardware/Firmware, readiness ของ endpoint/บัญชี, สถานะเมนูที่เกี่ยวข้อง และเวลาหนึ่งคลิป. ไม่ขอรูปเราเตอร์หรือทดลอง 4G/5G เพิ่มเป็นเงื่อนไขแรก; ทีมรับผิดชอบทางเชื่อม/private input/downloader.
 ยังไม่ต้องซื้อซอฟต์แวร์หรือติดตั้งระบบทีม AI เพิ่ม. ตัว downloader ที่วางไว้เป็นสเปกอนาคต; CLI ที่มีอยู่จริงยังมีเฉพาะ doctor/inventory.
 การเขียน Roadmap นี้ไม่เปิดสิทธิ์ D1–D5 และไม่อนุมัติ merge/deploy โดยอัตโนมัติ.
+
+## การตัดสินใจและสถานะต่อเนื่อง
+
+Owner ให้ sync GitHub ระหว่างสนทนา: [DECISIONS](DECISIONS.md) เก็บข้อสรุป/ข้อเสนอแยกกัน; [STATUS](STATUS.md) เก็บเฟส/ผลจริง/blockers/next action. PO ปรับเอกสารและ PR ที่เกี่ยวข้องพร้อม read-back ตาม WORKFLOW. คำสั่งให้ทดลองหนึ่งคลิปได้รับแล้ว แต่ไม่มี implementation/endpoint/auth/route ที่พร้อม ไม่ใช่ขาดคำสั่งทั่วไปซ้ำ; ก่อนใช้สิทธิ์นั้น PO ต้องระบุ target/ขอบเขต/rollback ใน control. รอบ sync นี้ไม่เปลี่ยนสิทธิ์หรือเปิดงานจริง
