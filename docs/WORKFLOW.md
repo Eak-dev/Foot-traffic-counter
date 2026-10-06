@@ -1,69 +1,57 @@
-# วิธีทำงานร่วมกัน: ChatGPT วางแผน · Claude เขียนโค้ด
+# วิธีทำงาน: ChatGPT เป็น PO/PM · Claude เป็น Developer
 
-คุณ Eak คุยกับ ChatGPT เพียงที่เดียว ChatGPT เป็นผู้วางแผนและผู้ประสานงาน แล้วสั่ง Claude ให้เขียนโค้ด
-ข้อมูลทั้งหมดอยู่ใน repo นี้ จึงไม่ต้องคัดลอกข้อความระหว่างแชต
+คุณเอกคุยกับ ChatGPT จุดเดียว งานปัจจุบันคือ Issue #1, branch `claude/ft-d0-preflight`.
+อ่าน `PROJECT_CONTROL.md`, `AGENTS.md`, `docs/PLAN.md`, `docs/PREPROJECT_PLAN.md` และ `docs/STATUS.md` ก่อนทำงานทุกครั้ง.
+Owner Decision มีอำนาจสูงสุด; ผู้พัฒนาห้ามเปลี่ยน control หรือขยาย scope เอง.
 
-```mermaid
-flowchart LR
-    eak["คุณ Eak"] <--> gpt["ChatGPT<br/>วางแผน · ประสานงาน · สรุปผล"]
-    gpt -- "ทาง A: รัน claude -p<br/>บน MacBook" --> cc["Claude CLI<br/>เขียนโค้ด · ทดสอบ · เปิด PR"]
-    gpt -. "ทาง B: เปิด Issue [claude]" .-> issue["GitHub Issue"]
-    issue -. "Claude ตรวจตามรอบ" .-> cc
-    cc --> repo["GitHub repo<br/>PLAN · STATUS · โค้ด · PR"]
-    repo --> gpt
-```
+## ทางที่พิสูจน์แล้วใน FT-D0
 
-## หน้าที่
+ChatGPT → Remote Desktop Commander → MacBook ที่บ้าน → Claude Code → ไฟล์บน branch → PO ทดสอบและตรวจ diff → PR ให้ Owner ตรวจ.
+การเรียก Claude Sonnet 5 ผ่าน CLI สำเร็จจริง; ไม่ใช่เพียงตรวจว่าติดตั้งอยู่.
+การเข้าถึง Mac ไม่ได้แปลว่าเข้าถึงกล้องร้านได้. ไม่มี worker ของ GitHub Actions หรือ scheduler เปิดใช้งาน.
 
-| ใคร | ทำอะไร | ไม่ทำอะไร |
+| ผู้รับผิดชอบ | ทำอะไร | ขอบเขต |
 | --- | --- | --- |
-| ChatGPT | แตกงานจาก `docs/PLAN.md`, สั่ง Claude, อ่านผลแล้วสรุปให้คุณ Eak, อัปเดตเรื่องที่รอตัดสินใจใน `docs/STATUS.md` | ไม่ merge PR เอง, ไม่ใส่รหัสผ่านในคำสั่งหรือ Issue |
-| Claude | เขียนโค้ดตามสเปก, รันทดสอบ, เปิด Pull Request, อัปเดต `docs/STATUS.md`, ทักท้วงถ้าแผนทำไม่ได้จริง | ไม่ push เข้า `main` ตรง ๆ, ไม่ merge PR |
-| คุณ Eak | ตัดสินใจ, กด merge PR, งานหน้าร้าน (Pi, กล้อง, บัญชี Google) | |
+| ChatGPT / PO | วางแผน, ส่งงาน, ตรวจผลแยก, รันทดสอบ, commit/push เฉพาะ branch งาน, เปิด PR | ไม่ merge, ไม่เปลี่ยนกล้องหรือเครือข่ายโดยไม่มีเกตที่อนุมัติ |
+| Claude / Dev | เขียนและแก้เอกสาร/โค้ด/ทดสอบภายในรายการไฟล์ที่อนุญาต | ใน D0 มีเครื่องมือไฟล์เท่านั้น ไม่มี Bash/MCP/เครือข่าย/ไฟล์ลับ; ถ้าไม่ได้รันทดสอบให้รายงาน NOT_RUN_BY_DEVELOPER |
+| Owner | ตัดสินใจธุรกิจ, อนุมัติสิทธิ์เฉพาะงานและรายจ่ายซอฟต์แวร์, merge และ deploy | โครงการนี้ไม่ซื้อฮาร์ดแวร์เพิ่ม |
 
-ถ้า Claude เห็นว่าแผนส่วนไหนทำไม่ได้หรือมีทางที่ง่ายกว่า ให้เขียนเหตุผลในคำอธิบาย PR หรือใน Issue แล้วให้ ChatGPT นำไปถามคุณ Eak
+## คำสั่งแบบจำกัดขอบเขตที่ใช้จริง
 
-## ทาง A (แนะนำ): ChatGPT สั่ง Claude CLI บน MacBook
-
-ใช้ได้เมื่อ ChatGPT ที่ใช้อยู่รันคำสั่งในเทอร์มินัลบน MacBook ได้ (เช่น Codex ในแอป ChatGPT บน Mac) ได้ผลทันที ไม่ต้องรอรอบ
-
-**ติดตั้งครั้งเดียวบน MacBook**
-1. ติดตั้ง Claude Code แล้วพิมพ์ `claude` หนึ่งครั้งเพื่อล็อกอินด้วยบัญชี Claude
-2. ติดตั้ง GitHub CLI แล้ว `gh auth login` เพื่อให้ Claude เปิด Pull Request ได้
-3. `git clone https://github.com/Eak-dev/Foot-traffic-counter.git ~/Foot-traffic-counter`
-
-**คำสั่งที่ ChatGPT ใช้สั่งงาน** (รันในโฟลเดอร์ repo)
+PO ตรวจ repository, branch, commit และสถานะไฟล์ก่อนสั่งงาน. ห้าม checkout/pull/reset โดยอัตโนมัติทับงานที่ยังไม่ commit; ไม่ต้องสลับไป main เพื่อเริ่มงาน.
+ตัวอย่างนี้ใช้บน branch ที่ PO เตรียมและตรวจแล้วเท่านั้น; ไฟล์คำสั่งต้องไม่มีข้อมูลลับหรือวิดีโอ.
 
 ```bash
 cd ~/Foot-traffic-counter
-git switch main && git pull
+git branch --show-current
+git rev-parse HEAD
+git status --short
 
-claude -p "งาน: <อธิบายงาน> อ่าน AGENTS.md และ docs/PLAN.md ก่อน ทำใน branch ใหม่ รันทดสอบ แล้วเปิด Pull Request สรุปสิ่งที่ทำเป็นภาษาไทย" \
-  --permission-mode acceptEdits \
-  --allowedTools "Bash(git *),Bash(gh pr *),Bash(gh issue *),Bash(python *),Bash(python3 *),Bash(pip *),Bash(pytest *)" \
-  --output-format json
+# หลังตรวจว่าตรง PROJECT_CONTROL และไม่มีงานอื่นถูกทับแล้ว
+claude -p --model claude-sonnet-5 --effort high   --restricted --permission-mode dontAsk --permission-prompts none   --tools 'Read,Glob,Grep,Write,Edit'   --allowedTools 'Read,Glob,Grep,Write,Edit'   --strict-mcp-config --mcp-config '{"mcpServers":{}}'   --disable-slash-commands --no-chrome --no-session-persistence   --max-budget-usd 6 --output-format json   < "$TASK_FILE" > "$RESULT_FILE"
 ```
 
-- ผลลัพธ์เป็น JSON: ข้อความสรุปอยู่ในช่อง `result` และรหัสบทสนทนาอยู่ในช่อง `session_id`
-- ถามต่อในบทสนทนาเดิม: `claude -p "<คำถามต่อ>" --resume <session_id> --output-format json`
-- `--permission-mode acceptEdits` ให้ Claude แก้ไฟล์ได้เอง ส่วนคำสั่งเทอร์มินัลอนุญาตเฉพาะที่ระบุใน `--allowedTools`
-- ไม่ใช้ `--bare` เพราะโหมดนั้นข้าม CLAUDE.md และต้องใช้ API key แยก
-- อ้างอิง: [Run Claude Code programmatically](https://code.claude.com/docs/en/headless)
+`TASK_FILE` และ `RESULT_FILE` เป็นพาธไฟล์งานที่ PO กำหนดไว้นอก repo ก่อนรัน ไม่ใช่คำสั่งพร้อมรันโดยไม่ตั้งค่า. เพดาน 6 USD เป็นตัวอย่างจำกัดการรันครั้งเดียว ไม่ใช่งบรายเดือนหรือการยืนยันยอดเรียกเก็บ; ตรวจบัญชีจริงแยกต่างหาก.
 
-**งานที่ต้องเข้า Raspberry Pi ที่ร้าน** ให้เพิ่ม `Bash(ssh *),Bash(scp *)` ใน `--allowedTools` และระบุชื่อเครื่อง Tailscale ในคำสั่ง
+- ตรวจ exit code, `is_error`, `result`, `modelUsage` และ permission denials. ข้อความว่าสำเร็จจากผู้พัฒนาไม่แทนผลทดสอบ.
+- `--allowedTools` อนุมัติการเรียกเครื่องมือล่วงหน้า ไม่ใช่ sandbox ด้วยตัวเอง. ในคำสั่งนี้ตัด Bash และ MCP ออก และใช้ restricted mode กับรายการไฟล์ในงาน.
+- ไม่ใช้ bypass permissions, ไม่เปิด Bash(git *), Bash(gh pr *) หรือ shell ทั่วไปให้ Claude ใน D0.
+- คำสั่งนี้ใช้ `--no-session-persistence` จึงไม่เสนอ `--resume`; งานแก้ตาม review เป็นคำสั่งใหม่พร้อมหลักฐานและขอบเขตเดิม.
+- ไม่ใช้ `--bare`: โหมดนั้นเปลี่ยนการโหลดกติกาและวิธียืนยันตัวตน; ไม่ต้องเปลี่ยนการล็อกอินที่ทำงานอยู่.
+- PO รันทดสอบด้วย stdlib: `python3 -m unittest discover -s tests -t . -v` และตรวจ `git diff --check` ก่อน publish.
+- หยุดเมื่อพบงานนอกขอบเขต; ไม่มีการยกระดับสิทธิ์ ติดตั้ง dependencies เปลี่ยนรุ่นโมเดล หรือเริ่มกล้องจริงอัตโนมัติ.
 
-## ทาง B (สำรอง): สั่งงานผ่าน GitHub Issue
+## GitHub คือหลักฐานและคิวงาน ไม่ใช่ตัวรันโดยตัวเอง
 
-ใช้เมื่อ MacBook ปิดอยู่ หรือ ChatGPT รันคำสั่งบนเครื่องไม่ได้ ช้ากว่าทาง A เพราะ Claude ตรวจตามรอบเวลา
+Issue ใช้เก็บ scope/เกณฑ์รับงาน; PR ใช้เก็บ diff และหลักฐาน. การเปิด Issue ไม่ได้ทำให้ Claude ทำงานเมื่อ Mac ปิด.
+ยังไม่ต้องเพิ่ม Actions หรือ agent platform เพราะช่องทางรีโมตปัจจุบันใช้สั่งงานได้แล้ว.
+การรันรายคืนเป็นเฟส D5 ต้องตรวจไฟเลี้ยง การพักเครื่อง งานค้าง การรันซ้ำ และนโยบายพื้นที่ ก่อน Owner อนุมัติ scheduler.
+ไม่มีการรับรองว่าแชตหรือ Claude จะทำงานต่อเองหลังจบการสั่งงานครั้งนี้.
 
-1. ChatGPT เปิด Issue ด้วยแม่แบบ "งานสำหรับ Claude" หัวข้อขึ้นต้นด้วย `[claude]`
-2. Claude ตรวจ Issue ที่เปิดอยู่ตามรอบ ทำงานแล้วเปิด Pull Request และตอบกลับใน Issue
-3. ChatGPT อ่านคำตอบและ PR ผ่านปลั๊กอิน GitHub แล้วสรุปให้คุณ Eak
+## งานที่ส่งให้ Claude ต้องมี
 
-> สถานะ: ยังไม่ได้ตั้งรอบตรวจอัตโนมัติ ต้องการใช้เมื่อไรให้บอก Claude ใน claude.ai
+Model/Effort, baseline/branch, Issue/phase, allowed/forbidden paths, Definition of Done, validation, deployment permission และเงื่อนไขหยุด.
+ไม่ใส่รหัสผ่าน token IP ส่วนตัว serial รูปหรือวิดีโอลูกค้าใน prompt/Issue/log ที่แชร์ได้.
+รายละเอียดที่ลงเครื่องจริงต้องให้ Owner กรอกในช่องทางเฉพาะเมื่อมีการอนุมัติขั้นเชื่อมต่อแล้ว.
 
-## กติกาเขียนคำสั่งงาน (ใช้ทั้งทาง A และ B)
-
-- งานละ 1 เรื่อง ระบุไฟล์ที่เกี่ยวข้องและ "เสร็จเมื่อ" ให้ชัด
-- อ้างหัวข้อใน `docs/PLAN.md` แทนการเขียนสเปกซ้ำ
-- ห้ามใส่รหัสกล้อง, `.env` หรือไฟล์ key ในคำสั่งหรือ Issue
+อ้างอิงการใช้ CLI: https://code.claude.com/docs/en/headless และ https://code.claude.com/docs/en/model-config.

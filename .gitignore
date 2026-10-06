@@ -32,5 +32,22 @@ buffer.csv
 *.log
 *.log.*
 
+# ข้อมูลที่ดึงหรือรายงานตอนรัน (ห้ามขึ้น git)
+data/
+reports/
+artifacts/
+*.jsonl
+*.local.yaml
+*.local.yml
+*.local.json
+config.local.*
+
+# วิดีโอดิบเพิ่มเติม (ไฟล์ .json ตัวอย่างยังเก็บได้)
+*.ts
+*.m4v
+*.mkv
+*.h264
+*.hevc
+
 # macOS
 .DS_Store
