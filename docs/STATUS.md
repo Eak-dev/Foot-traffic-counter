@@ -47,6 +47,8 @@
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
 
+- 2026-10-06 · PO · ตามคำขอ Owner เพิ่ม Execution Roadmap และ Checklist O1–O10 ใน PREPROJECT_PLAN §12–13: งานที่ส่งตอนนี้/ก่อนทดลอง/ภายหลัง เจ้าของงาน blockers และเกณฑ์รับงาน. แก้เฉพาะ docs/PLAN.md, docs/PREPROJECT_PLAN.md และ docs/STATUS.md ใน PR #2; ไม่เปลี่ยน code/control ไม่เรียก Claude ใหม่. รันชุดทดสอบเดิมซ้ำ 52/52 ผ่าน; regression 7/7 เป็นหลักฐานเดิมไม่ได้รันใหม่รอบเอกสารนี้. ยังอยู่ D0 review; ไม่มีสิทธิ์ใหม่สำหรับกล้อง เครือข่าย การติดตั้ง scheduler หรือ merge. เป้าหมายถัดไปคือเลือกช่องทางรับข้อมูลแล้วทดลองดึงหนึ่งคลิปจริงตามเกต.
+
 - 2026-10-06 · PO · ตรวจ source ที่ Claude แก้รอบ 2 และรันบน Mac จริง: compile PASS, unittest **52/52 PASS**, independent regression **7/7 PASS**. doctor: preparation PASS แต่ **live_ready=false**. หลักฐาน [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md). แก้ WORKFLOW ให้ใช้คำสั่ง restricted file tools ที่ทดสอบจริง ไม่มี Bash/auto-checkout/resume ที่ขัดกับ control. งานพร้อม PR review; main และ Production ไม่ได้เปลี่ยน; Issue ยังเปิด.
 
 - 2026-10-06 · Claude (dev) · FT-D0 รอบ 2 (ตามผล PO อิสระ): แก้ `tools/ft_data.py` ให้ปฏิเสธ root ที่เป็นลิงก์แม้เขียนแบบ `/.` หรือ `/`, ปฏิเสธ `..` ในเส้นทาง root, เปิดรายการย่อยแบบ anchored (`O_NOFOLLOW` จาก fd ของโฟลเดอร์แม่) และนับการสลับเป็นลิงก์เป็น `changed`; อ่านไฟล์แบบจำกัดไม่เกินขนาดตอนเปิด และตรวจ fstat/inode/ขนาด/mtime/ctime กับชื่อไฟล์ก่อนและหลังอ่าน; ทำให้ข้อความ argparse ไม่สะท้อนค่าที่ผู้ใช้พิมพ์ (รหัสคงที่ + `--json`); ปฏิเสธ NUL และอาร์กิวเมนต์ที่ไม่ใช่ข้อความ

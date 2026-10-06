@@ -53,3 +53,11 @@
 - เอกสารทั้งหมดตรงกับ PROJECT_CONTROL และไม่มีคำแนะนำ Pi/systemd/real-time เป็นข้อกำหนดปัจจุบัน
 - `tools/ft_data.py` ผ่านการทดสอบ unittest ที่ PO รัน (ผู้พัฒนาไม่ได้รันเอง)
 - PO ตรวจ PR และ Owner merge — Issue #1 ไม่ถูกปิดอัตโนมัติ
+
+## Execution Roadmap และงานของ Owner
+
+รายละเอียด: [Owner Execution Roadmap](PREPROJECT_PLAN.md#12-owner-execution-roadmap) และ [Owner Checklist](PREPROJECT_PLAN.md#13-owner-checklist).
+ลำดับ: D0 เตรียม/Owner review → D1 วิธีรับข้อมูลและสิทธิ์ → D2 หนึ่งคลิป → D3 คลิปรายวัน → D4 นับ/กรอง → D5 งานตามเวลาและ pilot.
+ส่งตอนนี้: รุ่นเราเตอร์และผู้ดูแลเน็ต รุ่น/firmware กล้อง สถานะ SD/การบันทึก; ไม่ต้องให้ Owner วิเคราะห์ VPN หรือ CGNAT เอง.
+ยังไม่ต้องซื้อซอฟต์แวร์หรือติดตั้งระบบทีม AI เพิ่ม. ตัว downloader ที่วางไว้เป็นสเปกอนาคต; CLI ที่มีอยู่จริงยังมีเฉพาะ doctor/inventory.
+การเขียน Roadmap นี้ไม่เปิดสิทธิ์ D1–D5 และไม่อนุมัติ merge/deploy โดยอัตโนมัติ.
