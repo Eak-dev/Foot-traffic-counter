@@ -1,16 +1,16 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-07 · Owner ยืนยันยอดทั้งวันและ camera version; LOCAL_ONLY · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-07 · D1 offline preparation พร้อม review; live ยังไม่เริ่ม · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
 
-- **เฟส:** D0 ผ่าน review และ merge ตามคำสั่ง Owner แล้ว; PR #2 MERGED, เวอร์ชันแรก `v0.1.0` ที่ `b05b8fb6821fdaf645db2217ed9ea8c45ba21363`. ยังไม่ผ่านเกตอุปกรณ์ D1–D5. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
+- **เฟส:** เตรียม D1 แบบ offline แล้วใน [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md); D0 ผ่าน review และ merge ตามคำสั่ง Owner แล้ว; PR #2 MERGED, เวอร์ชันแรก `v0.1.0` ที่ `b05b8fb6821fdaf645db2217ed9ea8c45ba21363`. ยังไม่ผ่านเกตอุปกรณ์ D1–D5. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
 - **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
 - **โค้ดที่มีจริง:** `doctor`, local `inventory` และตัวเรียก local Claude `tools/claude_dev.py` ที่ตรวจรับแล้ว; **ยังไม่มี downloader**
 - **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
-- **Claude ล่าสุด:** สร้าง launcher/synthetic tests, PO ตรวจแก้และเพิ่ม tripwire กัน unit tests เรียก Claude จริง. ทดสอบ handoff ผ่าน launcher จริงแบบ read/test-only สำเร็จ: COMPLETED_LOCAL, child exit 0, ไม่มี permission denial, ไม่แก้ไฟล์/HEAD/branch และ Claude รายงาน unittest 113/113 PASS. PO รันอิสระ 113/113 PASS. คำแนะนำ Tapo ก่อนหน้ายังเป็น advisory ไม่ใช่ผลกล้อง
+- **Claude ล่าสุด:** เขียน ONE_CLIP_PLAN จากหลักฐาน PO ผ่าน launcher, COMPLETED_LOCAL/exit 0/no permission denial; ทดสอบ baseline 113/113 PASS. ยังไม่มี downloader/secure-input tool. ประวัติ workflow: สร้าง launcher/synthetic tests, PO ตรวจแก้และเพิ่ม tripwire กัน unit tests เรียก Claude จริง. ทดสอบ handoff ผ่าน launcher จริงแบบ read/test-only สำเร็จ: COMPLETED_LOCAL, child exit 0, ไม่มี permission denial, ไม่แก้ไฟล์/HEAD/branch และ Claude รายงาน unittest 113/113 PASS. PO รันอิสระ 113/113 PASS. คำแนะนำ Tapo ก่อนหน้ายังเป็น advisory ไม่ใช่ผลกล้อง
 - **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
 - **Owner instruction:** พัฒนาและอัปเดตสถานะใน local เป็นหลัก; push เมื่อ reviewable/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner สั่ง. ไม่ sync ทุกข้อความ (supersedes OD-11 cadence); ไม่เผยแพร่ raw transcripts/ข้อมูลลับ
 
@@ -30,7 +30,7 @@
 
 | ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
 | --- | --- | --- |
-| B1 | Downloader ยังไม่เขียน | PO + Claude เลือก adapter/release และทำคำสั่งดึงหนึ่งคลิปตาม scope ทดลอง |
+| B1 | Downloader ยังไม่เขียน | PO ตรวจ wheel และเลือก pytapo 3.4.26 เป็น candidate; source พบ dependency/มุมภาพ/quota ที่ต้องจัดการ. งานถัดไปทำ adapter แบบ synthetic ก่อน scoped live; ยังไม่ติดตั้ง |
 | B2 | ไม่พบ endpoint/บัญชีในไฟล์โปรเจกต์ที่ตรวจ ไม่ใช่ค้นทั้ง Mac | ทีมจัด private local input; Owner กรอกเฉพาะในเครื่อง ไม่ส่ง secret ในแชต/GitHub |
 | B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED | ทีมตรวจเป้าหมายที่ระบุจริง/ทางเข้าถึง ไม่เดา IP หรือสแกนอุปกรณ์อื่น |
 | B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Owner แจ้งเฉพาะสถานะบัญชี/เมนูที่ยังขาด ไม่ขอเวอร์ชันซ้ำ |
@@ -56,11 +56,13 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 
 - Branch: `claude/ft-d0-preflight` เดิม; baseline เวอร์ชันแรก `b05b8fb6821fdaf645db2217ed9ea8c45ba21363` (`v0.1.0`). PO นำผล merge มาใน local ด้วย fast-forward เท่านั้น; config/root เดิม.
 - Writer: NONE หลังส่งมอบ; Codex เป็นผู้จัด checkpoint และส่งงานถัดไป. ไม่มี delegated process ถือ tree
-- Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว ตรวจ GitHub read-back; บันทึกสถานะหลัง merge รอบนี้เป็น LOCAL_ONLY เพื่อรวมใน checkpoint/PR ถัดไป ไม่แก้ main ตรงและไม่สร้าง PR ซ้ำเพื่อบันทึกอย่างเดียว. ผลอ่านกลับและ local HEAD อยู่ใน ignored `.claude/delivery.local.json`.
+- Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว ตรวจ GitHub read-back; งานหลัง merge และ D1 offline preparation รอบนี้พร้อม checkpoint/PR ใหม่. ก่อน read-back เป็น LOCAL_ONLY; สถานะส่งจริงเก็บใน local delivery record. ไม่แก้ main ตรง. ผลอ่านกลับและ local HEAD อยู่ใน ignored `.claude/delivery.local.json`.
 - Final validation: PO รัน **113/113 unittest PASS**, exit 0 (52 เดิม + 61 launcher/regression); Claude read/test-only ผ่าน launcher รายงาน 113/113 PASS, exit 0. ตรวจ diff/เอกสาร/ขอบเขตก่อน checkpoint; หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้
 - Next action: ใช้ local workflow นี้ส่งงาน Dev ย่อยถัดไปตาม acquisition-first plan. Downloader/route/auth/adapter compatibility/clip target ยังเป็น B1–B5; camera version ยืนยันแล้ว; workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-07 · PO/Claude · Owner ให้เริ่มงานถัดไป: PO ตรวจเอกสารผู้ผลิตและ wheel pytapo 3.4.26 แบบ static ยืนยัน SHA256 (ไม่ install/import/execute). Claude จัด ONE_CLIP_PLAN เฉพาะเอกสารผ่าน scoped launcher; PO ตรวจและแก้ baseline/คำกล่าว dual-lens/route/สถานะความพร้อมให้ตรงหลักฐาน. Claude baseline unittest 113/113 PASS; PO รันอิสระ 113/113 PASS, exit 0 และ diff/doc checks ผ่าน. ยังไม่มี downloader/private-input tool, camera requests/auth/clips 0/0/0; รอ route readiness, app/account/compatibility status และหนึ่งคลิปจาก Owner.
 
 - 2026-10-07 · Owner/PO · OD-15: Owner ยืนยันกล้องบันทึกเฉพาะคนเดินผ่าน จึงรวมคลิปเป็นยอดนับทั้งวันได้; แก้ข้อจำกัดเดิมใน CONTROL/PLAN/PREPROJECT/README. OD-16: อ่านภาพ Device Info ได้ C545D, Hardware 1.0, Firmware 1.1.7; ปิดส่วน version ของ B4 แต่ auth/compatibility ยังไม่ตรวจ. บันทึกเฉพาะข้อความใน local ไม่เก็บภาพ ไม่แตะกล้อง; เกณฑ์ดึงครบ/ความแม่นยำยังอยู่ และไม่อ้าง live PASS. รอบเอกสารนี้ PO รัน unittest 113/113 PASS, exit 0; code/tests ไม่เปลี่ยน, ไม่เรียก Claude รอบใหม่.
 

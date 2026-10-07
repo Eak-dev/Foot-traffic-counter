@@ -69,3 +69,7 @@ Owner ให้ sync GitHub ระหว่างสนทนา: [DECISIONS](DE
 ## การพัฒนา local (Owner decision 2026-10-07)
 
 Codex และ Claude ใช้ checkout/branch งานเดียวกัน มีหนึ่ง writer ต่อครั้ง. ใช้ `tools/claude_dev.py` ตรวจ baseline/งานค้าง/ownership ก่อนมอบหมายงาน; Claude ทดสอบ local/synthetic ได้ตาม policy. อัปเดตสถานะใน local และเผยแพร่ GitHub ตาม checkpoint ใน [WORKFLOW](WORKFLOW.md), [DECISIONS OD-12/13](DECISIONS.md). สิทธิ์ Dev นี้ไม่เปลี่ยนสเปก batch acquisition หรือเปิดเกตอุปกรณ์ D1–D5.
+
+## งานถัดไป: หนึ่งคลิปจาก SD
+
+[ONE_CLIP_PLAN](ONE_CLIP_PLAN.md) เป็นแบบ D1 offline preparation ที่ตรวจจาก candidate release และข้อจำกัดจริง. ทำ dependency audit/แบบ adapter ที่คุมขอบเขตก่อน; รับสถานะ route/app และคลิปเป้าหมายจาก Owner แล้ว PO จัด control เฉพาะการทดลองหนึ่งคลิป. แผนนี้ยังไม่มี downloader, credential input หรือ live PASS และไม่ติดตั้ง/เปลี่ยนเครือข่ายอัตโนมัติ.
