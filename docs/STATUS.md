@@ -1,6 +1,6 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-07 · v0.1.0 merged; local baseline prepared · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-07 · Owner ยืนยันยอดทั้งวันและ camera version; LOCAL_ONLY · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
@@ -18,11 +18,11 @@
 
 | รายการ | ค่า / สถานะ | หลักฐาน |
 | --- | --- | --- |
-| กล้อง | Tapo C545D; camera Hardware/Firmware ยัง UNKNOWN | Owner; comment 6013505806 |
+| กล้อง | Tapo C545D; Hardware 1.0; Firmware 1.1.7 | ภาพ Device Info จาก Owner 2026-10-07; OD-16 |
 | เราเตอร์ | ZTE ZXHN F6107A; HW V9.0.09; FW F6107A_PON_4.1 | ภาพ Owner; comments 6013831335 / 6014086882 |
 | อินเทอร์เน็ต | AIS Fibre 1000/200 Mbps; เป็นแพ็กเกจ Owner แจ้ง ไม่ใช่ speed test | Owner |
 | บ้าน/ร้าน | คนละที่คนละ network แม้ Owner แจ้งอุปกรณ์ยี่ห้อ/แบบเดียวกัน | ไม่พิสูจน์ reachability |
-| ต้นฉบับ | microSD, event clips ความยาวต่างกันและมีช่วงว่าง; มือถือที่ร้านดาวน์โหลดได้ | Owner |
+| ต้นฉบับ | microSD; กล้องบันทึกเฉพาะมีคนเดินผ่าน มีช่วงว่างตามเงื่อนไขนี้; รวมยอดคลิปเป็นยอดทั้งวันได้; มือถือที่ร้านดาวน์โหลดได้ | Owner ยืนยัน 2026-10-07; OD-15 |
 | Mac/Claude | D0 ตรวจ macOS 14.8.9 x86_64 / Python 3.9.6; `claude-sonnet-5` รันจริงได้ | FT_D0_EVIDENCE / comment 6014447731 |
 | พื้นที่/sleep | ผลตรวจเดิมราว 20.8 GiB และ idle sleep=1; ต้องตรวจใหม่ก่อนดึง/รันรายคืน | ไม่ใช่พื้นที่รับรองหรืออนุญาตเปลี่ยนค่า |
 
@@ -33,17 +33,18 @@
 | B1 | Downloader ยังไม่เขียน | PO + Claude เลือก adapter/release และทำคำสั่งดึงหนึ่งคลิปตาม scope ทดลอง |
 | B2 | ไม่พบ endpoint/บัญชีในไฟล์โปรเจกต์ที่ตรวจ ไม่ใช่ค้นทั้ง Mac | ทีมจัด private local input; Owner กรอกเฉพาะในเครื่อง ไม่ส่ง secret ในแชต/GitHub |
 | B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED | ทีมตรวจเป้าหมายที่ระบุจริง/ทางเข้าถึง ไม่เดา IP หรือสแกนอุปกรณ์อื่น |
-| B4 | Camera firmware/auth/compatibility ยัง UNKNOWN | Owner ส่ง camera version และสถานะบัญชี; ทีมตรวจวิธีที่เลือก ไม่ถือ RTSP ผ่านว่า SD ผ่าน |
+| B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Owner แจ้งเฉพาะสถานะบัญชี/เมนูที่ยังขาด ไม่ขอเวอร์ชันซ้ำ |
 | B5 | ยังไม่มีคลิปเป้าหมายและเพดานทดลอง | Owner แจ้งวัน/เวลา/มุมหนึ่งคลิป; ทีมเสนอพื้นที่/bytes และตรวจไฟล์หลังดึง |
 
 ## รอจาก Owner และงานถัดไป
 
-1. Hardware/Firmware **ของกล้อง**; ไม่ขอชื่อ C545D หรือ router version ซ้ำ
-2. พบ IP กล้องแล้วหรือยัง; บัญชีเจ้าของ Tapo พร้อมหรือไม่; Camera Account และ Third-Party Compatibility อยู่สถานะใด — ขอเฉพาะสถานะ ไม่ขอค่าลับ/ไม่สั่งให้เปิดเอง
-3. วัน/เวลาของหนึ่งคลิปที่ยังเปิดย้อนหลังได้ และมุม/เลนส์ถ้ามีหลายภาพ; ไม่ต้องส่งคลิปเดิมใหม่
-4. **ทีมรับผิดชอบ:** private input, adapter, runtime, เส้นทาง, ตัวดาวน์โหลด, ขอบเขต/rollback และผลตรวจ. Owner สั่งให้ทดลองแล้ว ไม่วนขออนุมัติทั่วไปซ้ำหรือบังคับทดลอง 4G/5G/รูปเราเตอร์เพิ่ม
-5. ก่อนแตะกล้อง PO บันทึก control ที่ระบุ target/สิทธิ์/bytes/rollback ตามคำสั่งทดลอง; ไม่ตีความรวมสิทธิ์ reset/เปิดพอร์ต/ติดตั้งทั่วเครื่อง/ซื้อ/merge/deploy/schedule. คำสั่ง sync รอบนี้เป็นเอกสารเท่านั้น
-6. D3 ดึงรายวัน → D4 นับ/filters → D5 งานประจำ ยังไม่เริ่ม; แต่ละขั้นใช้เกณฑ์ใน PLAN/PREPROJECT ไม่ลดเกณฑ์เพื่อให้ผ่าน
+ยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7; ไม่ขอข้อมูลนี้หรือ router version ซ้ำ
+
+1. พบ IP กล้องแล้วหรือยัง; บัญชีเจ้าของ Tapo พร้อมหรือไม่; Camera Account และ Third-Party Compatibility อยู่สถานะใด — ขอเฉพาะสถานะ ไม่ขอค่าลับ/ไม่สั่งให้เปิดเอง
+2. วัน/เวลาของหนึ่งคลิปที่ยังเปิดย้อนหลังได้ และมุม/เลนส์ถ้ามีหลายภาพ; ไม่ต้องส่งคลิปเดิมใหม่
+3. **ทีมรับผิดชอบ:** private input, adapter, runtime, เส้นทาง, ตัวดาวน์โหลด, ขอบเขต/rollback และผลตรวจ. Owner สั่งให้ทดลองแล้ว ไม่วนขออนุมัติทั่วไปซ้ำหรือบังคับทดลอง 4G/5G/รูปเราเตอร์เพิ่ม
+4. ก่อนแตะกล้อง PO บันทึก control ที่ระบุ target/สิทธิ์/bytes/rollback ตามคำสั่งทดลอง; ไม่ตีความรวมสิทธิ์ reset/เปิดพอร์ต/ติดตั้งทั่วเครื่อง/ซื้อ/merge/deploy/schedule. คำสั่ง sync รอบนี้เป็นเอกสารเท่านั้น
+5. D3 ดึงรายวัน → D4 นับ/filters → D5 งานประจำ ยังไม่เริ่ม; แต่ละขั้นใช้เกณฑ์ใน PLAN/PREPROJECT ไม่ลดเกณฑ์เพื่อให้ผ่าน
 
 ## หลักฐานและการส่งต่อ
 
@@ -57,9 +58,11 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Writer: NONE หลังส่งมอบ; Codex เป็นผู้จัด checkpoint และส่งงานถัดไป. ไม่มี delegated process ถือ tree
 - Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว ตรวจ GitHub read-back; บันทึกสถานะหลัง merge รอบนี้เป็น LOCAL_ONLY เพื่อรวมใน checkpoint/PR ถัดไป ไม่แก้ main ตรงและไม่สร้าง PR ซ้ำเพื่อบันทึกอย่างเดียว. ผลอ่านกลับและ local HEAD อยู่ใน ignored `.claude/delivery.local.json`.
 - Final validation: PO รัน **113/113 unittest PASS**, exit 0 (52 เดิม + 61 launcher/regression); Claude read/test-only ผ่าน launcher รายงาน 113/113 PASS, exit 0. ตรวจ diff/เอกสาร/ขอบเขตก่อน checkpoint; หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้
-- Next action: ใช้ local workflow นี้ส่งงาน Dev ย่อยถัดไปตาม acquisition-first plan. Downloader/route/auth/firmware/clip target ยังเป็น B1–B5; workflow สำเร็จไม่เปิดเกตกล้อง
+- Next action: ใช้ local workflow นี้ส่งงาน Dev ย่อยถัดไปตาม acquisition-first plan. Downloader/route/auth/adapter compatibility/clip target ยังเป็น B1–B5; camera version ยืนยันแล้ว; workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-07 · Owner/PO · OD-15: Owner ยืนยันกล้องบันทึกเฉพาะคนเดินผ่าน จึงรวมคลิปเป็นยอดนับทั้งวันได้; แก้ข้อจำกัดเดิมใน CONTROL/PLAN/PREPROJECT/README. OD-16: อ่านภาพ Device Info ได้ C545D, Hardware 1.0, Firmware 1.1.7; ปิดส่วน version ของ B4 แต่ auth/compatibility ยังไม่ตรวจ. บันทึกเฉพาะข้อความใน local ไม่เก็บภาพ ไม่แตะกล้อง; เกณฑ์ดึงครบ/ความแม่นยำยังอยู่ และไม่อ้าง live PASS. รอบเอกสารนี้ PO รัน unittest 113/113 PASS, exit 0; code/tests ไม่เปลี่ยน, ไม่เรียก Claude รอบใหม่.
 
 - 2026-10-07 · Owner/PO · Owner สั่ง “Merge ก่อนแล้วค่อยทำต่อ เพื่อเป็น version แรก”: merge PR #2 ที่ reviewed head `dc4cf0f`, อ่านกลับยืนยัน merge commit `b05b8fb` และ tag `v0.1.0`. Local branch เดิม fast-forward มาที่ baseline; ตรวจ file tree ตรงกับชุดที่ผ่าน 113 tests จึงไม่ได้รันชุดเดิมซ้ำ. บันทึกหลัง merge เป็น local-only; ไม่ปิด Issue ไม่ deploy ไม่แตะกล้อง และไม่เปิดเกต D1–D5.
 
