@@ -1,6 +1,6 @@
 # Owner Decisions — Foot-traffic-counter
 
-อัปเดต 2026-10-07 · บันทึกข้อสรุปที่มีผลต่องาน ไม่ใช่สำเนาแชตหรือข้อมูลลับ
+อัปเดต 2026-10-08 · บันทึกข้อสรุปที่มีผลต่องาน ไม่ใช่สำเนาแชตหรือข้อมูลลับ
 อ่านร่วมกับ PROJECT_CONTROL, PLAN และ STATUS; หากเปลี่ยนข้อสรุปให้เพิ่มรายการ supersedes ไม่ลบประวัติ
 
 | ID | ข้อสรุป | แหล่ง / สถานะ | ผลต่อทีม |
@@ -27,6 +27,8 @@
 | OD-15 | กล้องบันทึกเฉพาะเมื่อมีคนเดินผ่าน; รวมยอดจากคลิปเหตุการณ์เป็นยอดนับทั้งวันได้ | OWNER_CONFIRMED / OWNER_DECISION 2026-10-07: Owner แก้ความเข้าใจข้อ 4 โดยตรง | Supersedes ข้อห้ามรายงานยอดทั้งวันและการตีความช่องว่างเดิมใน PLAN/CONTROL รวมถึง OD-05; คงเกณฑ์ดึงคลิปครบตามต้นทางและทดสอบความแม่นยำ ไม่ใช่ผลทดสอบกล้องหรือระบบนับที่สำเร็จแล้ว |
 | OD-16 | Tapo C545D, Hardware Version 1.0, Firmware Version 1.1.7 | OWNER_IMAGE 2026-10-07: หน้า Device Info ในภาพแนบ | Supersedes camera Hardware/Firmware UNKNOWN ใน OD-08 และสถานะปัจจุบัน; ไม่ขอซ้ำ. Adapter/auth/route ยังต้องตรวจ. บันทึกเฉพาะค่าที่อ่านได้ ไม่เก็บภาพหรือพาธไฟล์แนบใน git |
 | OD-17 | ให้เริ่มงานถัดไปและแจ้งส่วนที่ต้องให้ Owner ช่วย | OWNER_INSTRUCTION 2026-10-07 | ทีมเริ่ม research/source review และส่ง Claude ทำแผนทดลองหนึ่งคลิปแบบ offline; ใช้ spec OD-15/16. ยังไม่มีข้อมูล target/route/คลิป/เพดาน live ครบ ไม่ตีความเป็นสิทธิ์เปลี่ยนกล้อง/เครือข่าย/ติดตั้งทั่วเครื่อง |
+| OD-18 | Advanced Settings: Camera Account On; Network Settings Off; Powerline Frequency Auto; UPnP Off; Diagnostics Off | OWNER_IMAGE 2026-10-08 | ยืนยันเฉพาะค่าหน้าจอ; ไม่ขอ Camera Account ซ้ำ. Third-Party Compatibility ไม่ปรากฏในภาพจึงยัง UNKNOWN; ไม่อนุมาน internet/route จาก Network Settings Off และไม่อ้าง SD auth PASS. ไม่เปลี่ยนการตั้งค่า ไม่รับรหัสผ่าน และไม่เก็บภาพใน git |
+| OD-19 | ให้ PO ตรวจคอมพิวเตอร์โดยตรงว่าต้องเตรียมอะไร; Owner ยืนยันใช้แอป Tapo ได้แล้ว | OWNER_INSTRUCTION / OWNER_CONFIRMED 2026-10-08 | อนุญาต local read-only runtime/พื้นที่/power/VPN presence/status inspection; ไม่อ่านความลับหรือเปลี่ยนค่า. ไม่ขอ Owner ตรวจ Mac/ยืนยัน app readiness ซ้ำ; ข้อมูลหน้างานที่ Mac ตรวจไม่ได้ให้แจ้งเฉพาะที่จำเป็น |
 
 OD-05/08 เก็บข้อสรุปเดิมเป็นประวัติ; เรื่องยอดทั้งวันใช้ OD-15 และ camera version ใช้ OD-16 ตั้งแต่รอบนี้. OD-11 เก็บเป็นประวัติการตัดสินใจเดิม; ส่วนจังหวะ GitHub ใช้ OD-12 ตั้งแต่รอบนี้. Model service ของ Claude ใช้รับเฉพาะ context งาน/โค้ดที่ไม่ลับตามคำสั่งมอบหมาย ไม่ส่ง secrets หรือข้อมูลกล้อง. พาธ canonical checkout เก็บเฉพาะ local config ที่ Git ไม่ติดตาม.
 

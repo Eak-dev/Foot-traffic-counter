@@ -3,7 +3,7 @@
 BASELINE: `0eeeb12296551cb6e887245f60a610a83fdb9765` (local, ยังไม่ push)
 PHASE: FT-D0 merged เป็น `v0.1.0`; เอกสารนี้เตรียม D1 เท่านั้น — ยังไม่เปิดเกตกล้อง/เครือข่าย/ติดตั้ง
 BLOCKERS: B1 downloader ยังไม่เขียน · B2 ยังไม่มี private input ใน Mac · B3 เส้นทางบ้าน→ร้าน NOT_TESTED · B4 auth/adapter/dual-lens compatibility UNKNOWN (camera version ยืนยันแล้ว OD-16) · B5 ยังไม่มีคลิปเป้าหมาย/เพดานที่ Owner ยืนยัน
-NEXT_ACTION: Owner ตอบ 3 สถานะสั้นด้านล่าง → ทีมตรวจเส้นทาง/dependency audit → PO ตั้ง scope live ก่อนเริ่ม D2
+NEXT_ACTION: PO ตรวจ Mac แล้ว 2026-10-08 ([MAC_READINESS](MAC_READINESS.md)); ทีมทำ dependency audit/แบบทางเชื่อมต่อโดยใช้ข้อมูลหน้างานด้านล่าง → PO ตั้ง scope live ก่อนเริ่ม D2
 
 ## 1. ข้อค้นพบจากหลักฐาน PO (2026-10-07, ไม่สมมติ live)
 
@@ -43,8 +43,8 @@ NEXT_ACTION: Owner ตอบ 3 สถานะสั้นด้านล่า�
 
 ## 6. ขอ Owner ตอบ 3 ข้อสั้น ๆ
 
-1. Mac บ้านมีทาง private เข้าเครือข่ายร้านอยู่แล้วหรือไม่/ยังไม่ทราบ (เช่น VPN ที่มีอยู่) — แจ้งเฉพาะสถานะ ไม่ส่ง IP หรือรหัส และยังไม่ต้องตั้งค่า ทีมเลือกวิธีจากข้อมูลนี้
-2. สถานะ Tapo app → Camera Account / Third-Party Compatibility (เปิด/ปิด/ไม่พบ) — ไม่ขอรหัสผ่าน
+1. ทีมตรวจ Mac แล้ว ไม่ขอ Owner ตรวจซ้ำ. แจ้งเพียงร้านมีคอมพิวเตอร์หรือ NAS เดิมที่เปิดใช้อยู่หรือไม่ เพื่อเลือกทางเชื่อมโดยไม่ซื้อฮาร์ดแวร์; ไม่ส่ง IP/รหัส ไม่ต้องตั้งค่าเอง
+2. Owner ยืนยันใช้แอป Tapo ได้แล้ว; Camera Account **On ยืนยันแล้วจากภาพ Owner 2026-10-08**; ไม่ขอซ้ำ. Third-Party Compatibility ยังไม่ปรากฏในภาพ — ขอเฉพาะสถานะเมื่อพบเมนู ไม่ขอรหัสผ่าน และยังไม่ต้องเปลี่ยนค่า. UPnP Off; ค่า Network Settings Off ยืนยันเพียงป้ายเมนู ไม่ใช่หลักฐานเส้นทางบ้าน→ร้าน
 3. วัน/เวลา/มุมของหนึ่งคลิปที่เลือกทดลอง (ยังเปิดย้อนหลังได้)
 
 ทีมจะตรวจ quota ที่ใช้จริงอีกครั้งตอนประกอบ live plan; ไม่ขอ Owner ออกแบบ VPN, pin package หรือหารูปเมนูเราเตอร์ซ้ำ
@@ -56,7 +56,7 @@ Source-only review; camera requests = 0, auth attempts = 0, clips ดึง = 0.
 ## READY_FOR_IMPLEMENTATION / PENDING_OWNER_INPUT / NOT_TESTED
 
 - READY_FOR_IMPLEMENTATION: มีแบบและรายการตรวจสำหรับงาน Dev offline รอบถัดไป; ยังไม่มี wrapper/tests ใหม่ และยังต้องกำหนด write paths ใน control ก่อนมอบหมาย
-- PENDING_OWNER_INPUT: §6 ทั้งสามข้อ, เพดาน §5, policy rollback ของเส้นทาง
+- PENDING_OWNER_INPUT: ข้อมูลอุปกรณ์เดิมที่ร้าน/คลิปเป้าหมาย และ Third-Party Compatibility/บัญชีที่ adapter ต้องใช้ใน §6 (Camera Account On ยืนยันแล้ว), เพดาน §5, policy rollback ของเส้นทาง
 - NOT_TESTED: reachability บ้าน→ร้าน, auth กับ C545D จริง, dual-lens mapping, timezone ของ metadata ต้นทาง, quota enforcement จริงกับ upstream library
 
 PO review: แผนนี้ตรวจเทียบ source ของ wheel ที่ยืนยัน SHA256 แล้ว; Claude รัน baseline unittest 113/113 PASS, exit 0. Source code/tests เดิมไม่เปลี่ยน. ผล PO อิสระบันทึกใน STATUS; ไม่ใช่ผลทดสอบ downloader/live.

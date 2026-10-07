@@ -1,6 +1,6 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-07 · D1 offline preparation พร้อม review; live ยังไม่เริ่ม · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · ตรวจ Mac แล้วตาม OD-19; ผล local inspection และ app status LOCAL_ONLY · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
@@ -19,12 +19,13 @@
 | รายการ | ค่า / สถานะ | หลักฐาน |
 | --- | --- | --- |
 | กล้อง | Tapo C545D; Hardware 1.0; Firmware 1.1.7 | ภาพ Device Info จาก Owner 2026-10-07; OD-16 |
+| แอป Tapo / Advanced Settings | Camera Account On; Network Settings Off; Powerline Frequency Auto; UPnP Off; Diagnostics Off. Third-Party Compatibility ไม่ปรากฏในภาพ | ภาพ Owner 2026-10-08; OD-18; ยืนยันค่าหน้าจอ ไม่ใช่ผลทดสอบ auth/SD/route |
 | เราเตอร์ | ZTE ZXHN F6107A; HW V9.0.09; FW F6107A_PON_4.1 | ภาพ Owner; comments 6013831335 / 6014086882 |
 | อินเทอร์เน็ต | AIS Fibre 1000/200 Mbps; เป็นแพ็กเกจ Owner แจ้ง ไม่ใช่ speed test | Owner |
 | บ้าน/ร้าน | คนละที่คนละ network แม้ Owner แจ้งอุปกรณ์ยี่ห้อ/แบบเดียวกัน | ไม่พิสูจน์ reachability |
 | ต้นฉบับ | microSD; กล้องบันทึกเฉพาะมีคนเดินผ่าน มีช่วงว่างตามเงื่อนไขนี้; รวมยอดคลิปเป็นยอดทั้งวันได้; มือถือที่ร้านดาวน์โหลดได้ | Owner ยืนยัน 2026-10-07; OD-15 |
 | Mac/Claude | D0 ตรวจ macOS 14.8.9 x86_64 / Python 3.9.6; `claude-sonnet-5` รันจริงได้ | FT_D0_EVIDENCE / comment 6014447731 |
-| พื้นที่/sleep | ผลตรวจเดิมราว 20.8 GiB และ idle sleep=1; ต้องตรวจใหม่ก่อนดึง/รันรายคืน | ไม่ใช่พื้นที่รับรองหรืออนุญาตเปลี่ยนค่า |
+| Mac runtime / พื้นที่ / power / VPN | ตรวจ 2026-10-08: พื้นที่ 18.46 GiB; Python 3.9.6 และ bundled 3.12.14; ffmpeg/ffprobe/แพ็กเกจ candidate ไม่พบในขอบเขตที่ตรวจ; ไม่พบ native VPN profile. Idle sleep (AC) 1 นาที มี wake assertions ปัจจุบัน | [MAC_READINESS](MAC_READINESS.md); ยังไม่รับรอง route ร้าน/overnight/downloader compatibility |
 
 ## อุปสรรคและผู้รับผิดชอบ
 
@@ -32,15 +33,15 @@
 | --- | --- | --- |
 | B1 | Downloader ยังไม่เขียน | PO ตรวจ wheel และเลือก pytapo 3.4.26 เป็น candidate; source พบ dependency/มุมภาพ/quota ที่ต้องจัดการ. งานถัดไปทำ adapter แบบ synthetic ก่อน scoped live; ยังไม่ติดตั้ง |
 | B2 | ไม่พบ endpoint/บัญชีในไฟล์โปรเจกต์ที่ตรวจ ไม่ใช่ค้นทั้ง Mac | ทีมจัด private local input; Owner กรอกเฉพาะในเครื่อง ไม่ส่ง secret ในแชต/GitHub |
-| B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED | ทีมตรวจเป้าหมายที่ระบุจริง/ทางเข้าถึง ไม่เดา IP หรือสแกนอุปกรณ์อื่น |
-| B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Owner แจ้งเฉพาะสถานะบัญชี/เมนูที่ยังขาด ไม่ขอเวอร์ชันซ้ำ |
+| B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; local Mac inspection ไม่พบ native VPN profile/แอปที่ตรวจ | ทีมเลือกทางจากอุปกรณ์เดิมและเป้าหมายจริง; ไม่ขอ Owner ตรวจ Mac ซ้ำ ไม่ถือ utun เป็น route ร้าน |
+| B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Camera Account On ยืนยันแล้ว; รอเฉพาะ Third-Party Compatibility ที่ยังไม่เห็นในภาพและ readiness ของบัญชีที่ adapter ต้องใช้ ไม่ขอเวอร์ชัน/Camera Account ซ้ำ |
 | B5 | ยังไม่มีคลิปเป้าหมายและเพดานทดลอง | Owner แจ้งวัน/เวลา/มุมหนึ่งคลิป; ทีมเสนอพื้นที่/bytes และตรวจไฟล์หลังดึง |
 
 ## รอจาก Owner และงานถัดไป
 
 ยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7; ไม่ขอข้อมูลนี้หรือ router version ซ้ำ
 
-1. พบ IP กล้องแล้วหรือยัง; บัญชีเจ้าของ Tapo พร้อมหรือไม่; Camera Account และ Third-Party Compatibility อยู่สถานะใด — ขอเฉพาะสถานะ ไม่ขอค่าลับ/ไม่สั่งให้เปิดเอง
+1. Third-Party Compatibility อยู่สถานะใด และร้านมีคอมพิวเตอร์/NAS เดิมที่เปิดอยู่หรือไม่; แอปใช้ได้และ Camera Account On ยืนยันแล้ว ไม่ขอซ้ำ. ทีมตรวจ Mac/ออกแบบทางเชื่อม/private input เอง. ขอเฉพาะสถานะ ไม่ขอค่าลับ/ไม่สั่งให้เปิดเอง
 2. วัน/เวลาของหนึ่งคลิปที่ยังเปิดย้อนหลังได้ และมุม/เลนส์ถ้ามีหลายภาพ; ไม่ต้องส่งคลิปเดิมใหม่
 3. **ทีมรับผิดชอบ:** private input, adapter, runtime, เส้นทาง, ตัวดาวน์โหลด, ขอบเขต/rollback และผลตรวจ. Owner สั่งให้ทดลองแล้ว ไม่วนขออนุมัติทั่วไปซ้ำหรือบังคับทดลอง 4G/5G/รูปเราเตอร์เพิ่ม
 4. ก่อนแตะกล้อง PO บันทึก control ที่ระบุ target/สิทธิ์/bytes/rollback ตามคำสั่งทดลอง; ไม่ตีความรวมสิทธิ์ reset/เปิดพอร์ต/ติดตั้งทั่วเครื่อง/ซื้อ/merge/deploy/schedule. คำสั่ง sync รอบนี้เป็นเอกสารเท่านั้น
@@ -61,6 +62,10 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: ใช้ local workflow นี้ส่งงาน Dev ย่อยถัดไปตาม acquisition-first plan. Downloader/route/auth/adapter compatibility/clip target ยังเป็น B1–B5; camera version ยืนยันแล้ว; workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · Owner/PO · OD-19 อนุญาตตรวจ Mac โดยตรง; PO ตรวจ doctor/runtime/package metadata/system app presence/native VPN/default route/power แบบอ่านอย่างเดียว ไม่แสดง IP/SSID/ชื่อ process/config ลับ. รายละเอียด MAC_READINESS: 18.46 GiB, Python 3.9.6 + bundled 3.12.14, ffmpeg/ffprobe/candidate packages ยังไม่พบในขอบเขตที่ตรวจ, native VPN profiles 0. Route query อ่านได้หลัง platform approval; ไม่ probe network. Owner ยืนยัน app ใช้ได้; ไม่ขอซ้ำ. ไม่มี install/config change/camera request และผลใหม่พร้อม checkpoint PR #4; PO รัน baseline unittest 113/113 PASS, exit 0. Code/tests ไม่เปลี่ยน ไม่เรียก Claude รอบใหม่; SYNCED ต้องตรวจ read-back ก่อนและบันทึก delivery local.
+
+- 2026-10-08 · Owner/PO · ภาพ Advanced Settings ยืนยัน Camera Account On และ UPnP Off; Network Settings Off, Powerline Frequency Auto, Diagnostics Off ตามป้ายในภาพ. ไม่ตีความ Network Settings Off ว่าอินเทอร์เน็ต/เส้นทางปิด และไม่ถือว่า auth/SD export ผ่าน. Third-Party Compatibility ไม่ปรากฏในภาพ ไม่ใช่หลักฐานว่าไม่มีเมนู. บันทึกเฉพาะค่าในเอกสาร local ไม่เก็บภาพ/พาธแนบ ไม่เปลี่ยนค่า; route และคลิปเป้าหมายยังรอคำตอบ. PO รัน baseline unittest 113/113 PASS, exit 0; code/tests ไม่เปลี่ยน ไม่เรียก Claude รอบใหม่. สถานะข้อมูลรอบนี้ LOCAL_ONLY.
 
 - 2026-10-07 · PO/Claude · Owner ให้เริ่มงานถัดไป: PO ตรวจเอกสารผู้ผลิตและ wheel pytapo 3.4.26 แบบ static ยืนยัน SHA256 (ไม่ install/import/execute). Claude จัด ONE_CLIP_PLAN เฉพาะเอกสารผ่าน scoped launcher; PO ตรวจและแก้ baseline/คำกล่าว dual-lens/route/สถานะความพร้อมให้ตรงหลักฐาน. Claude baseline unittest 113/113 PASS; PO รันอิสระ 113/113 PASS, exit 0 และ diff/doc checks ผ่าน. ยังไม่มี downloader/private-input tool, camera requests/auth/clips 0/0/0; รอ route readiness, app/account/compatibility status และหนึ่งคลิปจาก Owner.
 

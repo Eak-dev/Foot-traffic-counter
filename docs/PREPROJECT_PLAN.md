@@ -215,7 +215,7 @@ Manual import เป็นทางสำรองสำหรับพัฒน
 ข้อมูลกล้องยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7 (ภาพ Owner; OD-16). ขอเฉพาะข้อมูลที่ยังขาด:
 
 1. แจ้งว่าพบ IP/ปลายทางกล้องแล้วหรือยัง; ค่าจริงกรอกใน Mac ผ่านช่องทางส่วนตัวที่ทีมยังต้องจัดให้ ไม่ใส่บน GitHub/ใน prompt
-2. บัญชีเจ้าของ Tapo พร้อมหรือไม่, Camera Account ตั้งไว้หรือไม่, Third-Party Compatibility เปิด/ปิด/ไม่พบ — ขอเพียงสถานะ ไม่ขอ secret และยังไม่สั่งเปลี่ยนค่า
+2. บัญชีเจ้าของ Tapo พร้อมหรือไม่ และ Third-Party Compatibility เปิด/ปิด/ไม่พบ — Camera Account On ยืนยันจากภาพ Owner 2026-10-08 แล้ว ไม่ขอซ้ำ. ขอเพียงสถานะ ไม่ขอ secret และยังไม่สั่งเปลี่ยนค่า
 3. วัน/เวลาของหนึ่งคลิปที่ยังเปิดย้อนหลังได้และมุม/เลนส์ถ้ามีหลายภาพ ไม่ต้องส่งวิดีโอเดิมซ้ำ
 
 ### งานทีม ไม่ใช่ภาระให้ Owner ออกแบบ
@@ -235,7 +235,7 @@ PR #2 merged เป็น v0.1.0 แล้ว; merge แยกจากสิท
 | รายการ | สิ่งที่แนะนำตรวจ | สถานะ |
 | --- | --- | --- |
 | Device Info | C545D / HW 1.0 / FW 1.1.7 ยืนยันแล้ว; endpoint เก็บในเครื่องเป็นส่วนตัว | Version CONFIRMED (OD-16); endpoint ยังรอ |
-| Advanced Settings / Camera Account | ตั้งไว้หรือไม่; ไม่สร้าง/reset เป็นเงื่อนไขบังคับของทุก SD adapter | ขึ้นกับวิธีที่เลือก |
+| Advanced Settings / Camera Account | On ยืนยันจากภาพ Owner 2026-10-08; ไม่สร้าง/reset เป็นเงื่อนไขบังคับของทุก SD adapter | APP_STATUS_CONFIRMED; SD auth ยังไม่ทดสอบ |
 | บัญชีเจ้าของ Tapo | readiness เท่านั้น; candidate SD downloader อาจใช้ cloud password ไม่ใช่รหัส Wi-Fi | รอ private input |
 | Me / Third-Party Services / Third-Party Compatibility | มีเมนูหรือไม่ เปิด/ปิด; เปิดเฉพาะเมื่อจำเป็นและ Owner เข้าใจความเสี่ยง | ยังไม่เปลี่ยน |
 | Storage & Recording | คง event recording และคลิปเดิม ไม่ format SD/เปลี่ยน continuous เพื่อทดลองคลิปที่มี | ไม่ต้องเปลี่ยน |
