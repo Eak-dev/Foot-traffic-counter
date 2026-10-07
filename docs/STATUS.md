@@ -1,12 +1,12 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-07 · local workflow validated · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-07 · v0.1.0 merged; local baseline prepared · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
 
-- **เฟส:** D0 implementation พร้อม review; PR #2 ยังเปิด/unmerged. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
+- **เฟส:** D0 ผ่าน review และ merge ตามคำสั่ง Owner แล้ว; PR #2 MERGED, เวอร์ชันแรก `v0.1.0` ที่ `b05b8fb6821fdaf645db2217ed9ea8c45ba21363`. ยังไม่ผ่านเกตอุปกรณ์ D1–D5. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
 - **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
 - **โค้ดที่มีจริง:** `doctor`, local `inventory` และตัวเรียก local Claude `tools/claude_dev.py` ที่ตรวจรับแล้ว; **ยังไม่มี downloader**
 - **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
@@ -53,13 +53,15 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 
 ## Local handoff ปัจจุบัน
 
-- Branch: `claude/ft-d0-preflight`; baseline ก่อน workflow change: `f7cd85e`.
+- Branch: `claude/ft-d0-preflight` เดิม; baseline เวอร์ชันแรก `b05b8fb6821fdaf645db2217ed9ea8c45ba21363` (`v0.1.0`). PO นำผล merge มาใน local ด้วย fast-forward เท่านั้น; config/root เดิม.
 - Writer: NONE หลังส่งมอบ; Codex เป็นผู้จัด checkpoint และส่งงานถัดไป. ไม่มี delegated process ถือ tree
-- Checkpoint: workflow/code/tests รอบนี้พร้อม review บน PR #2; PO ตรวจ branch/PR head หลัง push ก่อนรายงาน SYNCED. ผล read-back ล่าสุดเก็บใน ignored `.claude/delivery.local.json` และรายงานส่งมอบ ไม่ใช้ข้อความก่อน push เป็นหลักฐานว่า synced
+- Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว ตรวจ GitHub read-back; บันทึกสถานะหลัง merge รอบนี้เป็น LOCAL_ONLY เพื่อรวมใน checkpoint/PR ถัดไป ไม่แก้ main ตรงและไม่สร้าง PR ซ้ำเพื่อบันทึกอย่างเดียว. ผลอ่านกลับและ local HEAD อยู่ใน ignored `.claude/delivery.local.json`.
 - Final validation: PO รัน **113/113 unittest PASS**, exit 0 (52 เดิม + 61 launcher/regression); Claude read/test-only ผ่าน launcher รายงาน 113/113 PASS, exit 0. ตรวจ diff/เอกสาร/ขอบเขตก่อน checkpoint; หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้
 - Next action: ใช้ local workflow นี้ส่งงาน Dev ย่อยถัดไปตาม acquisition-first plan. Downloader/route/auth/firmware/clip target ยังเป็น B1–B5; workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-07 · Owner/PO · Owner สั่ง “Merge ก่อนแล้วค่อยทำต่อ เพื่อเป็น version แรก”: merge PR #2 ที่ reviewed head `dc4cf0f`, อ่านกลับยืนยัน merge commit `b05b8fb` และ tag `v0.1.0`. Local branch เดิม fast-forward มาที่ baseline; ตรวจ file tree ตรงกับชุดที่ผ่าน 113 tests จึงไม่ได้รันชุดเดิมซ้ำ. บันทึกหลัง merge เป็น local-only; ไม่ปิด Issue ไม่ deploy ไม่แตะกล้อง และไม่เปิดเกต D1–D5.
 
 - 2026-10-07 · Codex validation · workflow รอบนี้พร้อมส่งมอบ: unittest อิสระ 113/113 PASS (exit 0); handoff ผ่าน launcher จริง COMPLETED_LOCAL/child exit 0 และ Claude รายงาน 113 tests PASS. ไม่เปลี่ยน ft_data/52 tests เดิม/หลักฐาน D0; ไม่มี camera/production/main/merge/deploy. Runtime prompts/results/config ไม่ขึ้น Git.
 - 2026-10-07 · PO review fixes · ตรวจพบ test mock แบบเก่าไม่ครอบคลุม Popen ในรอบแก้ของ Claude จึงหยุด delegated process tree และเก็บไฟล์ไว้; ไม่รับ invocation นั้นเป็น PASS. Refactor mock พร้อม tripwire ห้าม real Claude ใน unit tests, ปิด background tasks, รักษา lock เมื่อ timeout/interrupt เพื่อให้ PO audit descendants; harden scope/config/result/policy/error redaction แล้วตรวจ 113 tests สำเร็จ.

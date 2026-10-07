@@ -23,6 +23,7 @@
 | --- | --- | --- | --- |
 | OD-12 | Codex และ Claude ใช้ local folder เดียวและ branch งานเดียวกัน; พัฒนา local เป็นหลักและอัปเดต repo ตามสมควร | OWNER_DECISION: Owner สั่ง “ปรับตามที่คุณแจ้งเลย … folder local และ Branch เดียวกัน … local เป็นหลัก … อัปเดท repo ตามสมควร” | Supersedes จังหวะ remote sync ทุกเทิร์นของ OD-11. อัปเดตสถานะ local; push ที่ reviewable milestone/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner request. สำเนาเก่า dormant ไม่ลบ; main ยังรอ Owner merge |
 | OD-13 | ให้ Codex ออกแบบและปรับ workflow เพื่อสั่ง Claude เป็น Dev ตามข้อเสนอที่รีวิวแล้ว | OWNER_DECISION: คำสั่งเดียวกับ OD-12 | อนุญาต scoped local launcher/เอกสาร/synthetic tests และ Claude รัน unittest ใน strict sandbox; หนึ่ง writer ต่อครั้ง. PO review/checkpoint; git-write ของ Claude ต้องมี publication task/policy แยก. Supersedes D0 file-only developer restriction แต่ไม่เปิดเกตกล้อง/ติดตั้ง/production/merge/deploy/scheduler |
+| OD-14 | Merge PR #2 ก่อนทำต่อ เพื่อเป็นเวอร์ชันแรก | OWNER_DECISION: Owner สั่งโดยตรง 2026-10-07; GitHub ยืนยัน MERGED | อนุญาต PO merge PR #2 ครั้งนี้; baseline `b05b8fb` / `v0.1.0`. ใช้ folder/branch เดิมต่อและบันทึกหลัง merge ใน local. ไม่ใช่สิทธิ์ merge อัตโนมัติครั้งถัดไปหรือเปิดเกตอุปกรณ์/deploy; replaces สถานะรอ merge ใน OD-12 |
 
 OD-11 เก็บเป็นประวัติการตัดสินใจเดิม; ส่วนจังหวะ GitHub ใช้ OD-12 ตั้งแต่รอบนี้. Model service ของ Claude ใช้รับเฉพาะ context งาน/โค้ดที่ไม่ลับตามคำสั่งมอบหมาย ไม่ส่ง secrets หรือข้อมูลกล้อง. พาธ canonical checkout เก็บเฉพาะ local config ที่ Git ไม่ติดตาม.
 
@@ -37,7 +38,7 @@ OD-11 เก็บเป็นประวัติการตัดสิน�
 
 ## หลักฐาน
 
-- [PR #2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2) — review branch ไม่ใช่ main
+- [PR #2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2) — merged ตาม OD-14; baseline main/tag `v0.1.0`
 - [กล้อง/แพ็กเกจ](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6013505806)
 - [ฉลากเราเตอร์](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6013831335)
 - [Router Device Info](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6014086882)

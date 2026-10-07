@@ -4,7 +4,7 @@ Owner decision 2026-10-07: ใช้ **local folder เดียวและ bra
 
 ## โฟลเดอร์และ branch กลาง
 
-- ใช้ checkout ที่เลือกในโปรเจกต์ Codex เป็นโฟลเดอร์หลัก. ตอนนี้ branch คือ `claude/ft-d0-preflight`; PR คือ [#2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2).
+- ใช้ checkout ที่เลือกในโปรเจกต์ Codex เป็นโฟลเดอร์หลัก. ตอนนี้ branch คือ `claude/ft-d0-preflight` เดิม; [PR #2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2) merged ตามคำสั่ง Owner เป็น `v0.1.0` แล้ว. งานชุดถัดไปใช้ branch เดิมและเปิด PR ใหม่เมื่อถึง checkpoint; ไม่ส่งงานใหม่ลง PR ที่ merged แล้ว.
 - Codex และ Claude เรียกคำสั่งจาก root เดียวกัน. พาธจริงเก็บเฉพาะ `.claude/workflow.local.json` ที่ Git ไม่ติดตาม; ไม่ใส่พาธเครื่องจริงในเอกสารที่เผยแพร่.
 - สำเนาเก่าเก็บไว้แต่ไม่ใช้ส่งงาน. ไม่สร้าง worktree/branch เพิ่มโดยอัตโนมัติ. หลัง Owner merge ให้ PO ตรวจ tree ก่อนตกลง branch งานถัดไป; กติกา branch เดียวไม่ใช่สิทธิ์ push เข้า main.
 - ระหว่างพัฒนา **local HEAD และไฟล์ที่ยังไม่ commit** เป็นสถานะงานปัจจุบัน. GitHub อาจตามหลังได้ตามจังหวะ checkpoint. ไม่บังคับ pull หรือให้ HEAD ตรง remote ทุกข้อความ.

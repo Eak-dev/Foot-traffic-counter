@@ -3,7 +3,7 @@
 Owner direction dated 2026-10-06 supersedes the Raspberry Pi/live-RTSP architecture at baseline 73249aabf9d413325c4a772cd68a3ebc5890415e.
 
 - Issue: #1 — FT-D0 preparation plan and read-only acquisition readiness CLI.
-- Branch: claude/ft-d0-preflight; main remains unchanged pending Owner review/merge.
+- Branch: claude/ft-d0-preflight; continue in the same local checkout/branch. Owner explicitly instructed merging PR #2 as the first version on 2026-10-07; verified merge baseline b05b8fb6821fdaf645db2217ed9ea8c45ba21363 is tagged v0.1.0. This is a one-time Owner-authorized merge, not standing merge/deploy permission.
 - Mode: PREPARATION_ONLY / LOCAL DEVELOPMENT; no live device access.
 - ChatGPT = PO/PM and independent validation; Claude = developer; Owner = business decisions, merge, purchases and deployment.
 - Scope authority: Owner instructions -> this control -> current PLAN -> issue acceptance criteria -> implementation/evidence. Do not lower acceptance criteria.
@@ -20,5 +20,5 @@ Owner direction dated 2026-10-06 supersedes the Raspberry Pi/live-RTSP architect
 - No changes to router/camera/network/VPN/OS power/security/authentication, no new schedules/services, no model weights or dependencies, no cloud video transfer, no unrelated repos, no direct main push, no reset/rebase/force push/merge/deploy.
 - Production state: UNKNOWN / NOT TOUCHED. No authorization to inspect or change production.
 - Stop on unexpected local work or out-of-scope blockers. Finish allowed scope and report blocked steps without claiming PASS.
-- Rollback for this task: keep main unchanged; discard/close the review branch only if Owner chooses. No destructive cleanup; no machine configuration migration is performed.
+- Rollback after the Owner-authorized first-version merge: retain v0.1.0 and history; any rollback of main requires a separate Owner decision and reviewed revert PR. No destructive cleanup; no machine configuration migration is performed.
 - Next phase FT-D1: secure route evidence + exact camera/firmware/read-only interface + locally configured credentials + bounded storage policy; then list a short date range, fetch ONE approved clip, verify content/time/duration and repeat idempotently. Not authorized in FT-D0.
