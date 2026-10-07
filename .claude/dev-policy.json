@@ -1,0 +1,56 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(.claude/**)",
+      "Read(.env)",
+      "Read(**/.env)",
+      "Read(**/*.key)",
+      "Read(**/credentials*.json)",
+      "Read(**/service-account*.json)",
+      "Read(secrets/**)",
+      "Read(data/**)",
+      "Read(reports/**)",
+      "Read(artifacts/**)",
+      "Edit(PROJECT_CONTROL.md)",
+      "Edit(.claude/**)",
+      "Edit(.git/**)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh *)",
+      "Read(.env*)",
+      "Read(**/.env*)",
+      "Edit(.env*)",
+      "Edit(**/.env*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": false,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": [],
+      "allowLocalBinding": false
+    },
+    "filesystem": {
+      "denyRead": [
+        "~/.ssh",
+        "~/.aws",
+        "~/.codex",
+        "~/.claude",
+        "~/.config",
+        ".env",
+        "secrets",
+        "data",
+        "reports",
+        "artifacts"
+      ],
+      "denyWrite": [
+        ".git",
+        ".claude",
+        "PROJECT_CONTROL.md"
+      ]
+    }
+  }
+}

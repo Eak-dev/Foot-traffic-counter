@@ -17,6 +17,15 @@
 | OD-10 | ให้ Claude แจ้งข้อมูลที่ต้องใช้และวิธีตั้ง Tapo | Owner; Claude advisory ตอบแล้ว | เป็นคำแนะนำ ไม่ใช่การเปลี่ยนค่า/ผลทดลองกล้อง |
 | OD-11 | อัปเดต GitHub ตลอดที่คุยกันเพื่อให้ Claude รู้เฟสและ blocker | Owner standing workflow บันทึก 2026-10-07 | ทุกการเปลี่ยนสาระงานให้อัปเดต docs/PR และตรวจ read-back ในเทิร์นนั้น ไม่ต้องขออนุมัติ docs-only sync ซ้ำ |
 
+## Owner workflow decisions — 2026-10-07
+
+| ID | ข้อสรุป | แหล่ง / สถานะ | ผลต่อทีม |
+| --- | --- | --- | --- |
+| OD-12 | Codex และ Claude ใช้ local folder เดียวและ branch งานเดียวกัน; พัฒนา local เป็นหลักและอัปเดต repo ตามสมควร | OWNER_DECISION: Owner สั่ง “ปรับตามที่คุณแจ้งเลย … folder local และ Branch เดียวกัน … local เป็นหลัก … อัปเดท repo ตามสมควร” | Supersedes จังหวะ remote sync ทุกเทิร์นของ OD-11. อัปเดตสถานะ local; push ที่ reviewable milestone/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner request. สำเนาเก่า dormant ไม่ลบ; main ยังรอ Owner merge |
+| OD-13 | ให้ Codex ออกแบบและปรับ workflow เพื่อสั่ง Claude เป็น Dev ตามข้อเสนอที่รีวิวแล้ว | OWNER_DECISION: คำสั่งเดียวกับ OD-12 | อนุญาต scoped local launcher/เอกสาร/synthetic tests และ Claude รัน unittest ใน strict sandbox; หนึ่ง writer ต่อครั้ง. PO review/checkpoint; git-write ของ Claude ต้องมี publication task/policy แยก. Supersedes D0 file-only developer restriction แต่ไม่เปิดเกตกล้อง/ติดตั้ง/production/merge/deploy/scheduler |
+
+OD-11 เก็บเป็นประวัติการตัดสินใจเดิม; ส่วนจังหวะ GitHub ใช้ OD-12 ตั้งแต่รอบนี้. Model service ของ Claude ใช้รับเฉพาะ context งาน/โค้ดที่ไม่ลับตามคำสั่งมอบหมาย ไม่ส่ง secrets หรือข้อมูลกล้อง. พาธ canonical checkout เก็บเฉพาะ local config ที่ Git ไม่ติดตาม.
+
 ## สิ่งที่ยังเป็นข้อเสนอ ไม่ใช่ Owner-approved implementation
 
 - เดินกลับข้ามเส้นนับอีกครั้ง, ตำแหน่งเส้น, reserve 10 GiB, ระยะเวลาเก็บ, เพดาน bytes และเวลารัน ยังรอตัดสินใจ/ทดสอบ

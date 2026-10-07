@@ -1,18 +1,18 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-07 03:53 +0700 · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
-> อ่าน HEAD ของ branch/PR ที่ active ไม่ใช่ main ที่ยังไม่ได้ merge. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
+> อัปเดต: 2026-10-07 · local workflow validated · Issue #1 · PR #2 · branch `claude/ft-d0-preflight`
+> Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
 
 - **เฟส:** D0 implementation พร้อม review; PR #2 ยังเปิด/unmerged. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
-- **ทีม:** PO รีโมต Mac/เรียก Claude/ตรวจงาน/push GitHub ได้แล้ว; ไม่ต้องสร้างระบบสั่ง AI ใหม่
-- **โค้ดที่มีจริง:** `doctor` และ local `inventory` เท่านั้น; **ยังไม่มี downloader**
+- **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
+- **โค้ดที่มีจริง:** `doctor`, local `inventory` และตัวเรียก local Claude `tools/claude_dev.py` ที่ตรวจรับแล้ว; **ยังไม่มี downloader**
 - **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
-- **Claude ล่าสุด:** ให้คำแนะนำข้อมูลที่ต้องใช้และ Tapo settings แล้ว เป็น advisory ไม่ใช่การตั้งค่า/ทดสอบจริง
+- **Claude ล่าสุด:** สร้าง launcher/synthetic tests, PO ตรวจแก้และเพิ่ม tripwire กัน unit tests เรียก Claude จริง. ทดสอบ handoff ผ่าน launcher จริงแบบ read/test-only สำเร็จ: COMPLETED_LOCAL, child exit 0, ไม่มี permission denial, ไม่แก้ไฟล์/HEAD/branch และ Claude รายงาน unittest 113/113 PASS. PO รันอิสระ 113/113 PASS. คำแนะนำ Tapo ก่อนหน้ายังเป็น advisory ไม่ใช่ผลกล้อง
 - **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
-- **Owner instruction:** อัปเดตข้อสรุป/ความคืบหน้า/blockers ใน GitHub ระหว่างที่คุยกัน; ไม่คัดลอกบทสนทนาทั้งหมดหรือข้อมูลลับ
+- **Owner instruction:** พัฒนาและอัปเดตสถานะใน local เป็นหลัก; push เมื่อ reviewable/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner สั่ง. ไม่ sync ทุกข้อความ (supersedes OD-11 cadence); ไม่เผยแพร่ raw transcripts/ข้อมูลลับ
 
 ## ข้อมูลยืนยันแล้ว — ไม่ขอซ้ำ
 
@@ -49,9 +49,23 @@
 
 D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent checks ผ่านในรอบเดิม. Roadmap `9698f56` รัน 52 tests ซ้ำแล้ว. ไม่ใช่หลักฐานดึงกล้อง
 [ผล inspection ล่าสุดที่เผยแพร่](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6014447731) · [Router version](https://github.com/Eak-dev/Foot-traffic-counter/pull/2#issuecomment-6014086882)
-ก่อน Claude เริ่มงาน PO ต้องยืนยัน branch/commit ตรง GitHub; Claude อ่าน CONTROL/AGENTS/PLAN/STATUS/DECISIONS และสรุป phase/blockers/next action ก่อนลงมือ. ถ้าไม่มี network tools PO ส่งบริบทที่ตรวจแล้วให้
+ก่อน Claude เริ่มงาน PO ยืนยัน canonical local root/branch/full HEAD และงานค้างที่รับทราบ; ไม่บังคับให้ตรง remote ระหว่างพัฒนา. Claude อ่าน CONTROL/AGENTS/PLAN/STATUS/DECISIONS และสรุป phase/blockers/next action. หลัง publish checkpoint จึงตรวจ branch/PR head ที่ remote
+
+## Local handoff ปัจจุบัน
+
+- Branch: `claude/ft-d0-preflight`; baseline ก่อน workflow change: `f7cd85e`.
+- Writer: NONE หลังส่งมอบ; Codex เป็นผู้จัด checkpoint และส่งงานถัดไป. ไม่มี delegated process ถือ tree
+- Checkpoint: workflow/code/tests รอบนี้พร้อม review บน PR #2; PO ตรวจ branch/PR head หลัง push ก่อนรายงาน SYNCED. ผล read-back ล่าสุดเก็บใน ignored `.claude/delivery.local.json` และรายงานส่งมอบ ไม่ใช้ข้อความก่อน push เป็นหลักฐานว่า synced
+- Final validation: PO รัน **113/113 unittest PASS**, exit 0 (52 เดิม + 61 launcher/regression); Claude read/test-only ผ่าน launcher รายงาน 113/113 PASS, exit 0. ตรวจ diff/เอกสาร/ขอบเขตก่อน checkpoint; หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้
+- Next action: ใช้ local workflow นี้ส่งงาน Dev ย่อยถัดไปตาม acquisition-first plan. Downloader/route/auth/firmware/clip target ยังเป็น B1–B5; workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-07 · Codex validation · workflow รอบนี้พร้อมส่งมอบ: unittest อิสระ 113/113 PASS (exit 0); handoff ผ่าน launcher จริง COMPLETED_LOCAL/child exit 0 และ Claude รายงาน 113 tests PASS. ไม่เปลี่ยน ft_data/52 tests เดิม/หลักฐาน D0; ไม่มี camera/production/main/merge/deploy. Runtime prompts/results/config ไม่ขึ้น Git.
+- 2026-10-07 · PO review fixes · ตรวจพบ test mock แบบเก่าไม่ครอบคลุม Popen ในรอบแก้ของ Claude จึงหยุด delegated process tree และเก็บไฟล์ไว้; ไม่รับ invocation นั้นเป็น PASS. Refactor mock พร้อม tripwire ห้าม real Claude ใน unit tests, ปิด background tasks, รักษา lock เมื่อ timeout/interrupt เพื่อให้ PO audit descendants; harden scope/config/result/policy/error redaction แล้วตรวจ 113 tests สำเร็จ.
+
+- 2026-10-07 · Codex/Owner · เปลี่ยน workflow เป็น local checkout/branch เดียวตาม OD-12/13. PO อัปเดต control/policy, Claude เขียน launcher/tests; invocation รอบแรกถูก interrupt และไม่รับเป็น PASS. PO ทดสอบ initial 86/86 ผ่าน แต่ยังมี review fixes. กล้อง/production/main ไม่เปลี่ยน; local changes รอ final validation/checkpoint.
+
 
 - 2026-10-07 · PO validation · รอบ sync เอกสารนี้: UTF-8/Markdown fences/local links/diff check ผ่าน, ตรวจ patterns ข้อมูลลับไม่พบในเอกสารที่แก้, code/tests/PROJECT_CONTROL ไม่เปลี่ยน. รัน unittest เดิมซ้ำ **52/52 PASS**; 7 independent checks เป็นหลักฐานรอบ D0 ไม่ได้รันใหม่. ไม่อ้างการตรวจ patterns เป็น full security audit
 

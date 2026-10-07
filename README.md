@@ -56,7 +56,7 @@ python3 -m unittest discover -s tests -t . -v
 ```
 
 ใช้ข้อมูลจำลองที่เป็นไบต์สังเคราะห์เท่านั้น ไม่ใช่วิดีโอจากกล้องจริง
-ผู้พัฒนาไม่ได้รันทดสอบเอง (NOT_RUN_BY_DEVELOPER); PO เคยรันบน Mac แล้ว 52/52 tests และตรวจแยก 7/7 ตาม [หลักฐาน D0](docs/FT_D0_EVIDENCE.md). ไม่ใช่ผลดึงคลิปจากกล้อง; ผลรอบใหม่ดู [STATUS](docs/STATUS.md)
+หลักฐาน D0 เดิม: ผู้พัฒนาไม่ได้รันทดสอบเอง (NOT_RUN_BY_DEVELOPER); PO รัน 52/52 tests และตรวจแยก 7/7 ตาม [หลักฐาน D0](docs/FT_D0_EVIDENCE.md). Workflow ปัจจุบันอนุญาตให้ Claude รัน unittest แบบ local/synthetic ใน sandbox. ผลรอบใหม่และการทดสอบตัวเรียกดู [STATUS](docs/STATUS.md); ไม่ใช่ผลดึงคลิปจากกล้อง.
 
 ## ยังไม่มี
 
@@ -64,6 +64,14 @@ python3 -m unittest discover -s tests -t . -v
 - การนับคน (เฟส D4)
 - การตั้งงานอัตโนมัติ (เฟส D5)
 
-## ข้อมูลเดียวกันระหว่าง Owner / PO / Claude
+## พัฒนา local กับ Codex และ Claude
 
-ทุกข้อมูลใหม่ที่เปลี่ยนงานให้ PO sync STATUS/DECISIONS/แผนที่เกี่ยวข้องใน review branch และตรวจอ่านกลับจาก GitHub; PR comments เป็นหลักฐานเสริม. Claude ต้องอ่าน branch/commit ล่าสุดที่ PO ระบุก่อนเริ่มงานตาม WORKFLOW. ยังไม่มีการ sync เบื้องหลังหรือเปิดใช้กล้องจากการอัปเดตเอกสาร และไม่เผยแพร่ข้อมูลลับ
+ใช้ local checkout และ branch งานเดียวกัน (`claude/ft-d0-preflight` ตอนนี้), หนึ่งผู้แก้ไฟล์ต่อครั้ง. Codex เตรียมงานและเรียก Claude เป็น Dev, Claude ส่ง diff/ผลทดสอบ, Codex review และส่งแก้จนพร้อมให้ Owner ตัดสินใจ.
+
+```bash
+python3 tools/claude_dev.py --check
+```
+
+ตั้งค่า canonical root ครั้งแรกและส่งงานพร้อม baseline/write paths ตาม [WORKFLOW](docs/WORKFLOW.md). ตัวเรียกตรวจ tree/branch/HEAD/งานค้างและ lock, จำกัดเครื่องมือและ sandbox ของ tests. Local config, prompts และ raw results ไม่ขึ้น Git. ผล invocation สำเร็จไม่แทน tests หรือ acceptance.
+
+อัปเดต STATUS/DECISIONS ใน local ระหว่างพัฒนา; commit/push ที่ checkpoint ที่ตรวจแล้วแทนการ sync ทุกข้อความ. Default launcher ไม่เปิด git-write/GitHub tools; PO จัด checkpoint บน branch งานและตรวจ remote read-back. ไม่มี auto merge/deploy/worker/scheduler หรือสิทธิ์กล้องใหม่.

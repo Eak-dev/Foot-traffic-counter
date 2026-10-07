@@ -51,3 +51,8 @@ config.local.*
 
 # macOS
 .DS_Store
+
+# Local Claude dispatch ownership and task/output files
+.claude/dev.lock/
+.claude/tasks/
+.claude/results/

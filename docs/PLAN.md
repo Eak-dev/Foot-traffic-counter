@@ -65,3 +65,7 @@
 ## การตัดสินใจและสถานะต่อเนื่อง
 
 Owner ให้ sync GitHub ระหว่างสนทนา: [DECISIONS](DECISIONS.md) เก็บข้อสรุป/ข้อเสนอแยกกัน; [STATUS](STATUS.md) เก็บเฟส/ผลจริง/blockers/next action. PO ปรับเอกสารและ PR ที่เกี่ยวข้องพร้อม read-back ตาม WORKFLOW. คำสั่งให้ทดลองหนึ่งคลิปได้รับแล้ว แต่ไม่มี implementation/endpoint/auth/route ที่พร้อม ไม่ใช่ขาดคำสั่งทั่วไปซ้ำ; ก่อนใช้สิทธิ์นั้น PO ต้องระบุ target/ขอบเขต/rollback ใน control. รอบ sync นี้ไม่เปลี่ยนสิทธิ์หรือเปิดงานจริง
+
+## การพัฒนา local (Owner decision 2026-10-07)
+
+Codex และ Claude ใช้ checkout/branch งานเดียวกัน มีหนึ่ง writer ต่อครั้ง. ใช้ `tools/claude_dev.py` ตรวจ baseline/งานค้าง/ownership ก่อนมอบหมายงาน; Claude ทดสอบ local/synthetic ได้ตาม policy. อัปเดตสถานะใน local และเผยแพร่ GitHub ตาม checkpoint ใน [WORKFLOW](WORKFLOW.md), [DECISIONS OD-12/13](DECISIONS.md). สิทธิ์ Dev นี้ไม่เปลี่ยนสเปก batch acquisition หรือเปิดเกตอุปกรณ์ D1–D5.

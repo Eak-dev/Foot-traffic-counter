@@ -1,85 +1,96 @@
-# วิธีทำงาน: ChatGPT เป็น PO/PM · Claude เป็น Developer
+# วิธีทำงาน: Codex วางแผนและรีวิว · Claude พัฒนาใน local
 
-คุณเอกคุยกับ ChatGPT จุดเดียว งานปัจจุบันคือ Issue #1, branch `claude/ft-d0-preflight`.
-อ่าน `PROJECT_CONTROL.md`, `AGENTS.md`, `docs/PLAN.md`, `docs/PREPROJECT_PLAN.md` และ `docs/STATUS.md`, `docs/DECISIONS.md` ก่อนทำงานทุกครั้ง.
-Owner Decision มีอำนาจสูงสุด; ผู้พัฒนาห้ามเปลี่ยน control หรือขยาย scope เอง.
+Owner decision 2026-10-07: ใช้ **local folder เดียวและ branch งานเดียวกัน** เป็นหลัก แล้วอัปเดต GitHub ตามจุดส่งงาน. อ่าน [PROJECT_CONTROL](../PROJECT_CONTROL.md), [AGENTS](../AGENTS.md), [PLAN](PLAN.md), [STATUS](STATUS.md) และ [DECISIONS](DECISIONS.md) ก่อนเริ่ม.
 
-## ทางที่พิสูจน์แล้วใน FT-D0
+## โฟลเดอร์และ branch กลาง
 
-ChatGPT → Remote Desktop Commander → MacBook ที่บ้าน → Claude Code → ไฟล์บน branch → PO ทดสอบและตรวจ diff → PR ให้ Owner ตรวจ.
-การเรียก Claude Sonnet 5 ผ่าน CLI สำเร็จจริง; ไม่ใช่เพียงตรวจว่าติดตั้งอยู่.
-การเข้าถึง Mac ไม่ได้แปลว่าเข้าถึงกล้องร้านได้. ไม่มี worker ของ GitHub Actions หรือ scheduler เปิดใช้งาน.
+- ใช้ checkout ที่เลือกในโปรเจกต์ Codex เป็นโฟลเดอร์หลัก. ตอนนี้ branch คือ `claude/ft-d0-preflight`; PR คือ [#2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2).
+- Codex และ Claude เรียกคำสั่งจาก root เดียวกัน. พาธจริงเก็บเฉพาะ `.claude/workflow.local.json` ที่ Git ไม่ติดตาม; ไม่ใส่พาธเครื่องจริงในเอกสารที่เผยแพร่.
+- สำเนาเก่าเก็บไว้แต่ไม่ใช้ส่งงาน. ไม่สร้าง worktree/branch เพิ่มโดยอัตโนมัติ. หลัง Owner merge ให้ PO ตรวจ tree ก่อนตกลง branch งานถัดไป; กติกา branch เดียวไม่ใช่สิทธิ์ push เข้า main.
+- ระหว่างพัฒนา **local HEAD และไฟล์ที่ยังไม่ commit** เป็นสถานะงานปัจจุบัน. GitHub อาจตามหลังได้ตามจังหวะ checkpoint. ไม่บังคับ pull หรือให้ HEAD ตรง remote ทุกข้อความ.
+- ไม่มีการ switch/main checkout/pull/reset/rebase/merge อัตโนมัติ. งานค้างต้องระบุว่าเป็นของใครและอยู่ใน scope ไหนก่อนทำต่อ.
 
-| ผู้รับผิดชอบ | ทำอะไร | ขอบเขต |
-| --- | --- | --- |
-| ChatGPT / PO | วางแผน, ส่งงาน, ตรวจผลแยก, รันทดสอบ, commit/push เฉพาะ branch งาน, เปิด PR | ไม่ merge, ไม่เปลี่ยนกล้องหรือเครือข่ายโดยไม่มีเกตที่อนุมัติ |
-| Claude / Dev | เขียนและแก้เอกสาร/โค้ด/ทดสอบภายในรายการไฟล์ที่อนุญาต | ใน D0 มีเครื่องมือไฟล์เท่านั้น ไม่มี Bash/MCP/เครือข่าย/ไฟล์ลับ; ถ้าไม่ได้รันทดสอบให้รายงาน NOT_RUN_BY_DEVELOPER |
-| Owner | ตัดสินใจธุรกิจ, อนุมัติสิทธิ์เฉพาะงานและรายจ่ายซอฟต์แวร์, merge และ deploy | โครงการนี้ไม่ซื้อฮาร์ดแวร์เพิ่ม |
+## หน้าที่และการถือสิทธิ์แก้ไฟล์
 
-## คำสั่งแบบจำกัดขอบเขตที่ใช้จริง
+| ผู้ทำ | หน้าที่ |
+| --- | --- |
+| Codex / PO | แตกงาน, เตรียม control/ใบงาน, ตรวจ baseline และงานค้าง, เรียก Claude, รีวิวอิสระ, จัด checkpoint และสรุปให้ Owner |
+| Claude / Dev | อ่านสถานะล่าสุด, แก้เฉพาะไฟล์ในใบงาน, รันชุดทดสอบ local/synthetic ที่อนุญาต, แก้ตามรีวิวและส่งมอบหลักฐาน |
+| คุณ Eak / Owner | ให้เป้าหมายและตัดสินใจธุรกิจ, merge, อนุมัติงานอุปกรณ์/production/รายจ่ายตามเกต |
 
-PO ตรวจ repository, branch, commit และสถานะไฟล์ก่อนสั่งงาน. ห้าม checkout/pull/reset โดยอัตโนมัติทับงานที่ยังไม่ commit; ไม่ต้องสลับไป main เพื่อเริ่มงาน.
-ตัวอย่างนี้ใช้บน branch ที่ PO เตรียมและตรวจแล้วเท่านั้น; ไฟล์คำสั่งต้องไม่มีข้อมูลลับหรือวิดีโอ.
+มีผู้แก้ไฟล์ **หนึ่งรายต่อครั้ง**: PO เตรียมงาน → Claude ถือ tree → Claude ส่งมอบ → PO ตรวจ. ระหว่าง Claude ทำงาน PO ไม่แก้ไฟล์ รันทดสอบ stage/commit/switch หรือ publish. `tools/claude_dev.py` ใช้ `.claude/dev.lock/` กันการเรียกซ้อนและตรวจ scope หลังจบ.
+Lock นี้เป็นกติกาความร่วมมือ ไม่บล็อก editor หรือ CLI ที่เรียกเอง. เมื่อ timeout/interrupt/launch-cleanup error ตัวเรียกหยุด process group แต่ **เก็บ lock ไว้** ให้ PO ตรวจ process ที่อาจแยก session แล้วก่อนปล่อย ownership; ไม่อ้างว่า process group ครอบคลุมทุก detached process. ถ้าพบ lock ค้าง หยุด ตรวจว่ากระบวนการเก่าจบจริง และให้ PO ปล่อย ownership ก่อนเริ่ม; ตัวเรียกไม่แย่งหรือลบ stale lock เอง.
+
+## รอบส่งงาน
+
+1. Owner บอกเป้าหมายกับ Codex เช่น “ให้ Claude ทำงาน X ตามแผน ตรวจและแก้จนพร้อม review”. ไม่ต้องคัดลอก prompt เอง.
+2. PO ตรวจ local root/branch/full HEAD, dirty files, phase และสิทธิ์; เขียนใบงาน local ที่ไม่มีข้อมูลลับ.
+3. ใบงานระบุเป้าหมายหนึ่งเรื่อง, baseline, ไฟล์ที่แก้ได้, เกณฑ์เสร็จ, คำสั่งทดสอบ, ข้อห้าม, checkpoint และเงื่อนไขหยุด. แยกการยอมรับไฟล์ค้างจากสิทธิ์แก้ไฟล์นั้น.
+4. เรียก Claude ผ่านตัวเรียก. Claude อ่านสถานะปัจจุบันและรายงาน BASELINE/PHASE/BLOCKERS/NEXT_ACTION ก่อนลงมือ.
+5. Claude ส่ง changed files, tests/exit code หรือ NOT_RUN_BY_DEVELOPER, evidence, blockers และ next action. ผล JSON ของโมเดลไม่แทนผลทดสอบ.
+6. PO ตรวจ diff กับเกณฑ์และหลักฐาน; ทดสอบเพิ่มเติมตรงจุดที่จำเป็น. ส่งคำสั่งใหม่สำหรับแก้ตามรีวิวภายใน scope เดิมได้โดยไม่วนขอ Owner อนุมัติซ้ำ. ถ้า scope/สิทธิ์/เกตต้องเปลี่ยนให้หยุดเฉพาะจุดนั้นและรายงาน.
+7. เมื่องาน reviewable ให้ local commit และทำ GitHub checkpoint ตามหัวข้อถัดไป. Owner เป็นคน merge.
+
+## ตัวเรียก local
+
+ใช้ Python 3.9+ standard library และ Claude CLI ที่ล็อกอินอยู่. รุ่นที่ตรวจล่าสุดคือ 2.1.292; หลักฐาน D0 รุ่นเดิมคงไว้ตามประวัติ. ไม่ติดตั้งหรือเปลี่ยนบัญชีอัตโนมัติ.
+
+ตั้งค่าครั้งแรกจาก **root ที่ต้องการใช้จริง** โดย PO; คำสั่งนี้เขียนเฉพาะ local config ที่ไม่ขึ้น Git:
 
 ```bash
-cd ~/Foot-traffic-counter
-git branch --show-current
-git rev-parse HEAD
-git status --short
-
-# หลังตรวจว่าตรง PROJECT_CONTROL และไม่มีงานอื่นถูกทับแล้ว
-claude -p --model claude-sonnet-5 --effort high   --restricted --permission-mode dontAsk --permission-prompts none   --tools 'Read,Glob,Grep,Write,Edit'   --allowedTools 'Read,Glob,Grep,Write,Edit'   --strict-mcp-config --mcp-config '{"mcpServers":{}}'   --disable-slash-commands --no-chrome --no-session-persistence   --max-budget-usd 6 --output-format json   < "$TASK_FILE" > "$RESULT_FILE"
+python3 - <<'PY'
+import json
+from pathlib import Path
+root = Path.cwd().resolve()
+(root / '.claude').mkdir(exist_ok=True)
+(root / '.claude/workflow.local.json').write_text(json.dumps({
+    'root': str(root), 'branch': 'claude/ft-d0-preflight',
+    'model': 'claude-sonnet-5', 'max_budget_usd': 6
+}, indent=2) + '\n')
+PY
+python3 tools/claude_dev.py --check
 ```
 
-`TASK_FILE` และ `RESULT_FILE` เป็นพาธไฟล์งานที่ PO กำหนดไว้นอก repo ก่อนรัน ไม่ใช่คำสั่งพร้อมรันโดยไม่ตั้งค่า. เพดาน 6 USD เป็นตัวอย่างจำกัดการรันครั้งเดียว ไม่ใช่งบรายเดือนหรือการยืนยันยอดเรียกเก็บ; ตรวจบัญชีจริงแยกต่างหาก.
+ตัวเรียกใช้ effort medium สำหรับงานย่อยและมี timeout 600 วินาที (กำหนด `--timeout` ตาม scope ได้); แบ่งงานใหญ่เป็นงานเล็กที่ตรวจรับได้. เพดาน 6 USD เป็นค่าจำกัดการรันที่ PO ปรับให้ตรงงานใน local config; ไม่ใช่ยอดเรียกเก็บที่ยืนยันแล้ว. ไม่มีการเปลี่ยนโมเดลเองเมื่อเจอปัญหา.
 
-- ตรวจ exit code, `is_error`, `result`, `modelUsage` และ permission denials. ข้อความว่าสำเร็จจากผู้พัฒนาไม่แทนผลทดสอบ.
-- `--allowedTools` อนุมัติการเรียกเครื่องมือล่วงหน้า ไม่ใช่ sandbox ด้วยตัวเอง. ในคำสั่งนี้ตัด Bash และ MCP ออก และใช้ restricted mode กับรายการไฟล์ในงาน.
-- ไม่ใช้ bypass permissions, ไม่เปิด Bash(git *), Bash(gh pr *) หรือ shell ทั่วไปให้ Claude ใน D0.
-- คำสั่งนี้ใช้ `--no-session-persistence` จึงไม่เสนอ `--resume`; งานแก้ตาม review เป็นคำสั่งใหม่พร้อมหลักฐานและขอบเขตเดิม.
-- ไม่ใช้ `--bare`: โหมดนั้นเปลี่ยนการโหลดกติกาและวิธียืนยันตัวตน; ไม่ต้องเปลี่ยนการล็อกอินที่ทำงานอยู่.
-- PO รันทดสอบด้วย stdlib: `python3 -m unittest discover -s tests -t . -v` และตรวจ `git diff --check` ก่อน publish.
-- หยุดเมื่อพบงานนอกขอบเขต; ไม่มีการยกระดับสิทธิ์ ติดตั้ง dependencies เปลี่ยนรุ่นโมเดล หรือเริ่มกล้องจริงอัตโนมัติ.
+ตัวอย่างงานแก้เอกสารหนึ่งไฟล์ (สร้างใบงานที่ตรวจแล้วก่อนรัน):
 
-## GitHub คือหลักฐานและคิวงาน ไม่ใช่ตัวรันโดยตัวเอง
-
-Issue ใช้เก็บ scope/เกณฑ์รับงาน; PR ใช้เก็บ diff และหลักฐาน. การเปิด Issue ไม่ได้ทำให้ Claude ทำงานเมื่อ Mac ปิด.
-ยังไม่ต้องเพิ่ม Actions หรือ agent platform เพราะช่องทางรีโมตปัจจุบันใช้สั่งงานได้แล้ว.
-การรันรายคืนเป็นเฟส D5 ต้องตรวจไฟเลี้ยง การพักเครื่อง งานค้าง การรันซ้ำ และนโยบายพื้นที่ ก่อน Owner อนุมัติ scheduler.
-ไม่มีการรับรองว่าแชตหรือ Claude จะทำงานต่อเองหลังจบการสั่งงานครั้งนี้.
-
-## งานที่ส่งให้ Claude ต้องมี
-
-Model/Effort, baseline/branch, Issue/phase, allowed/forbidden paths, Definition of Done, validation, deployment permission และเงื่อนไขหยุด.
-ไม่ใส่รหัสผ่าน token IP ส่วนตัว serial รูปหรือวิดีโอลูกค้าใน prompt/Issue/log ที่แชร์ได้.
-รายละเอียดที่ลงเครื่องจริงต้องให้ Owner กรอกในช่องทางเฉพาะเมื่อมีการอนุมัติขั้นเชื่อมต่อแล้ว.
-
-อ้างอิงการใช้ CLI: https://code.claude.com/docs/en/headless และ https://code.claude.com/docs/en/model-config.
-
-## Conversation-to-GitHub sync
-
-Owner ให้บันทึกข้อสรุปและความคืบหน้าระหว่างสนทนาลง GitHub เพื่อให้ทีมใช้ข้อมูลเดียวกัน; ทำในเทิร์นที่มีสาระงานเปลี่ยน ไม่ใช่ background monitoring
-
-1. ก่อนแก้ อ่าน Issue/PR/สถานะ remote และตรวจ local branch/HEAD/dirty state. ไม่ overwrite งานผู้อื่นหรือ pull/reset โดยอัตโนมัติ
-2. ทุก requirement, decision, ข้อมูลอุปกรณ์, ผลทดสอบ, blocker หรือ next action ใหม่ ให้ PO อัปเดต `docs/STATUS.md` และ `docs/DECISIONS.md` ตามประเภทข้อมูลก่อนตอบสรุป ไม่รอจบเฟส. ไม่มีข้อมูลเปลี่ยนไม่สร้าง commit ซ้ำ
-3. STATUS ระบุ phase, สิ่งที่ทำจริง, สิ่งที่ยังไม่ได้ทำ, evidence, blocker/ผู้รับผิดชอบ, รอ Owner อะไร และ next action. DECISIONS แยก OWNER_DECISION, PROPOSED และ OBSERVED; ไม่ลบประวัติ ให้ระบุสิ่งที่ถูกแทนที่
-4. ถ้าแผน/กติกาเปลี่ยน อัปเดต PLAN/PREPROJECT/AGENTS/WORKFLOW ที่เกี่ยวข้องใน commit เดียวกัน. PR comment เป็นหลักฐานเสริม ไม่ใช่ที่เดียวที่เก็บสถานะล่าสุด
-5. push เฉพาะ branch review ที่ตรวจแล้ว และอ่านกลับจาก GitHub ที่ commit ใหม่พร้อมตรวจ PR head ก่อนรายงานว่า SYNCED; อัปเดต PR summary ถ้าข้อมูลเก่า. ไม่ merge/main push/ปิด Issue เพื่อให้การ sync ผ่าน
-6. หากแก้/push/read-back ไม่สำเร็จ ให้แจ้ง SYNC_PENDING พร้อมสิ่งที่ค้างจริง; ไม่อ้างว่า Claude มีข้อมูลล่าสุด. ก่อนลองใหม่ต้องตรวจสถานะ remote ไม่ทับงานใหม่
-7. ทุกครั้งที่ส่งงาน Claude ระบุ Issue/PR/branch/commit ให้ชัด และให้อ่าน PROJECT_CONTROL, AGENTS, PLAN, STATUS, DECISIONS และ PREPROJECT/WORKFLOW ส่วนที่เกี่ยวข้อง. ก่อนเริ่มต้องยืนยัน baseline/phase/blockers/next action; เมื่อจบรายงาน changed files/tests/evidence/blockers/next step
-8. Claude ไม่มี network/Bash ใน D0: PO อ่าน GitHub และเตรียม checkout ที่ตรง commit ให้ ไม่สั่งให้ Claude ใช้เครื่องมือที่ไม่มีสิทธิ์. การมีไฟล์ใน GitHubไม่ใช่หลักฐานว่า session เดิมของ Claude โหลดข้อมูลใหม่แล้ว ต้องอ่านใหม่เมื่อมอบหมายงาน
-9. ไม่คัดลอก full transcript, รูปลูกค้า/อุปกรณ์, raw video, password, token, OTP, IP จริง, SSID, serial, MAC address หรือพาธข้อมูลลับ. เก็บเฉพาะข้อสรุปและ readiness ที่จำเป็น
-10. Standing permission นี้คือการบันทึกเอกสารระหว่างที่ทำงานในบทสนทนา ไม่ต้องขออนุมัติ docs-only sync ซ้ำ. ไม่เปิด scheduler/worker ไม่ปลุก Claude เอง และไม่ขยายสิทธิ์อุปกรณ์/production/merge/deploy
-
-### สรุปส่งต่อที่ Claude ต้องรายงานก่อนลงมือ
-
-```text
-BASELINE: repo / branch / commit ที่ได้รับและอ่านจริง
-PHASE: เฟสและ action ที่อนุญาตในงานนี้
-CONFIRMED: ข้อมูลที่ยืนยันแล้ว ไม่ถาม Owner ซ้ำ
-BLOCKERS: สิ่งที่ติด พร้อม evidence และผู้รับผิดชอบ
-NEXT_ACTION: งานเล็กที่สุดที่ทำได้ภายใน scope
-NOT_AUTHORIZED: สิ่งที่จะไม่ทำในงานนี้
+```bash
+python3 tools/claude_dev.py \
+  --task .claude/tasks/task.txt \
+  --baseline "$(git rev-parse HEAD)" \
+  --write-path docs/STATUS.md
 ```
 
-หาก baseline หรือสิทธิ์ขัดกันให้หยุดเฉพาะจุดและแจ้ง PO ไม่ขยาย scope เอง. คำสั่ง sync เอกสารไม่ใช่คำสั่งให้ทดลองกล้องรอบใหม่
+- `--check` ตรวจ local อย่างเดียวและไม่เรียก Claude. เมื่อมีไฟล์ค้างจะบล็อก; PO ยอมรับเฉพาะรายการที่ตรวจแล้วด้วย `--allow-dirty docs/STATUS.md` เป็นต้น.
+- `--write-path` เป็นไฟล์ที่แก้ได้ในงานนี้; `--allow-dirty` รับทราบงานเดิม ไม่เพิ่มสิทธิ์แก้. ไม่ใช้ wildcard, absolute path, traversal หรือไฟล์ control/policy/local config/ตัวเรียกเอง.
+- ตัวเรียกตรวจ root/branch/baseline และถือ lock. ระหว่างรันไม่ switch/commit/push. เก็บ prompt/result เฉพาะ local ใน `.claude/tasks/` และ `.claude/results/` ที่ Git ไม่ติดตาม; ไม่คัดลอก raw output ขึ้น GitHub.
+- Claude มี restricted file tools และอนุญาต Bash เฉพาะ `python3 -m unittest discover -s tests -t . -v`. Policy `.claude/dev-policy.json` บังคับ sandbox, ไม่มี network หรือ unsandboxed fallback และบล็อก secrets/protected paths. ตัวเรียก resolve filesystem policy เทียบ root จริงและปิด background tasks ของ Claude ต่อ invocation. `--allowedTools` เป็นสิทธิ์เครื่องมือ ไม่ใช่ sandbox ของ test code.
+- Invocation ที่จบปกติและ scope ไม่เปลี่ยนหมายถึงส่งมอบ local สำเร็จ **ไม่ใช่ tests/acceptance ผ่าน**. PO ตรวจหลักฐานก่อนรับงาน; error/permission denial/timeout/ผลไม่ครบไม่ใช่ความสำเร็จ. รักษาไฟล์ที่ทำแล้วไว้เมื่อ failure.
+- ใช้ task ใหม่พร้อมเอกสาร/ผลรีวิวปัจจุบันต่อรอบ; `--no-session-persistence` ทำให้ไม่มี `--resume` ใน workflow นี้.
+- Sandbox ของ Codex อาจมองไม่เห็น login ของ Claude แม้ host ล็อกอินอยู่. PO ตรวจสถานะและใช้ช่องทางเรียกที่แพลตฟอร์มอนุญาต; ไม่เปิด Full access ทั่วเครื่องหรือเปลี่ยน auth เพื่อแก้อัตโนมัติ. ถ้าการเรียกถูก approval review บล็อก รายงานจุดที่ติดตามจริง.
+- การแก้ launcher/control/policy ใช้ใบงาน maintenance แยกที่ PO ตรวจและจัดสิทธิ์เฉพาะ ห้ามให้ launcher เพิ่มสิทธิ์ตัวเอง.
+
+## Local ก่อน · GitHub ตาม checkpoint
+
+อัปเดต STATUS/DECISIONS/แผนใน **local** เมื่อสาระงานเปลี่ยน. Local commit ทำได้เมื่อมีชุดการเปลี่ยนที่ coherent และตรวจแล้ว; ไม่สร้าง commit ทุกข้อความ.
+
+Push เฉพาะ branch งานเมื่อมีงานพร้อม review, ข้อสรุปหรือ blocker สำคัญที่ต้องให้ทีมอ่าน, จุดส่งต่อที่ต้องใช้ remote หรือ Owner สั่ง. จังหวะนี้แทนข้อกำหนด sync ทุกเทิร์นใน OD-11 (ดู OD-12).
+
+ก่อน publish PO ตรวจ branch, diff/staged paths, tests และข้อมูลลับ; stage เฉพาะรายการที่ตรวจ ไม่ใช้ `git add .`. Default launcher ไม่มี git-write/GitHub tools จึงให้ PO ทำ checkpoint. Claude ทำ local commit/push/PR ได้เฉพาะงาน publication ที่ PO จัดคำสั่ง/policy เฉพาะไว้หลังรีวิว; ไม่มีสิทธิ์ทั่วไปจากการเป็น Dev.
+
+- `LOCAL_ONLY`: มีความคืบหน้า local; ยังไม่ถึง checkpoint หรือยังไม่ push.
+- `SYNC_PENDING`: ต้อง publish แล้วแต่ push/read-back ไม่สำเร็จ; ระบุสิ่งที่ค้างจริง.
+- `SYNCED`: push และอ่าน GitHub กลับแล้ว branch/PR head ตรง commit ที่ส่ง. ไม่ใช้คำนี้แทนสถานะไฟล์ค้างใน local.
+
+อัปเดต PR description ตาม implementation ล่าสุดที่ checkpoint. ไม่ส่ง full transcript, credentials, private endpoints, raw video หรือพาธข้อมูลจริง. ห้าม main push, force-push, reset/rebase ทับงาน, merge/deploy และปิด Issue อัตโนมัติ.
+
+## ช่องทางทำงาน
+
+- **A — Codex → local Claude CLI:** ช่องทางหลัก ใช้ checkout/branch/config/lock ที่กล่าวมา.
+- **B — Owner → Claude Remote Control:** ทำบน checkout/branch เดียวกัน หลังส่งมอบ ownership ให้ชัด. เปิด session ในโฟลเดอร์หลักและอ่านสถานะใหม่; interactive session ไม่รับ lock/policy ของ launcher โดยอัตโนมัติ ต้องจัด ownership และสิทธิ์แยกให้ตรงงานก่อนเริ่ม. ไม่ใช้สองช่องทางเขียนพร้อมกัน.
+- **C — GitHub:** หลักฐานและคิวงาน. Issue ไม่ปลุก Claude เอง; ไม่มี worker/scheduler เปิดใช้งาน และ Mac ต้องพร้อมจึงรัน local ได้.
+
+สิทธิ์พัฒนา local นี้ไม่เปิดเกตกล้อง D1–D5, ไม่เพิ่มการติดตั้ง/production/merge/deploy. แผน batch acquisition และข้อจำกัดเดิมยังใช้อยู่.
+
+อ้างอิง CLI/permissions: [Claude headless](https://code.claude.com/docs/en/headless), [permissions](https://code.claude.com/docs/en/permissions), [sandbox](https://code.claude.com/docs/en/sandboxing), [Remote Control](https://code.claude.com/docs/en/remote-control).
