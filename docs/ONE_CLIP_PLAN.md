@@ -18,6 +18,8 @@ NEXT_ACTION: OD-30 ให้ทีมค้นหา capability ของ router
 
 ## 2. เส้นทางที่เสนอ
 
+OD-31 source audit: [LIBRARY_REUSE_PLAN](LIBRARY_REUSE_PLAN.md) ระบุ upstream `executeFunction` recovery ที่อาจเรียก `setCruise(False)` แม้เริ่มจาก getter. ก่อน live ต้องมี guard ที่ขอบเขต request (รวม nested requests/auth path) และ synthetic test ปฏิเสธ setter ก่อนส่ง. ห้ามรัน upstream whole-day example หรืออ้าง getter-only = read-only. Backend candidate ใช้ runtime เดิม; adapter ยังไม่ implement.
+
 Source update 2026-10-08: [TP-Link FAQ 4666](https://www.tp-link.com/us/support/faq/4666/) ระบุ C545D V1 บันทึก SD แบบสอง video tracks พร้อมกัน; VLC Track 1 = Fixed, Track 2 = PT และหน้า Playback filter เลือก lens ได้. นี่เป็น SOURCE_DOCUMENTED ไม่ใช่ผลตรวจไฟล์จริงหรือค่า channel ของ pytapo. เมื่อเกตวิดีโอผ่าน ให้ตรวจ ffprobe stream metadata/ภาพตรงต้นทางก่อนเลือก Fixed; ตรวจจำนวน tracks และ duration/timebase ของแต่ละ track. ต้องเก็บหลักฐานว่าเลือก Fixed จริง ไม่ hard-code downloader channel ID จากหมายเลข track ใน VLC และไม่รวม PT ในยอดนับ. หาก mapping ไม่ตรง/ไม่ชัด ให้หยุด.
 
 ใช้เส้นทาง private ที่ Owner อนุมัติแล้วก่อน ถ้ายังไม่มี ให้ทีมตรวจความสามารถของ ZTE F6107A/แพ็กเกจ AIS เดิมจากหลักฐานที่มีก่อน **ไม่สมมติว่า router รองรับ VPN**, ไม่เปิด 8800/443/RTSP ออก WAN/DMZ, ไม่ติดตั้ง/ตั้งค่าใดจนกว่ามี scope+rollback ที่ Owner อนุมัติ. ไม่ซื้อฮาร์ดแวร์เพิ่ม. การนำเข้าคลิปด้วยมือเป็น fallback เสริมที่ต้องระบุชัดเจนเท่านั้น ไม่ใช่ automatic acquisition PASS

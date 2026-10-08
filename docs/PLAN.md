@@ -74,6 +74,8 @@ Codex และ Claude ใช้ checkout/branch งานเดียวกั�
 
 ## งานถัดไป: หนึ่งคลิปจาก SD
 
+OD-31: [LIBRARY_REUSE_PLAN](LIBRARY_REUSE_PLAN.md) เป็นผล audit GitHub libraries และแบบนำ `pytapo==3.4.26` มาเป็น backend ของโปรแกรมเรา. เป็นข้อเสนอ adapter ยังไม่ implement; ต้องปิด upstream recovery setter, บังคับ quota ที่จุดรับ bytes และตรวจ Fixed mapping ก่อน live. Dependency นี้ติดตั้งตาม OD-24 แล้ว; ไม่ต้องเพิ่ม Hub/Home Assistant หรือเปลี่ยนเป้าหมาย SD เป็น Tapo Care. Library ไม่พิสูจน์ private route ข้ามเครือข่าย.
+
 ข้อมูลล่าสุด 2026-10-08 (OD-20–23): แอป 3.21.106 / Third-Party Compatibility On; ร้านไม่มี computer/NAS จึงไม่ใช้ shop host เป็น gateway. คลิปเป้าหมายใน UI วันที่ 2026-10-08 เริ่ม 09:51:53 ยาว 03:00; Owner เลือก **Fixed Lens เป็นมุมหลัก ไม่ใช้ PT Lens สำหรับการนับ** และเปิด playback ขณะอยู่ร้าน. ไม่ขอข้อมูลเหล่านี้ซ้ำ. ทีมตรวจทางเชื่อมของเราเตอร์เดิม/ผู้ผลิตก่อนเลือกวิธี; UI playback ไม่พิสูจน์ remote export API สำหรับ Mac และไม่เปิดเกต live. ยังต้องยืนยัน source metadata/timezone/channel mapping และเพดานทดลอง; หากไฟล์มี PT อย่างเดียว ห้ามใช้แทน Fixed.
 
 [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md) เป็นแบบ D1 offline preparation ที่ตรวจจาก candidate release และข้อจำกัดจริง. ทำ dependency audit/แบบ adapter ที่คุมขอบเขตก่อน; รับสถานะ route/app และคลิปเป้าหมายจาก Owner แล้ว PO จัด control เฉพาะการทดลองหนึ่งคลิป. แผนนี้ยังไม่มี downloader, credential input หรือ live PASS และไม่ติดตั้ง/เปลี่ยนเครือข่ายอัตโนมัติ.

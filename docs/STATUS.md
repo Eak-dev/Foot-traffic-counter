@@ -6,6 +6,8 @@
 
 ## สรุปปัจจุบัน
 
+- **OD-31 / library reuse research:** PO audit source 17 ไฟล์จาก 4 GitHub candidates ที่ pin full commits; เสนอ pytapo 3.4.26 เป็น backend ตาม LIBRARY_REUSE_PLAN. Runtime มีอยู่แล้ว; ยังไม่สร้าง adapter/ลงแพ็กเกจใหม่/เรียก library จริง. Rust/Python tapo download ที่ตรวจใช้ Hub; tapo-cli ใช้ Tapo Care ไม่ใช่ SD. พบ pytapo read-error recovery อาจเรียก setCruise(False); เพิ่ม gate ของ command boundary ก่อน device trial. Route/compatibility ยัง NOT_TESTED, camera requests 0.
+
 - **OD-30 / source research:** Owner ให้ทีมค้นคำตอบเอง; ยกเลิกงานรอ Owner ถาม AIS/TP-Link. PO ตรวจ exact model/firmware/router terms และ primary sources แล้ว; F6107A VPN server กับ C545D automated remote SD บน Mac ยัง UNVERIFIED. พบ FAQ 4666 ของ C545D V1 ยืนยัน SD dual tracks: VLC Track 1 Fixed / Track 2 PT; เพิ่มแบบตรวจ tracks ใน ONE_CLIP_PLAN. เป็น SOURCE_DOCUMENTED เท่านั้น ไม่ใช่ adapter/device PASS. เอกสาร LOCAL_ONLY ก่อน checkpoint; live requests 0.
 
 - **OD-29:** Owner ให้ทีมทำงานต่อเนื่องและลดข้อความระหว่างงาน. PO ตรวจเอกสารผู้ผลิตซ้ำ: remote SD rollout อ่านได้แล้ว แต่ยังไม่ยืนยัน C545D/Mac API; คู่มือ AIS ยังไม่มี VPN server evidence. งาน offline/config พร้อมตาม OD-28; live acquisition ยังติด B3/B4. ชุดเอกสาร OD-26–29 เตรียม checkpoint PR #4; ผลส่งจริงใช้ delivery record หลัง push/read-back.
@@ -76,6 +78,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: PO/Dev รับผิดชอบ route/interface research ตาม OD-30; ไม่รอ Owner ถาม AIS/TP-Link. ผลละเอียดใน ROUTE_DECISION §6 และแบบตรวจ dual tracks ใน ONE_CLIP_PLAN; ยังไม่มี evidenced home route จึงไม่ probe IP ที่อาจเป็นอุปกรณ์บ้าน. หากต้องเลือก local/manual trial ให้ทีมเสนอ scope แยก. Clip/Fixed Lens ยืนยันแล้ว; ยังขาด implementation/route/auth/metadata/quota. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · OD-31 · ค้น GitHub libraries ตาม Owner; pin metadata/head/tree และอ่าน public source แบบ static. เลือก pytapo backend candidate ที่มี runtime เดิม พร้อมแบบ bounded listing/transfer/Fixed/dedup และ request guard ที่ต้องหยุด recovery setter. Candidate อื่นไม่ตรง standalone SD หรือมี license readiness ไม่ครบ. PO unittest 176/176 PASS, exit 0 (13.432s), diff check PASS. ไม่มี import/execute upstream/scan LAN/auth/video/new install; NOT_RUN_BY_DEVELOPER รอบนี้. เตรียม documentation checkpoint; ผลส่งจริงใช้ delivery record หลัง push/read-back.
 
 - 2026-10-08 · OD-30 · เปลี่ยน research ownership เป็นทีมและยกเลิก Owner capability enquiry task. PO ค้น AIS/ZTE/TP-Link/maintainer/ONVIF เอง พบ C545D V1 FAQ 4666 ระบุ dual synchronous SD tracks และ lens filter; ปรับแผนยืนยัน Fixed track โดยไม่เดา adapter channel. F6107A VPN และ C545D Mac cloud export ยังไม่ยืนยัน; ไม่ประกาศ unsupported. PO unittest 176/176 PASS, exit 0 (13.718s), diff check PASS. Docs-only; ไม่มี Claude invocation (NOT_RUN_BY_DEVELOPER), กล้อง/auth/video/network settings 0.
 
