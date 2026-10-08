@@ -14,7 +14,7 @@
 
 ## เป้าหมาย
 
-1. **FT-D0 (ตอนนี้)**: เตรียมงานให้พร้อม — เอกสาร, เครื่องมืออ่านไฟล์ในเครื่อง (`tools/ft_data.py`), การทดสอบ
+1. **FT-D0 baseline เสร็จแล้ว / เตรียม D1 local ตอนนี้**: เอกสาร, เครื่องมืออ่านไฟล์ (`tools/ft_data.py`), ช่องกรอก IP ในเครื่องและตรวจ offline (`tools/ft_connect.py` ตาม OD-25), synthetic tests
 2. **D1–D3**: ออกแบบและพิสูจน์เส้นทางเข้าถึงกล้องอย่างปลอดภัย แล้วดึงคลิปทีละชุดแบบทำซ้ำได้ ตามเกตใน PREPROJECT_PLAN
    การตั้งค่าเส้นทางจริงทำเป็นขั้นแยกที่ Owner อนุญาตเป็นรายครั้ง โดยระบุเป้าหมาย สภาพแวดล้อม และแผนย้อนกลับ
 3. **D4**: นับคนเดินผ่านจากคลิปที่ดึงแล้ว พร้อมตัวกรองตามช่วงเวลา (ต้องมีข้อเสนอและการอนุมัติแยก)
@@ -45,7 +45,7 @@
 ## ขอบเขต FT-D0
 
 - ไม่มีการเข้าถึงกล้อง เครือข่ายร้าน หรือวิดีโอจริง
-- ไม่มีการซื้อ ติดตั้ง หรือเปลี่ยนการตั้งค่า router, กล้อง, VPN, OS หรือความปลอดภัยของเครื่อง
+- OD-24 อนุญาต PO ติดตั้งโปรแกรม acquisition ฟรีใน runtime แยกแล้ว; OD-25 อนุญาต maintenance/control และ private IP-input/offline check. ไม่มีการซื้อหรือเปลี่ยนการตั้งค่า router, กล้อง, VPN, OS หรือความปลอดภัยของเครื่อง
 - ไม่มี schedule, service, GitHub Actions หรือ worker เบื้องหลัง
 
 ## เกณฑ์เสร็จของ FT-D0
@@ -59,7 +59,7 @@
 รายละเอียด: [Owner Execution Roadmap](PREPROJECT_PLAN.md#12-owner-execution-roadmap) และ [Owner Checklist](PREPROJECT_PLAN.md#13-owner-checklist).
 ลำดับ: D0 เตรียม/Owner review → D1 วิธีรับข้อมูลและสิทธิ์ → D2 หนึ่งคลิป → D3 คลิปรายวัน → D4 นับ/กรอง → D5 งานตามเวลาและ pilot.
 อุปกรณ์ยืนยันแล้ว: Tapo C545D Hardware 1.0 / Firmware 1.1.7 (ภาพ Owner 2026-10-07); ZTE F6107A HW V9.0.09/FW F6107A_PON_4.1; AIS Fibre 1000/200. รอเฉพาะ readiness ของ endpoint/บัญชี, สถานะเมนูที่เกี่ยวข้อง และเวลาหนึ่งคลิป. ไม่ขอรูปเราเตอร์หรือทดลอง 4G/5G เพิ่มเป็นเงื่อนไขแรก; ทีมรับผิดชอบทางเชื่อม/private input/downloader.
-ยังไม่ต้องซื้อซอฟต์แวร์หรือติดตั้งระบบทีม AI เพิ่ม. ตัว downloader ที่วางไว้เป็นสเปกอนาคต; CLI ที่มีอยู่จริงยังมีเฉพาะ doctor/inventory.
+ยังไม่ต้องซื้อซอฟต์แวร์หรือติดตั้งระบบทีม AI เพิ่ม. Python/pytapo/ffmpeg prerequisites ใน runtime แยกติดตั้งแล้วตาม OD-24; ยังไม่มี downloader. OD-25 เพิ่มงาน private IP-input/offline check ซึ่งไม่พิสูจน์ route/auth/SD.
 การเขียน Roadmap นี้ไม่เปิดสิทธิ์ D1–D5 และไม่อนุมัติ merge/deploy โดยอัตโนมัติ.
 
 ## การตัดสินใจและสถานะต่อเนื่อง
@@ -77,3 +77,7 @@ Codex และ Claude ใช้ checkout/branch งานเดียวกั�
 [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md) เป็นแบบ D1 offline preparation ที่ตรวจจาก candidate release และข้อจำกัดจริง. ทำ dependency audit/แบบ adapter ที่คุมขอบเขตก่อน; รับสถานะ route/app และคลิปเป้าหมายจาก Owner แล้ว PO จัด control เฉพาะการทดลองหนึ่งคลิป. แผนนี้ยังไม่มี downloader, credential input หรือ live PASS และไม่ติดตั้ง/เปลี่ยนเครือข่ายอัตโนมัติ.
 
 [ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md) เป็นผลตรวจเส้นทางล่าสุด: ไม่มี shop host; `pytapo` ต้องมีทางเข้าถึงกล้องจริง. คู่มือ AIS ที่พบยังไม่ยืนยัน VPN server และหลักฐาน remote SD ในแอปไม่ยืนยัน API สำหรับ Mac. ชะลอ home downloader จนมี route/interface evidence; เตรียมข้อความถาม capability และทาง local/manual trial แยกให้ Owner เลือก ไม่อ้างว่าเป็นไปไม่ได้หรือเปลี่ยนเป้าหมายโดยอัตโนมัติ.
+
+## OD-25 — private input และ offline check
+
+Owner อนุมัติ maintenance แยกแล้ว 2026-10-08. Claude ทำ `tools/ft_connect.py`, synthetic `tests/test_ft_connect.py` และ `docs/MAC_CONNECTION_GUIDE.md` ผ่าน launcher เดิม. รับ literal RFC1918 IPv4 ผ่าน masked interactive input เท่านั้น ไม่รับรหัสผ่านหรือ IP ใน command arguments. เก็บเฉพาะ ignored `config.local.connection.json` mode 0600 แบบไม่เขียนทับ ไม่ตาม symlink. Offline check ตรวจ schema/สิทธิ์ไฟล์และแสดงสถานะที่ไม่เผย IP/path; valid config ไม่ใช่ connection PASS. ไม่มี DNS/socket/route inspection/import pytapo/auth/SD/video. Live ยังต้องมี exact endpoint/private route และใบงานจำกัดเป้าหมายก่อน. ผู้ใช้ไม่ต้องส่ง IP หรือ credentials ในแชต/GitHub.

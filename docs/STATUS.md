@@ -1,16 +1,19 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-20–23 และ route feasibility พร้อม checkpoint PR #4; ก่อน push/read-back เป็น LOCAL_ONLY · Issue #1 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-24/25 private IP-input/offline check พร้อม checkpoint PR #4; ก่อน push/read-back เป็น LOCAL_ONLY · Issue #1 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
 
+- **OD-24 local runtime (2026-10-08):** Owner authorized Mac software installation/home trials. PO installed isolated Python 3.13.16, pytapo 3.4.26, aiofiles 25.1.0 and 24 pinned wheel dependencies; dependency metadata check PASS. ffmpeg/ffprobe 9.0.2 version checks PASS. All installation files/lock/provenance remain ignored under .venv/; global Python/PATH unchanged. Camera compatibility, route/auth/SD/Fixed mapping NOT_TESTED; camera/auth requests 0, clips 0. PO baseline unittest: 113/113 PASS (13.308s); no developer involved in the earlier OD-24 installation.
+- **OD-25 เสร็จใน local:** Owner อนุมัติ maintenance แยกแล้ว; PO ปรับ control/แผน และตรวจรับ `tools/ft_connect.py` กับ [คู่มือ Mac](MAC_CONNECTION_GUIDE.md). `configure` กรอก IPv4 แบบซ่อนสองครั้งและบันทึกเฉพาะ ignored config mode 0600 ไม่เขียนทับ; `check` ตรวจ offline และคืน BLOCKED เสมอจนมี route evidence. ไม่มี launcher/policy change หรือ live connection. PO ทดสอบอิสระ **176/176 PASS**, exit 0 (14.126s); ก่อน push/read-back เป็น LOCAL_ONLY.
+
 - **เฟส:** เตรียม D1 แบบ offline แล้วใน [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md); D0 ผ่าน review และ merge ตามคำสั่ง Owner แล้ว; PR #2 MERGED, เวอร์ชันแรก `v0.1.0` ที่ `b05b8fb6821fdaf645db2217ed9ea8c45ba21363`. ยังไม่ผ่านเกตอุปกรณ์ D1–D5. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
 - **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
-- **โค้ดที่มีจริง:** `doctor`, local `inventory` และตัวเรียก local Claude `tools/claude_dev.py` ที่ตรวจรับแล้ว; **ยังไม่มี downloader**
+- **โค้ดที่มีจริง:** `doctor`, local `inventory`, ตัวเรียก `tools/claude_dev.py` และ private IPv4-input/offline check `tools/ft_connect.py` ที่ตรวจรับแล้ว; **ยังไม่มี downloader**
 - **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
-- **Claude ล่าสุด:** เขียน ACQUISITION_ROUTE_DECISION จาก curated PO evidence ผ่าน launcher, COMPLETED_LOCAL/exit 0/no permission denial; แก้ doc นี้ไฟล์เดียวและรักษาอีก 6 docs ที่ PO รับทราบไว้. Claude รายงาน baseline unittest 113/113 PASS (DEVELOPER_REPORTED); PO ตรวจอิสระก่อน checkpoint. PO แก้ claim ว่า Dev รัน git ซึ่งไม่มี stdout รองรับ ให้ใช้ผล launcher แทน. ยังไม่มี downloader/secure-input tool; ONE_CLIP_PLAN และ workflow tests เป็นงานก่อนหน้า ไม่ใช่ผลกล้อง
+- **Claude ล่าสุด:** initial OD-25 implementation ผ่าน launcher COMPLETED_LOCAL/exit 0; รายงาน 162/162 tests (DEVELOPER_REPORTED). PO ส่งแก้ตามรีวิว; invocation รอบแก้ TIMEOUT 360.4s จึงไม่รับเป็น PASS และผลทดสอบรอบนั้น NOT_VERIFIED_BY_DEVELOPER. PO audit ไม่พบ stateless Claude child/pending unittest ก่อนปล่อย retained empty lock แล้วแก้จุดเล็กที่ค้างและรันอิสระ 176/176 PASS. Final files ผ่าน PO review; ไม่ใช่ผลกล้อง.
 - **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
 - **Owner instruction:** พัฒนาและอัปเดตสถานะใน local เป็นหลัก; push เมื่อ reviewable/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner สั่ง. ไม่ sync ทุกข้อความ (supersedes OD-11 cadence); ไม่เผยแพร่ raw transcripts/ข้อมูลลับ
 
@@ -28,14 +31,14 @@
 | คลิปเป้าหมายใน SD / มุมหลัก | 2026-10-08 เริ่ม 09:51:53; 03:00; ใช้ Fixed Lens ไม่ใช้ PT Lens; Owner ดูภาพขณะอยู่ร้าน | OD-22/23; เวลา UI ยังไม่ใช่ metadata/timezone PASS และไม่พิสูจน์ทางเข้าจากบ้าน |
 | ต้นฉบับ | microSD; กล้องบันทึกเฉพาะมีคนเดินผ่าน มีช่วงว่างตามเงื่อนไขนี้; รวมยอดคลิปเป็นยอดทั้งวันได้; มือถือที่ร้านดาวน์โหลดได้ | Owner ยืนยัน 2026-10-07; OD-15 |
 | Mac/Claude | D0 ตรวจ macOS 14.8.9 x86_64 / Python 3.9.6; `claude-sonnet-5` รันจริงได้ | FT_D0_EVIDENCE / comment 6014447731 |
-| Mac runtime / พื้นที่ / power / VPN | ตรวจ 2026-10-08: พื้นที่ 18.46 GiB; Python 3.9.6 และ bundled 3.12.14; ffmpeg/ffprobe/แพ็กเกจ candidate ไม่พบในขอบเขตที่ตรวจ; ไม่พบ native VPN profile. Idle sleep (AC) 1 นาที มี wake assertions ปัจจุบัน | [MAC_READINESS](MAC_READINESS.md); ยังไม่รับรอง route ร้าน/overnight/downloader compatibility |
+| Mac runtime / VPN | isolated Python/pytapo/ffmpeg prerequisites ติดตั้งแล้ว OD-24; IP input ทำแล้ว OD-25. ข้อมูลพื้นที่/power/native profile ใน MAC_READINESS เป็น snapshot ก่อนติดตั้ง ไม่ใช่ค่าปัจจุบันหรือ route PASS | [MAC_READINESS](MAC_READINESS.md); route ร้าน/overnight/device compatibility ยังไม่รับรอง |
 
 ## อุปสรรคและผู้รับผิดชอบ
 
 | ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
 | --- | --- | --- |
 | B1 | Downloader ยังไม่เขียน; HOLD_FOR_ROUTE_EVIDENCE | pytapo 3.4.26 เป็น candidate; แบบ quota/dependencies/Fixed mapping ต้องทำหลัง route/interface evidence หรือ Owner เลือก local trial แยก ไม่สร้าง home downloader โดยเดา |
-| B2 | ไม่พบ endpoint/บัญชีในไฟล์โปรเจกต์ที่ตรวจ ไม่ใช่ค้นทั้ง Mac | ทีมจัด private local input; Owner กรอกเฉพาะในเครื่อง ไม่ส่ง secret ในแชต/GitHub |
+| B2 | Offline check จริง: endpoint missing; ยังไม่รับบัญชี/รหัสผ่าน | private IPv4 input ทำแล้วตาม OD-25; Owner กรอกใน Mac ตาม MAC_CONNECTION_GUIDE เท่านั้น ไม่ส่งค่าในแชต/GitHub. Valid config ยังไม่ใช่ camera PASS |
 | B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; ร้านไม่มี computer/NAS สำหรับ gateway | ROUTE_DECISION: คู่มือ AIS ที่พบมี LAN/DDNS/port forwarding ไม่ใช่หลักฐาน VPN server; source downloader เป็น direct socket. รับคำตอบ capability ตามข้อความที่เตรียมให้ Owner หรือเลือก local/manual trial แยก; ไม่อ้างว่า router ไม่รองรับ/ไม่มี API โดยเด็ดขาด |
 | B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Camera Account On, Third-Party Compatibility On และแอป 3.21.106 ยืนยันแล้ว; เหลือ readiness ของบัญชีตาม adapter ไม่ขอข้อมูลยืนยันแล้วซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
@@ -59,12 +62,14 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 ## Local handoff ปัจจุบัน
 
 - Branch: `claude/ft-d0-preflight` เดิม; baseline เวอร์ชันแรก `b05b8fb6821fdaf645db2217ed9ea8c45ba21363` (`v0.1.0`). PO นำผล merge มาใน local ด้วย fast-forward เท่านั้น; config/root เดิม.
-- Writer: NONE หลังส่งมอบ; Codex เป็นผู้จัด checkpoint และส่งงานถัดไป. ไม่มี delegated process ถือ tree
+- Writer: PO หลัง audit/รับงานกลับจาก Claude; ไม่มี delegated child ถือ tree. Full pre-checkpoint baseline: `026c8763130dcdf16484edd21b4f8df53e0f5475`. Dirty files เป็นชุด OD-24/25 ที่ตรวจแล้ว; B1–B5 ยังขาด downloader/route/auth/metadata/quota ไม่ใช่ขาดสิทธิ์ maintenance.
 - Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว; PR #4 OPEN ใช้ branch เดิมสำหรับ D1 preparation. ชุด OD-20–23/ROUTE_DECISION พร้อม checkpoint ที่ตรวจแล้ว. ก่อน push/read-back เป็น LOCAL_ONLY; ผลส่งจริง/HEAD เก็บใน ignored `.claude/delivery.local.json`. ไม่แก้ main ตรง ไม่ merge รอบนี้.
-- Final validation: PO รัน **113/113 unittest PASS**, exit 0 (52 เดิม + 61 launcher/regression); Claude read/test-only ผ่าน launcher รายงาน 113/113 PASS, exit 0. ตรวจ diff/เอกสาร/ขอบเขตก่อน checkpoint; หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้
+- Final validation: PO รัน **176/176 unittest PASS**, exit 0 (113 baseline + 63 private-input tests). `check` จริงคืน endpoint missing / BLOCKED, exit 2 ตามที่ออกแบบ; requests 0. ตรวจ diff/ขอบเขต/ข้อมูลลับและ ignore pattern ก่อน checkpoint. หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้.
 - Next action: Owner ใช้คำถาม capability ใน ROUTE_DECISION สอบถาม AIS/TP-Link หรือเลือก local/manual trial แยก; PO ประเมินหลักฐานแล้วจัด scope ต่อ. Clip/Fixed Lens ยืนยันแล้ว; B1–B5 เหลือ implementation/route/auth/metadata/quota ไม่ขอข้อมูลเดิมซ้ำ. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · OD-24/25 · isolated prerequisites ติดตั้งแล้ว; Owner อนุมัติ maintenance แยกจึงแก้ control/แผนและมอบ Claude ทำ private-input/offline tool. PO review ส่งแก้, รอบแก้ timeout ไม่ประกาศ PASS; audit child/test processes แล้วคืน ownership ตาม WORKFLOW. PO ปิดข้อผิดพลาดรายงาน/descriptor cleanup/interrupt และตรวจอิสระ 176/176 PASS. `.ft_connect-*.tmp` และ local config ถูก ignore; ไม่มี secret/IP จริง/วิดีโอในชุด publish. Camera/auth/clips 0/0/0. Live route/SD/Fixed mapping ยัง NOT_TESTED; พร้อม checkpoint PR #4 ตาม branch เดิม ไม่ merge.
 
 - 2026-10-08 · PO validation route checkpoint · รัน unittest อิสระ 113/113 PASS, exit 0; code/tests ไม่เปลี่ยน. ตรวจเฉพาะ diff เอกสารและข้ออ้าง source/Owner; แก้การจัด OD-21–23 ให้เป็น confirmed evidence แยกจากข้อเสนอ และแก้ candidate/baseline ที่ล้าสมัย. ชุด 7 docs พร้อม checkpoint PR #4; ไม่เก็บภาพ/พาธเครื่อง/credentials/raw transcripts และไม่มี vendor contact/device test.
 

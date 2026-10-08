@@ -1,8 +1,8 @@
 # แผนทดลองดึงคลิป SD หนึ่งคลิป (D1 preparation)
 
 BASELINE ตอนเริ่มเขียนแผน 2026-10-07: `0eeeb12296551cb6e887245f60a610a83fdb9765`; อยู่ใน checkpoint PR #4 แล้ว. สถานะงานปัจจุบันดู STATUS/local HEAD
-PHASE: FT-D0 merged เป็น `v0.1.0`; เอกสารนี้เตรียม D1 เท่านั้น — ยังไม่เปิดเกตกล้อง/เครือข่าย/ติดตั้ง
-BLOCKERS: B1 downloader ยังไม่เขียน · B2 ยังไม่มี private input ใน Mac · B3 เส้นทางบ้าน→ร้าน NOT_TESTED (ไม่มี shop computer/NAS, OD-21) · B4 auth/adapter/Fixed Lens channel mapping UNKNOWN · B5 คลิป/มุมหลักยืนยันแล้ว OD-22/23; metadata/timezone/เพดานยังไม่ยืนยัน
+PHASE: FT-D0 merged เป็น `v0.1.0`; เตรียม D1 local ตาม OD-24/25 — isolated prerequisites ติดตั้งและ private IPv4-input/offline check ตรวจรับแล้ว; งานนี้ยังไม่เปิดเกตกล้อง/เครือข่าย
+BLOCKERS: B1 downloader ยังไม่เขียน · B2 private IPv4 input ทำแล้ว แต่ endpoint ยัง missing/บัญชียังไม่รับ · B3 เส้นทางบ้าน→ร้าน NOT_TESTED (ไม่มี shop computer/NAS, OD-21) · B4 auth/adapter/Fixed Lens channel mapping UNKNOWN · B5 คลิป/มุมหลักยืนยันแล้ว OD-22/23; metadata/timezone/เพดานยังไม่ยืนยัน
 NEXT_ACTION: ดู [ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md): รับหลักฐาน capability ของ router/interface จากผู้ผลิตหรือให้ Owner เลือก local/manual trial แยก; ยังไม่เขียน home downloader โดยเดา route. PO ตรวจ Mac แล้วตาม MAC_READINESS; scope live ยังไม่เปิด
 
 ## 1. ข้อค้นพบจากหลักฐาน PO (2026-10-07, ไม่สมมติ live)

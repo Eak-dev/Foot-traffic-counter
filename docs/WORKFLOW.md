@@ -12,6 +12,8 @@ Owner decision 2026-10-07: ใช้ **local folder เดียวและ bra
 
 ## หน้าที่และการถือสิทธิ์แก้ไฟล์
 
+OD-25 Owner อนุมัติ maintenance/control แยกและ private IP-input/offline check แล้ว. PO เตรียม scope ใน PROJECT_CONTROL; Claude รับเฉพาะ `tools/ft_connect.py`, `tests/test_ft_connect.py`, `docs/MAC_CONNECTION_GUIDE.md` ตามใบงาน. ไม่แก้ launcher/policy ไม่ให้ Dev อ่าน local IP/config/runtime หรือเชื่อมกล้อง; tests ใช้ temporary synthetic config เท่านั้น. สิทธิ์ติดตั้ง OD-24 เป็นของ PO และเสร็จใน ignored runtime แล้ว ไม่ขยายสิทธิ์ shell/เครือข่ายของ Dev.
+
 | ผู้ทำ | หน้าที่ |
 | --- | --- |
 | Codex / PO | แตกงาน, เตรียม control/ใบงาน, ตรวจ baseline และงานค้าง, เรียก Claude, รีวิวอิสระ, จัด checkpoint และสรุปให้ Owner |

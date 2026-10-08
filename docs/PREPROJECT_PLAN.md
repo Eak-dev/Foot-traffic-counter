@@ -8,6 +8,8 @@
 
 ## 1. ข้อตัดสินใจ
 
+**ปัจจุบัน OD-24/25 (2026-10-08):** Owner อนุญาตติดตั้ง acquisition prerequisites แบบแยกบน Mac และอนุมัติ maintenance/control พร้อม private IPv4-input/offline check แล้ว. คำห้ามติดตั้งเดิมด้านล่างเป็น baseline ก่อนข้อยกเว้นนี้; คำสั่งใหม่ไม่เปิด DNS/socket/auth/SD/video ในงานนี้. Exact endpoint/private route ยังขาด; เกต quota/timezone/Fixed mapping ยังไม่ผ่าน. ใช้ PROJECT_CONTROL เป็น scope ปัจจุบัน.
+
 1. **ทำ acquisition ก่อน ไม่ทำการนับคนแบบเรียลไทม์** เป้าหมายตอนนี้คือรู้ว่าดึงคลิปจากการ์ด SD ของกล้องได้อย่างไร อย่างปลอดภัย และตรวจซ้ำได้
 2. **ยังไม่มีการเข้าถึงกล้องหรือเครือข่ายร้าน** FT-D0 ทำได้เฉพาะเอกสาร เครื่องมือ CLI แบบอ่านไฟล์ในเครื่อง และการทดสอบ
 3. **ไม่มีฮาร์ดแวร์ใหม่** เป็นข้อจำกัดแน่นอนของ Owner ไม่ใช่ตัวเลือกที่แผนนี้จะเสนอให้ซื้อ และ **ไม่มีการซื้อซอฟต์แวร์** จนกว่า Owner จะอนุมัติข้อเสนอที่ระบุชัด
@@ -61,7 +63,7 @@
 | นโยบายเก็บรักษาและสำรองพื้นที่ | UNKNOWN | เป็นการตัดสินใจของ Owner |
 | ช่วงเวลาดึงข้อมูลที่ต้องการ | UNKNOWN | เป็นการตัดสินใจของ Owner ตอน D5 |
 | ปลายทางชั่วคราวของวิดีโอ | UNKNOWN | ต้องอยู่นอก git และมีโควตา |
-| ความเข้ากันได้ของ `pytapo` กับ C545D และ release ที่จะ pin | UNKNOWN | candidate เท่านั้น (ดู §2) ต้องเลือก release, ตรวจ, และติดตั้งใน runtime แยกก่อน |
+| ความเข้ากันได้ของ `pytapo` กับ C545D | UNKNOWN | release 3.4.26 pin/ตรวจ static/ติดตั้ง runtime แยกแล้ว OD-24; ยังไม่เชื่อมกล้อง |
 | การเปิดเครื่องทั้งคืน (active wake assertions) | UNKNOWN | ยังไม่ได้ตรวจ ความน่าเชื่อถือข้ามคืนจึงยังไม่รู้ ห้ามเปลี่ยนการตั้งค่าพลังงาน |
 
 ## 4. ตารางความพร้อม
@@ -89,7 +91,7 @@
 | Camera Hardware/Firmware | CONFIRMED | ภาพ Owner: C545D / HW 1.0 / FW 1.1.7 | ไม่ขอซ้ำ; ทีมใช้เลือก adapter และตรวจ compatibility | PO + Claude | — (ข้อมูลรุ่น ไม่ใช่ SD export PASS) |
 | อินเทอร์เฟซอ่านอย่างเดียวของกล้อง | UNKNOWN | ยังไม่มีการตรวจ | ยืนยันด้วยเอกสารทางการ/หน้าเครื่อง ไม่ใช่ฟังก์ชันที่คิดเอง | Dev + Owner | D1 |
 | ประเภทข้อมูลลับสำหรับดึง SD | UNKNOWN | ขึ้นกับ adapter | เลือก adapter ก่อนแล้วกำหนดประเภทใน D1 (เก็บในเครื่องเท่านั้น ไม่ส่งในแชต) | PO | D1 |
-| candidate downloader (`pytapo`) | UNKNOWN | [PO-checked] ดู §2 ยังไม่ pin release | เลือก release, ตรวจ, ติดตั้งใน runtime แยก; ไม่รัน integration test ของ upstream | Dev/PO + Owner | D1/D2 |
+| candidate downloader (`pytapo`) | UNKNOWN | [PO-checked] 3.4.26 pin/static audit และ isolated installation แล้ว OD-24 | ยังต้อง route/auth/SD/Fixed compatibility; ไม่รัน integration test ของ upstream | Dev/PO + Owner | D1/D2 |
 | การดาวน์โหลดอัตโนมัติจาก Mac บ้าน | UNKNOWN | มีแค่การดาวน์โหลดด้วยมือจากโทรศัพท์ | พิสูจน์ใน D2 เท่านั้น | Dev/PO | D2 |
 | การแสดงรายการคลิปและความครบ | UNKNOWN | ยังไม่ทดสอบ | ทดสอบช่วงสั้นใน D2 | Dev | D2 |
 | เขตเวลาของ timestamp | UNKNOWN | ยังไม่มีแหล่งที่ยืนยัน | ยืนยันจาก metadata ต้นทางและความหมายของเขตเวลา | Dev | D2 |
@@ -247,5 +249,5 @@ PR #2 merged เป็น v0.1.0 แล้ว; merge แยกจากสิท
 | Playback & Download / SD | 2026-10-08 เริ่ม 09:51:53 / 03:00; Fixed + PT ตามภาพ Owner (OD-22) | UI_TARGET_CONFIRMED; metadata/timezone/channel mapping ยังไม่ยืนยัน |
 
 คำแนะนำสรุปจาก brief และ Claude advisory ที่ได้รับจริง ไม่ได้ยืนยันว่าทุกเมนูมีบน firmware เครื่องนี้; ตรวจคู่มือ/release ก่อนใช้
-แหล่งที่ใช้อ้างใน advisory: TP-Link FAQ 2790 (Camera Account), 4416 (Third-Party Compatibility), 2617 (SD Recording), README ของ JurajNyiri/pytapo. ปัจจุบันเลือก candidate 3.4.26 และตรวจ wheel แบบ static แล้วใน ONE_CLIP_PLAN; ยังไม่ติดตั้ง/ทดสอบกับ C545D จริง
+แหล่งที่ใช้อ้างใน advisory: TP-Link FAQ 2790 (Camera Account), 4416 (Third-Party Compatibility), 2617 (SD Recording), README ของ JurajNyiri/pytapo. candidate 3.4.26 ตรวจ static/ติดตั้ง runtime แยกแล้ว OD-24 และทำ private IPv4-input/offline check แล้ว OD-25; ยังไม่ทดสอบกับ C545D จริง
 ไม่มีการส่งรหัส token OTP IP รูปที่มีข้อมูลลับ หรือวิดีโอเข้า repo. การมอบหมายให้ Claude ต้องอ้าง STATUS/DECISIONS ล่าสุดตาม WORKFLOW

@@ -34,6 +34,11 @@ OD-05/08 เก็บข้อสรุปเดิมเป็นประว�
 
 ## Owner evidence — 2026-10-08
 
+- **OD-24 - OWNER_INSTRUCTION 2026-10-08:** Owner authorized Mac software installation/home trials and requested IP/third-party guidance. PO installed isolated acquisition prerequisites; metadata/version checks PASS, device route/auth/SD NOT_TESTED. Automatic review initially blocked control maintenance; OD-25 explicitly resolves that approval blocker. No router/camera/OS-security changes, purchases, merge or scheduler. Detailed runtime evidence stays ignored/local.
+
+
+- **OD-25 — OWNER_APPROVED MAINTENANCE:** Owner ตอบ “ได้” ต่อ scope ที่ PO เตรียม: ปรับ PROJECT_CONTROL/เอกสารเพื่อบันทึก OD-24 และให้ Claude ทำช่องกรอก IP เฉพาะในเครื่องพร้อม offline check. ยกเลิกสถานะ maintenance approval pending ของ OD-24; ไม่เปลี่ยน launcher/policyหรือให้ Claude ติดตั้ง/เชื่อมกล้อง. สิทธิ์กรอก IP ไม่ใช่ live PASS. Private route/endpoint ยังขาด และไม่มี camera/auth/SD request ในงานนี้.
+
 - **OD-20 — OWNER_IMAGE:** Tapo Version **3.21.106**, Third-Party Compatibility **On**, Privacy Mode **Off**; Firmware **1.1.7** ตรงข้อมูลเดิม. Supersedes Third-Party Compatibility UNKNOWN ของ OD-18 สำหรับสถานะปัจจุบัน; ไม่ขอข้อมูลนี้ซ้ำ. ยืนยันค่าหน้าจอเท่านั้น ไม่ใช่ auth/route/SD export PASS. ไม่เปลี่ยนค่า ไม่เก็บภาพ/ชื่อกล้อง/SSID/พาธแนบใน git.
 
 - **OD-23 — OWNER_DECISION / OWNER_CONFIRMED 2026-10-08:** ใช้ **Fixed Lens เป็นมุมหลักสำหรับการนับ ไม่ใช้ PT Lens**; Owner อยู่ที่ร้านเมื่อเปิด playback ในภาพ OD-22. Supersedes มุมหลักที่เป็นข้อเสนอและตำแหน่งโทรศัพท์ UNKNOWN ใน OD-22 สำหรับสถานะปัจจุบัน. ไม่ขอซ้ำ. ภาพเป็นหลักฐาน playback ขณะอยู่ร้าน ไม่ใช่ remote access/export จากบ้าน; ยังไม่ยืนยันว่าโทรศัพท์ใช้ Wi-Fi ร้านหรือ mobile data. Adapter ต้องพิสูจน์ว่าไฟล์มีมุม Fixed ที่ตรงต้นทาง; หากได้ PT อย่างเดียวให้หยุด ไม่ใช้แทนหรือรวมยอดสองเลนส์. ไม่เปลี่ยนมุม/ตั้งค่ากล้องหรือเปิดเกต live.
@@ -43,8 +48,9 @@ OD-05/08 เก็บข้อสรุปเดิมเป็นประว�
 
 ## สิ่งที่ยังเป็นข้อเสนอ ไม่ใช่ Owner-approved implementation
 
+
 - เดินกลับข้ามเส้นนับอีกครั้ง, ตำแหน่งเส้น, reserve 10 GiB, ระยะเวลาเก็บ, เพดาน bytes และเวลารัน ยังรอตัดสินใจ/ทดสอบ
-- เลือก `pytapo==3.4.26` เป็น candidate และตรวจ wheel แบบ static แล้ว (ONE_CLIP_PLAN); ยังไม่อนุมัติติดตั้ง/พิสูจน์กับ C545D จริง. RTSP/live view ผ่านไม่ใช่ SD export ผ่าน
+- `pytapo==3.4.26` ตรวจ static/ติดตั้ง runtime แยกแล้ว OD-24; ยังเป็น candidate ที่ไม่พิสูจน์กับ C545D จริง. RTSP/live view ผ่านไม่ใช่ SD export ผ่าน
 - Camera Account กับ TP-Link ID แยกกัน; ชนิดบัญชีที่ downloader ต้องใช้ขึ้นกับวิธี/รุ่น ต้องตรวจและกรอกผ่านช่องทางส่วนตัวบน Mac
 - Third-Party Compatibility: ตรวจสถานะก่อน ไม่เปิดเอง; event recording เดิมไม่ต้องเปลี่ยนเพื่อดึงคลิปที่มีอยู่
 - คำสั่งให้ทดลองดึงไม่ใช่อนุมัติ reset/reboot/format SD, เปิดพอร์ต/DMZ, ปิด MFA, ติดตั้งทั่วเครื่อง, ซื้อของ, merge/deploy หรือ scheduler

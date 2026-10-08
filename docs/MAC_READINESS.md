@@ -1,5 +1,17 @@
 # ผลตรวจ Mac สำหรับเตรียมดึง SD — 2026-10-08
 
+## OD-24 isolated installation update (supersedes earlier no-install snapshot below)
+
+Owner authorized Mac software installation/home trials. PO installed uv 0.12.23, managed Python 3.13.16 and an isolated pytapo 3.4.26/aiofiles 25.1.0 runtime with a hashed lock for 24 wheel packages. Resolver selected cryptography 48.0.1 because the latest release had no usable wheel in this environment. No source builds/global Python/PATH changes. Dependency metadata check PASS; pytapo source parsed without importing/instantiating it.
+
+ffmpeg/ffprobe 9.0.2 installed from Evermeet, linked by the official FFmpeg download page. Published archive/binary sizes, TLS source and x86_64 Mach-O checked; executable version checks PASS. Archive/binary SHA256 recorded locally; **publisher signature NOT_VERIFIED**. Installation, locks and detailed provenance stay under ignored .venv/.
+
+Route/auth/SD/Fixed mapping NOT_TESTED; camera requests/auth attempts/clips 0. PO baseline unittest 113/113 PASS (13.308s), no developer involved in that earlier installation. Control maintenance was initially blocked; Owner explicitly approved OD-25 and PO updated control/project docs. Private-input/offline tool is now implemented and independently checked: 176/176 unittest PASS. Launcher/policy unchanged; requests 0. See MAC_CONNECTION_GUIDE.md. Before checkpoint/read-back: LOCAL_ONLY.
+
+Tapo IP lookup: Home → camera card → gear Device Settings → Device Info → IP Address. Keep the address locally, not in chat/GitHub. A private camera IP requires an actual route into the shop; Compatibility On is not evidence of a VPN or remote SD API.
+
+Sources checked 2026-10-08: [uv](https://docs.astral.sh/uv/guides/install-python/), [pytapo release](https://pypi.org/project/pytapo/3.4.26/), [FFmpeg](https://ffmpeg.org/download.html), [Evermeet](https://evermeet.cx/ffmpeg/), [Tapo IP lookup](https://www.tp-link.com/us/support/faq/2616/).
+
 Owner อนุญาตให้ PO ตรวจคอมพิวเตอร์และยืนยันว่าใช้แอป Tapo ได้แล้ว (OD-19). ตรวจ local แบบอ่านอย่างเดียว; ไม่อ่านรหัสผ่าน ไม่ติดตั้ง ไม่เปลี่ยนค่า และไม่ส่งคำขอไปกล้อง/ร้าน.
 
 ## ผลที่ตรวจได้
