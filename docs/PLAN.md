@@ -6,6 +6,8 @@
 
 ## สถานะการเปลี่ยนแผน
 
+**OD-34 / real route diagnostic (2026-10-08):** Owner อนุญาตให้ PO ตรวจเชื่อมจริงโดยไม่ขอสิทธิ์เดิมซ้ำ. OS route ตรวจแล้วพบ private target ทับ LAN บ้านและไม่ได้ผ่าน shop tunnel; ไม่ส่ง TCP ไปหาอุปกรณ์บ้าน. ขั้นทดลองแรกใช้ Mac เดิมต่อ Wi-Fi ร้าน โดย PO ตรวจพอร์ตตาม PROJECT_CONTROL; auth/SD/Fixed/timezone/storage ยังต้องตรวจแยก. ไม่เปลี่ยนเป้าหมาย acquisition-first/batch และไม่เปลี่ยน settings/ซื้อฮาร์ดแวร์. Scope offline ของ Claude คงเดิม.
+
 แผนเดิมที่ baseline `73249aabf9d413325c4a772cd68a3ebc5890415e` วาง Raspberry Pi 5 ในร้านให้นับแบบ real-time ผ่าน RTSP
 และตั้ง systemd ให้รันถาวร **แผนนั้นถูกแทนที่แล้วตามคำสั่งของ Owner วันที่ 2026-10-06**
 เนื้อหาเดิมยังดูได้จากประวัติ git ที่ baseline ข้อกำหนดที่ยังใช้อยู่คือส่วน "ข้อกำหนดที่ยังใช้ต่อ" ด้านล่าง

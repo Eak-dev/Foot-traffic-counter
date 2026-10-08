@@ -4,7 +4,7 @@ Owner direction dated 2026-10-06 supersedes the Raspberry Pi/live-RTSP architect
 
 - Issue: #1 — FT-D0 preparation plan and read-only acquisition readiness CLI.
 - Branch: claude/ft-d0-preflight; continue in the same local checkout/branch. Owner explicitly instructed merging PR #2 as the first version on 2026-10-07; verified merge baseline b05b8fb6821fdaf645db2217ed9ea8c45ba21363 is tagged v0.1.0. This is a one-time Owner-authorized merge, not standing merge/deploy permission.
-- Mode: LOCAL CONNECTION PREPARATION (OD-24/25). No live device access in this task.
+- Mode: PO REAL CONNECTION DIAGNOSTIC (OD-34); offline developer permissions remain unchanged. Earlier no-live wording is superseded only by the bounded diagnostic below.
 - ChatGPT = PO/PM and independent validation; Claude = developer; Owner = business decisions, merge, purchases and deployment.
 - Scope authority: Owner instructions -> this control -> current PLAN -> issue acceptance criteria -> implementation/evidence. Do not lower acceptance criteria.
 - Owner workflow decision (2026-10-07): Codex and Claude develop primarily in ONE local checkout and on this SAME work branch. The checkout selected in the Codex project is canonical; its absolute path is stored only in ignored local configuration. Other clones are dormant, not deleted or used for dispatch. This supersedes the previous per-turn GitHub sync requirement and the D0 file-only developer restriction below; acquisition/device phase gates remain unchanged.
@@ -45,3 +45,11 @@ Implement request validation using pinned upstream SD request shapes, bounded no
 ## OD-33 — PO ownership and offline listing bridge
 
 Owner explicitly entrusted Codex as PO to coordinate Claude toward the project objective and manage the work. PO may scope and dispatch the next offline implementation within the approved library-reuse direction. Claude write paths: tools/ft_tapo_bridge.py, tests/test_ft_tapo_bridge.py, docs/TAPO_BRIDGE_GUIDE.md. Standard library only; injected synthetic SDK class/sender/clock, no installed pytapo import or execution, no SDK constructor, no private runtime/config/credentials, no sockets/auth/media/files/packages/git writes. The bridge selectively binds only the audited SD listing methods onto a controlled facade, guards requests before sender invocation and disables recovery setters/retries. This is an offline control-method bridge, not a live transport/auth/download adapter; true SDK execution still requires a separately reviewed task. PO reviews tests and publishes milestones under existing WORKFLOW. Camera/route/metadata/quota/merge gates and launcher policy remain unchanged.
+
+## OD-34 — Owner directs a real connection diagnostic, 2026-10-08
+
+Owner explicitly instructed PO to connect now and determine the actual failure and remedy without another permission loop. PO may read current Mac routing/interface/VPN state for the exact endpoint already in ignored configuration. Do not scan the LAN or read unrelated files/credentials. Capture OS command output privately in memory and retain only redacted derived facts in evidence; no addresses, account/profile names, MAC identifiers or actual local paths in shared files.
+
+If the route identifies the shop destination rather than an overlapping home LAN or an ordinary home Internet default, PO may make at most one TCP connect per port (443 and 8800), timeout 3 seconds each, retries zero, total connect budget 10 seconds. Do not send application payloads or instantiate pytapo; no auth attempts, SD listing or video download in this diagnostic. If routing points at the home LAN/default with no evidenced shop tunnel, stop before sending target traffic and report the observed route failure precisely. This identity condition prevents probing a different device at the same private address; it is not a request for general permission again.
+
+No router/camera/VPN/account/power/security settings changes, integration tests, purchases, installation, scheduler, merge or credential scavenging. Claude retains its offline permissions. Record the actual result and a concrete next action; route/auth/SD results must remain distinct.

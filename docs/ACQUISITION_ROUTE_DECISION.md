@@ -1,12 +1,14 @@
 # ทางดึงคลิปจากบ้านเมื่อร้านมีเฉพาะกล้อง
 
 BASELINE: `ee89a5102ead18022cc5104502dd742b18f3c0f1` · branch `claude/ft-d0-preflight` · root = checkout ปัจจุบัน (ไม่ระบุพาธจริง)
-PHASE: D1 preparation เอกสารเท่านั้น; ยังไม่เปิดเกตกล้อง/เครือข่าย
-BLOCKERS: B3 เส้นทางบ้าน→ร้าน NOT_TESTED · B4 auth/adapter/Fixed Lens mapping UNKNOWN (ดู [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md))
-NEXT_ACTION: OD-30 ให้ PO/Dev ค้นหาหลักฐาน router/vendor interface เอง; ไม่รอ Owner ถาม AIS/TP-Link. ยังไม่ได้ติดต่อผู้ผลิต/ISP จริงและไม่ส่งข้อความในนาม Owner. Offline source results ด้านล่างไม่ใช่ route/device PASS
+PHASE: OD-34 actual OS route diagnostic; TCP/auth/SD ยัง NOT_TESTED
+BLOCKERS: B3 private target ทับ attached LAN บ้าน ไม่ผ่าน shop tunnel · B4 auth/adapter/Fixed Lens mapping UNKNOWN (ดู [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md))
+NEXT_ACTION: first trial ใช้ Mac เดิมต่อ Wi-Fi ร้าน; Owner ช่วยย้าย/ต่อเครื่อง ส่วนการตรวจพอร์ตเป็นงาน PO. Home gateway/relay ยังต้องพิสูจน์แยก. ผล source research ด้านล่างเป็นประวัติ ไม่ใช่ device PASS
 TEST_RUN: Claude รายงาน baseline unittest 113/113 PASS, exit 0; result JSON ไม่เก็บ stdout ของ test จึงเป็น DEVELOPER_REPORTED. PO ตรวจอิสระตาม STATUS; ไม่ใช่ route/device test
 
 ## สรุปผล
+
+**OD-34 observed 2026-10-08:** OS route/default/interface/VPN queries exit 0; target อยู่ใน attached subnet ของ Mac บ้านและ route ไม่ใช่ tunnel. ผล `OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`; ไม่ probe TCP เพราะอาจเป็นอุปกรณ์บ้านคนละตัว. เลือก first trial บน Wi-Fi ร้านด้วย Mac เดิม; การติดตั้ง library หรือ VPN ฝั่งบ้านอย่างเดียวไม่เปลี่ยน route นี้. Auth/SD ยัง NOT_TESTED; ไม่มีการเปลี่ยน settings หรือดาวน์โหลดคลิป.
 
 ตอนนี้ยังไม่มี automatic SD route จาก Mac บ้านที่พิสูจน์ได้ด้วยหลักฐานที่ตรวจแล้ว — **ไม่ใช่การตัดสินว่าเป็นไปไม่ได้**ถาวร เพียงยังขาดหลักฐานเฉพาะรุ่น/region ของ Owner ครบตามเกณฑ์ รอบนี้ไม่มีการตั้งค่า, ส่งคำขอ หรือดึงคลิปจากกล้องจริง.
 

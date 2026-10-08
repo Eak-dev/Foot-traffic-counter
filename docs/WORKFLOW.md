@@ -35,6 +35,8 @@ Lock นี้เป็นกติกาความร่วมมือ ไ�
 
 ## รอบส่งงาน
 
+OD-34 เป็น PO private/network diagnostic ตามคำสั่งเชื่อมจริงของ Owner: อ่าน current OS route สำเร็จ พบ IP ร้านทับ LAN บ้าน จึงไม่ส่ง TCP ผิดปลายทาง. ไม่ให้ Claude อ่าน endpoint/credentials หรือเพิ่ม network tools. ขั้นที่ Owner ช่วยคือให้ Mac เดิมต่อ Wi-Fi ร้าน; PO รับผิดชอบคำสั่งทดสอบต่อ. Scope/bounds/ผลดู PROJECT_CONTROL และ STATUS; ไม่วนถามอนุญาตทั่วไปใหม่.
+
 1. Owner บอกเป้าหมายกับ Codex เช่น “ให้ Claude ทำงาน X ตามแผน ตรวจและแก้จนพร้อม review”. ไม่ต้องคัดลอก prompt เอง.
 2. PO ตรวจ local root/branch/full HEAD, dirty files, phase และสิทธิ์; เขียนใบงาน local ที่ไม่มีข้อมูลลับ.
 3. ใบงานระบุเป้าหมายหนึ่งเรื่อง, baseline, ไฟล์ที่แก้ได้, เกณฑ์เสร็จ, คำสั่งทดสอบ, ข้อห้าม, checkpoint และเงื่อนไขหยุด. แยกการยอมรับไฟล์ค้างจากสิทธิ์แก้ไฟล์นั้น.

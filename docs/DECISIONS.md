@@ -3,6 +3,8 @@
 อัปเดต 2026-10-08 · บันทึกข้อสรุปที่มีผลต่องาน ไม่ใช่สำเนาแชตหรือข้อมูลลับ
 อ่านร่วมกับ PROJECT_CONTROL, PLAN และ STATUS; หากเปลี่ยนข้อสรุปให้เพิ่มรายการ supersedes ไม่ลบประวัติ
 
+**OD-34 — OWNER_DIRECTED / PO_OBSERVED 2026-10-08:** Owner สั่งเชื่อมจริงและหาสาเหตุโดยไม่ถามสิทธิ์ทั่วไปซ้ำ. PO ตรวจ OS route ของ Mac ไปยัง endpoint เดิมโดยไม่แสดง IP: route/default/interface/VPN queries exit 0 ทั้งหมด; เป้าหมายอยู่ใน subnet ที่ต่ออยู่และใช้ interface เดียวกับ default, ไม่ผ่าน tunnel; native VPN profiles connected 0. ตามข้อเท็จจริง Mac อยู่บ้าน แสดงว่า IP ร้านทับช่วง LAN บ้าน (`OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`). หยุดก่อนส่ง TCP เพื่อไม่ probe อุปกรณ์คนละตัวในบ้าน; TCP/auth/SD requests 0, ไม่ใช่ผลว่ากล้อง offline. เก็บ redacted evidence ใน ignored local record. PO เลือกทดสอบครั้งแรกโดยใช้ Mac เดิมต่อ Wi-Fi ร้าน เพื่อตัดปัญหาเส้นทางข้ามเครือข่าย; Owner ช่วยเฉพาะนำเครื่องไปต่อเครือข่ายร้าน ส่วนคำสั่ง/พอร์ต/ขั้นตอนทดลองเป็นงาน PO. การต่อ LAN ไม่รับรอง auth/SDK/download และไม่เปลี่ยนเป้าหมาย batch acquisition. ไม่เปลี่ยน router/VPN/camera หรือขยายสิทธิ์ Claude; route จากบ้านระยะยาวยังต้องมี gateway/relay ที่พิสูจน์แล้ว. Supersedes route NOT_TESTED เฉพาะ current OS route observation; ยังไม่ใช่ shop reachability PASS.
+
 | ID | ข้อสรุป | แหล่ง / สถานะ | ผลต่อทีม |
 | --- | --- | --- | --- |
 | OD-01 | ไม่ซื้อฮาร์ดแวร์เพิ่ม; ซอฟต์แวร์ซื้อได้เมื่อเสนอเหตุผลและค่าใช้จ่ายเฉพาะ | Owner 2026-10-06 | ยกเลิกแผนบังคับซื้อ Pi; ไม่อนุมัติสมาชิก/ซื้ออัตโนมัติ |

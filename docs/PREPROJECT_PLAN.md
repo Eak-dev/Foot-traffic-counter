@@ -8,6 +8,8 @@
 
 ## 1. ข้อตัดสินใจ
 
+**OD-34 (2026-10-08):** PO ตรวจ OS route จริงแล้ว: private endpoint อยู่ใน attached LAN subnet บ้าน, route ไม่ใช่ tunnel; TCP/auth/SD ของกล้องร้านยัง NOT_TESTED. Owner อนุญาต bounded real diagnostic ใน PROJECT_CONTROL; first trial ใช้ Mac เดิมต่อ Wi-Fi ร้าน. ไม่อ้าง D1/D2 PASS จาก route observation และไม่เปลี่ยนสิทธิ์ Dev/settings.
+
 **OD-33 (2026-10-08):** PO จัดการใบงาน/ประสาน Claude/review/ตรวจผลตาม Owner; offline [listing bridge](TAPO_BRIDGE_GUIDE.md) ตรวจรับแล้ว (330/330 PO tests PASS). ไม่เรียก SDK constructor, ปฏิเสธ setter/retry/scope widening ก่อน injected sender และ latch เมื่อข้อมูลผิดพลาด. ทดสอบ Fake SDK กับ static attribute contract เท่านั้น; actual SDK/auth/route/media/Fixed metadata/quota ไม่ผ่านเกตเพิ่ม.
 
 **OD-32 (2026-10-08):** Owner อนุมัติ offline acquisition core; Claude พัฒนาและ PO ตรวจรับ `ft_acquire` กับ synthetic tests แล้ว (295/295 PASS). Request guard/listing/chunk budgets/manifest อยู่ใน [คู่มือ](ACQUISITION_CORE_GUIDE.md); ไม่มี upstream import/transport/auth/real-file publication. Proof flags เป็น input ของ validator ในอนาคต; cooperative deadline ไม่ interrupt callback ที่ค้าง. ไม่เปิดเกตอุปกรณ์และไม่ถือว่าเพดานพัฒนาเป็น quota ที่อนุมัติ live.
@@ -90,7 +92,7 @@
 | พื้นที่ว่าง ~20.8 GiB | PASS (เทียบเกณฑ์เสนอ 10 GiB) | [PO-verified] ค่าณ เวลาตรวจ; เกณฑ์ยังไม่ผ่านการอนุมัติ | Owner ยืนยันเกณฑ์ | Owner | D2/D3 |
 | งบไบต์และนาทีต่อวัน | UNKNOWN | ยังไม่มีตัวอย่างจริง | วัดจากคลิปตัวอย่าง 1 คลิปใน D2 แล้วตั้งงบ | PO + Owner | D3 |
 | รุ่นเราเตอร์ / VPN capability | MODEL_CONFIRMED / VPN_UNKNOWN | รุ่นและเวอร์ชันอยู่ STATUS | ทีมเลือกวิธีจากข้อมูลเดิม ไม่ขอรูปเพิ่มเป็นเงื่อนไขแรก | PO + Claude | D1 |
-| เส้นทางข้ามเครือข่าย | NOT_TESTED | แพ็กเกจ AIS ยืนยัน ไม่ใช่ผล reachability | ทีมตรวจเฉพาะวิธี/เป้าหมายที่ระบุ ไม่ผลักให้ Owner ออกแบบ VPN | PO + Claude | D1/D2 |
+| เส้นทางข้ามเครือข่าย | BLOCKED_ROUTE_OVERLAP | OD-34 OS route: private target ทับ LAN บ้าน ไม่ผ่าน tunnel | first trial Mac เดิมต่อ Wi-Fi ร้าน; PO ตรวจ bounded TCP เมื่อยืนยันเครือข่ายร้าน | PO + Owner งานย้ายเครื่อง | D1/D2 |
 | เครือข่ายร้านเข้าถึงจาก Mac ที่บ้าน | UNKNOWN | ยังไม่มีเส้นทางที่พิสูจน์ได้ | ออกแบบเส้นทางใน D1 แล้วตั้งค่าเป็นขั้นแยกที่ได้รับอนุมัติ | Owner + PO | D1 |
 | Camera Hardware/Firmware | CONFIRMED | ภาพ Owner: C545D / HW 1.0 / FW 1.1.7 | ไม่ขอซ้ำ; ทีมใช้เลือก adapter และตรวจ compatibility | PO + Claude | — (ข้อมูลรุ่น ไม่ใช่ SD export PASS) |
 | อินเทอร์เฟซอ่านอย่างเดียวของกล้อง | UNKNOWN | ยังไม่มีการตรวจ | ยืนยันด้วยเอกสารทางการ/หน้าเครื่อง ไม่ใช่ฟังก์ชันที่คิดเอง | Dev + Owner | D1 |

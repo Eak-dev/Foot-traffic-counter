@@ -1,10 +1,12 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-33 PO ownership และ offline listing bridge ตรวจรับแล้ว; live transport/route ยังไม่พร้อม · checkpoint PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-34 ตรวจ route จริงพบ IP ร้านทับ subnet บ้าน; ขั้นถัดไปใช้ Mac เดิมต่อ Wi-Fi ร้าน · checkpoint PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
+
+- **OD-34 / ACTUAL_OS_ROUTE_CHECK:** อ่าน route/default/interface/VPN บน Mac จริงสำเร็จ (exit 0 ทั้ง 4); private target อยู่ใน attached subnet และใช้ default interface ที่ไม่ใช่ tunnel; native connected VPN profiles 0. เมื่อ Mac อยู่บ้าน route นี้ชี้ไป LAN บ้าน ไม่ใช่ร้าน. ผล `OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`; TCP ports NOT_TESTED เพื่อไม่ติดต่ออุปกรณ์ผิดตัว, auth/SD NOT_TESTED, requests/clips 0. ไม่ใช่ camera-offline diagnosis. ขั้นถัดไป: นำ Mac เดิมต่อ Wi-Fi ร้านแล้ว PO ตรวจ TCP 443/8800 ตาม bounded scope; credentials/live adapter ยังเป็นงานต่อ. Evidence redacted อยู่ ignored/local; code/tests ไม่เปลี่ยน.
 
 - **OD-33 / OFFLINE_BRIDGE_REVIEWED:** Owner มอบหมาย PO จัดการและประสาน Claude. เพิ่ม `tools/ft_tapo_bridge.py` กับ [คู่มือ](TAPO_BRIDGE_GUIDE.md): selective method binding โดยไม่เรียก SDK constructor, guarded sender, exact query scope, response limits/deep copies, deadline/call budget และ failure latch. PO unittest **330/330 PASS**, exit 0 (13.329s); static source attribute contract ของ 4 methods PASS. Baseline `9f645fc71bcfa5262e722b0c3d1b608f7a04435f`, branch เดิม. ทดสอบ synthetic SDK เท่านั้น; ไม่ import/รัน upstream หรือ authenticate/ต่อกล้องจริง.
 
@@ -26,7 +28,7 @@
 - **เฟส:** เตรียม D1 แบบ offline แล้วใน [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md); D0 ผ่าน review และ merge ตามคำสั่ง Owner แล้ว; PR #2 MERGED, เวอร์ชันแรก `v0.1.0` ที่ `b05b8fb6821fdaf645db2217ed9ea8c45ba21363`. ยังไม่ผ่านเกตอุปกรณ์ D1–D5. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
 - **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
 - **โค้ดที่มีจริง:** `doctor`, local `inventory`, ตัวเรียก `tools/claude_dev.py`, private IPv4-input/offline check `tools/ft_connect.py`, offline core `tools/ft_acquire.py` และ control-method bridge `tools/ft_tapo_bridge.py`; **ยังไม่มี live auth/transport/downloader**
-- **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
+- **ผลฝั่งกล้อง:** OS route ตรวจจริงแล้วพบ `OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`; ยังไม่ส่ง TCP/application/auth ไปยัง IP ที่ทับ LAN บ้าน. คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 — ยังไม่ได้ทดสอบว่ากล้องตอบหรือไม่
 - **Claude ล่าสุด OD-33:** initial TIMEOUT 600.4s หลังเขียน draft; PO process audit ไม่พบ child/unittest ก่อนปล่อย retained empty lock. รอบแก้ child exit 0 (500.3s) แต่ launcher FAILED/RESULT_PERMISSION_DENIALS เพราะพยายามเติม pipe/tail/echo หลัง test command ที่อนุญาต; ไม่เพิ่มสิทธิ์หรือถือว่า invocation PASS. รายงาน 326 tests เป็น DEVELOPER_REPORTED; PO ยืนยัน 326 แล้วปิด failure latch ของ malformed replies/SDK output, strict error-code/JSON copy hooks และ request mutation boundary. Final PO-corrected revision **330/330 PASS**, NOT_RUN_BY_DEVELOPER. Actual SDK/route/auth/media/Fixed metadata/timezone/quota ยัง UNKNOWN.
 - **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
 - **Owner instruction:** พัฒนาและอัปเดตสถานะใน local เป็นหลัก; push เมื่อ reviewable/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner สั่ง. ไม่ sync ทุกข้อความ (supersedes OD-11 cadence); ไม่เผยแพร่ raw transcripts/ข้อมูลลับ
@@ -53,11 +55,13 @@
 | --- | --- | --- |
 | B1 | Live auth/transport/downloader ยังไม่เขียน; offline core/control bridge ตรวจรับแล้ว | ต่อ audited auth/media transport, interruptible deadlines และ atomic staging ใน scoped task; verify actual pinned SDK ก่อนใช้ bridge. การทดลองจริงยังต้องมี route/interface/credentials/metadata/quota ไม่เดาเส้นทาง |
 | B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
-| B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; ร้านไม่มี computer/NAS สำหรับ gateway | OD-30: PO/Dev ค้นหาเอง ไม่รอ Owner ถาม AIS. ค้น exact model/full firmware และ VPN/OpenVPN/WireGuard รวม ZTE domain แล้วไม่พบคู่มือ server ตรงรุ่น; คู่มือ AIS ไม่ใช่หลักฐาน VPN server. ไม่สรุป unsupported จากการไม่พบเอกสาร |
+| B3 | OS route ตรวจจริง OD-34: IP ร้านทับ attached subnet บ้าน; route ไม่ผ่าน shop tunnel | Trial แรกใช้ Mac เดิมต่อ Wi-Fi ร้าน (Owner ช่วยย้าย/เชื่อมเครื่อง; PO รันคำสั่ง). Home automation ระยะยาวยังต้อง shop gateway/relay ที่พิสูจน์; ไม่ติดตั้ง VPN ฝั่งบ้านอย่างเดียวแล้วถือว่าแก้ได้ และไม่ probe อุปกรณ์บ้าน |
 | B4 | Auth/adapter channel compatibility ยัง UNKNOWN; SD dual-track layout SOURCE_DOCUMENTED | FAQ 4666 ของผู้ผลิตใช้กับ C545D V1: VLC Track 1 Fixed / Track 2 PT. ยังไม่เท่ากับ pytapo channel IDs หรือไฟล์จริงผ่าน; ทีมต้องตรวจ ffprobe/ภาพตรงต้นทางก่อนนับ. Camera Account/Compatibility/version ยืนยันแล้วไม่ถามซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
 
 ## รอจาก Owner และงานถัดไป
+
+**OD-34 ขั้นที่จำเป็นตอนนี้:** นำ Mac เดิมไปต่อ Wi-Fi ร้านและแจ้งเพียงว่าเชื่อมแล้ว; ไม่ต้องหา IP ใหม่หรือเปิด Terminal. PO รับผิดชอบตรวจปลายทาง/พอร์ต แล้วจัด auth/backend งานต่อภายใน scope. หากเครื่องยังอยู่บ้าน งาน live ถูก route overlap นี้บล็อก; ไม่ทำ TCP timeout แล้วอ้างว่าเป็นผลกล้องร้าน.
 
 ยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7; ไม่ขอข้อมูลนี้หรือ router version ซ้ำ
 
@@ -82,6 +86,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: PO/Dev รับผิดชอบ route/interface research ตาม OD-30; ไม่รอ Owner ถาม AIS/TP-Link. ผลละเอียดใน ROUTE_DECISION §6 และแบบตรวจ dual tracks ใน ONE_CLIP_PLAN; ยังไม่มี evidenced home route จึงไม่ probe IP ที่อาจเป็นอุปกรณ์บ้าน. หากต้องเลือก local/manual trial ให้ทีมเสนอ scope แยก. Clip/Fixed Lens ยืนยันแล้ว; ยังขาด implementation/route/auth/metadata/quota. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · PO · OD-34 ตรวจ current OS route จริงตามคำสั่ง Owner. Sandbox route query unavailable; approved read-only escalation สำเร็จทั้ง 4 queries exit 0. พบ target overlap กับ attached LAN บ้าน, route ไม่ใช่ tunnel. หยุดก่อน TCP/auth/SD เพื่อไม่ติดต่อผิดเครื่อง. ไม่เรียก Claude (NOT_RUN_BY_DEVELOPER); code/tests ไม่เปลี่ยน. PO เลือก first trial บน Wi-Fi ร้านด้วย Mac เดิม; ไม่ซื้ออุปกรณ์/เปลี่ยน settings. PO regression **330/330 PASS**, exit 0 (13.322s); ไม่อ้าง device PASS.
 
 - 2026-10-08 · OD-33 · PO รับ ownership ประสาน Claudeและค้นคำตอบเองตาม Owner; scoped offline listing bridge เขียนแล้ว ส่งแก้จาก source/contract review และตรวจอิสระ. Final unittest 330/330 PASS, exit 0 (13.329s), static AST attribute contract/import boundary PASS. PO เพิ่ม regressions สำหรับ SDK กลืน malformed reply, malformed final output, copy hooks และ mutation ของ source request หลัง scope validation. Intermediate PO regression มี SyntaxError/1 ERROR (296 loaded tests, 14.758s); แก้แล้วรันครบใหม่ผ่าน ไม่ซ่อนผลเดิม. Final revision NOT_RUN_BY_DEVELOPER; launcher timeout/permission-denial outcomes ด้านบน. ไม่มี actual SDK/auth/กล้อง/วิดีโอ/install/policy change. เตรียม reviewed checkpoint; ผล push/read-back จริงอยู่ delivery record.
 

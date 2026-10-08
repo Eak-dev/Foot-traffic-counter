@@ -5,6 +5,8 @@
 
 ## วิธีใช้งานหลักปัจจุบัน: Owner ใช้ iPhone (OD-26)
 
+**OD-34 ผลตรวจจริงล่าสุด:** Mac บ้านมี OS route ไป IP ที่บันทึกไว้ผ่าน LAN บ้าน เพราะ subnet ทับกัน; ไม่ได้ผ่าน tunnel ร้าน. จึงยังไม่ได้ทดสอบพอร์ตกล้องร้านหรือ login. ขั้นแรกใช้ Mac เดิมต่อ Wi-Fi ร้าน แล้วแจ้งว่าเครื่องเชื่อม Wi-Fi ร้านแล้ว; Codex รันคำสั่งตรวจต่อเอง ไม่ต้องกรอก IP ซ้ำ/เปิด Terminal. `ft_connect check` ยังคง offline-only ตามเดิม; ผลตรวจ route ล่าสุดอยู่ STATUS ไม่ใช่ผลของ CLI นี้.
+
 คุณ Eak ไม่ต้องเปิด Terminal หรือรันคำสั่งด้านล่างเอง. Codex รับผิดชอบงานบน Mac ตามสิทธิ์ที่อนุมัติ; ขั้นตอน CLI ด้านล่างเก็บไว้สำหรับผู้ปฏิบัติงานบน Mac และกรณี Owner สะดวกใช้คอมพิวเตอร์เองเท่านั้น.
 
 OD-27/28: Owner แจ้งเปิด iCloud Drive แล้วและทำขั้นตอนส่ง IP จาก iPhone เสร็จ. PO พบหนึ่งโฟลเดอร์ว่างที่ส่งใน `FootTrafficSetup` บน Mac และบันทึก private IPv4 ลง ignored local config mode 0600 แล้ว; config validation PASS. ไม่ต้องส่ง IP ซ้ำ. `check` ยัง BLOCKED: route/auth/download NOT_TESTED. บัญชี/รหัสผ่านยังไม่ได้รับ; ไม่อ่านไฟล์ส่วนตัวเดิม ไม่เปิด sync/account เพิ่มและไม่อ้างว่า Codex อ่าน Tapo บน iPhone ได้เอง.
