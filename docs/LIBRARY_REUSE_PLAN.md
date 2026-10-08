@@ -1,6 +1,6 @@
 # ใช้ GitHub library เป็นส่วนดึงคลิป SD ของโปรแกรมเรา
 
-สถานะ 2026-10-08: SOURCE_AUDITED / PROPOSED_ADAPTER_NOT_IMPLEMENTED. Owner ให้ค้นวิธีใช้ library ของผู้อื่น (OD-31); งานนี้อ่าน source/ออกแบบเท่านั้น ไม่เปิดเกตกล้อง. Baseline local `d25670ef335ae772f1a96778fb111bf062942c28`, branch เดิม. IP/runtime ที่มีอยู่ยังเป็นข้อมูล local ไม่ส่งให้ coding agent.
+สถานะ 2026-10-08: SOURCE_AUDITED / OFFLINE_CORE_IMPLEMENTED / LIVE_BINDING_NOT_IMPLEMENTED. OD-31 เป็น source research ที่ baseline `d25670ef335ae772f1a96778fb111bf062942c28`; OD-32 Owner อนุมัติและทีมพัฒนา core ตามแบบที่ baseline `62572b2aa91d2a937498a1a5331500ee10889f95`, branch เดิม. ไม่เปิดเกตกล้อง; IP/runtime ที่มีอยู่ยังเป็นข้อมูล local ไม่ส่งให้ coding agent.
 
 ## ข้อเสนอที่เลือก
 
@@ -25,7 +25,9 @@ Adapter ต้องตรวจคำสั่งที่ขอบเขตส
 
 `Downloader` มี retry/fallback และข้อมูล buffer/temp ก่อน output; การ polling ขนาดไฟล์ปลายทางอย่างเดียวจึงไม่จำกัด bytes ทั้งหมด. ต้องบังคับ byte budget ก่อนเก็บแต่ละ chunk, deadline รวม, temporary storage, retry/fallback policy ในจุดรับข้อมูลจริง. ถ้าขอบเขตนี้ทำผ่าน public API ไม่ครบ ให้ reuse protocol/crypto ที่ตรวจแล้วและเขียน transfer loop ที่จำกัดเอง พร้อมคง notice; ยังไม่ประกาศ wrapper พร้อม.
 
-## แบบโปรแกรมและงานพัฒนา (ยังไม่ implement)
+## แบบโปรแกรมและสถานะงานพัฒนา
+
+OD-32 เพิ่ม [offline core](ACQUISITION_CORE_GUIDE.md) แล้ว: strict SD request guard + injected sender, bounded normalized pagination, cooperative byte-copy, Fixed/container/duration proof inputs และ in-memory manifest/dedup. PO tests 295/295 PASS และ synthetic pipeline PASS. Core ยังไม่ import/ผูก pytapo; ไม่มี auth/media framing, interruptible transport, validator จริง หรือ atomic file publication. การตรวจ request shape ไม่ใช่หลักฐาน intercept constructor/recovery ของ upstream ได้แล้ว และ flags/staged dict ไม่พิสูจน์ provenance ด้วยตัวเอง.
 
 | ส่วน | หน้าที่ / เกณฑ์ตรวจ |
 | --- | --- |
@@ -36,12 +38,12 @@ Adapter ต้องตรวจคำสั่งที่ขอบเขตส
 | Fixed Lens validation | ffprobe ตรวจ streams/duration และตรวจมุมกับต้นทาง; [ผู้ผลิต](https://www.tp-link.com/us/support/faq/4666/) อธิบาย VLC Track 1 Fixed / Track 2 PT แต่ไม่ใช้เลขนี้แทน downloader channel IDs. ไม่รวมยอด PT |
 | Manifest/idempotency | ใช้ clip reference + SHA256, ไม่เผย path/ชื่อจริง; รับเป็นสำเร็จหลังตรวจไฟล์ครบ, retry ช่วงเดิมต้องไม่เพิ่มรายการซ้ำ |
 
-ขั้นพัฒนาที่ไม่ต้องเข้ากล้อง: ออกแบบ interface แยก backend → synthetic tests ของ recovery setter denial/quota/pagination/deadline/partial/dedup/Fixed mapping → PO review. ก่อนสร้างไฟล์เครื่องมือใหม่ PO ต้องจัด scoped implementation task/control และส่ง Claude ตาม WORKFLOW; งาน research นี้ยังไม่ใช่การ dispatch หรืออนุมัติ live/download/ติดตั้งเพิ่ม. เมื่อผ่าน prerequisites จึงต่อ backend จริงและทดลองหนึ่งคลิป แล้วค่อยขยายเป็น batch รายวันตาม D2→D3.
+ขั้น offline interface → synthetic tests → PO review เสร็จตาม OD-32; ผล guard ไม่เปิดสิทธิ์ live. งานถัดไปคือ scoped binding ที่ audit constructor/auth/media send จริง พร้อม interruptible deadlines และ atomic staging. เมื่อ route/credentials/metadata/quota prerequisites ผ่านจึงทดลองหนึ่งคลิป แล้วค่อยขยายเป็น batch รายวันตาม D2→D3.
 
 ## ข้อสรุปเรื่องบ้าน→ร้าน
 
 สร้างโปรแกรมเรียก library ได้และ reuse protocol ที่มีอยู่ช่วยลดงาน. แต่จาก transport code ที่ตรวจ ทั้ง pytapo และ Rust/Python Hub downloader ใช้ IP ที่ต้องเข้าถึงได้จริง; cloud password/cloud passthrough ไม่ใช่หลักฐาน media relay ข้ามเครือข่าย. ไม่มี candidate ที่ audit รอบนี้พิสูจน์ automatic remote SD ของ standalone C545D โดยไม่ต้องมี private route. ไม่ปิดงานค้นเส้นทางหรือผลักให้ Owner ถาม AIS; เป็นงานทีมตาม OD-30. ไม่สรุปว่าเป็นไปไม่ได้ และไม่เปลี่ยนเป้าหมายเป็น cloud recording/manual import โดยอัตโนมัติ.
 
-## หลักฐานรอบนี้
+## หลักฐาน source research OD-31
 
 GitHub metadata/head/tree และ source 17 ไฟล์จาก 4 repositories อ่านเป็น public snapshots ชั่วคราว; ไม่ clone/install/import/execute upstream และไม่ใช้บัญชี Tapo/กล้องจริง. AST ตรวจพบ `setCruise` ใน error-recovery ของ `executeFunction`; ไม่ใช่ device test. ไม่มี new package/worker/scheduler. NOT_RUN_BY_DEVELOPER รอบ research; ผล PO unittest และสถานะส่งจริงอยู่ STATUS/delivery record.

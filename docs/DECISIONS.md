@@ -34,6 +34,8 @@ OD-05/08 เก็บข้อสรุปเดิมเป็นประว�
 
 ## Owner evidence — 2026-10-08
 
+- **OD-32 — OWNER_IMPLEMENTATION_APPROVAL:** Owner ตอบ “จัดการได้เลย” ต่อข้อเสนอ reuse pytapo. PO เริ่ม scoped offline acquisition core ผ่าน Claude: guard ของ SD request, bounded normalized listing/chunk transfer, Fixed/manifest/dedup helpers และ synthetic tests. ไม่ import/เรียก upstream หรือเปิด live route/auth/video; auth/media binding, stalled transport interruption และ real-file publication ยังเป็นงานแยก. Scope และ write paths อยู่ PROJECT_CONTROL; ไม่แก้ launcher/policy ไม่ติดตั้งเพิ่ม.
+
 - **OD-31 — OWNER_RESEARCH_REQUEST:** Owner ขอค้นวิธีสร้างโปรแกรมเรียกใช้ GitHub library ของผู้อื่น. PO audit 4 candidates แบบ static ที่ pin commit แล้ว เสนอ `pytapo==3.4.26` ซึ่งติดตั้งใน isolated runtime อยู่แล้วเป็น backend ของ scoped CLI; เพิ่ม LIBRARY_REUSE_PLAN. ยังไม่ใช่ implementation/live/install approval เพิ่ม. พบ upstream read-error recovery อาจเรียก `setCruise(False)` จึงต้อง guard/patch ก่อน device trial; C545D compatibility/private route ยังไม่ยืนยัน. ไม่ส่งข้อมูลจริงให้ Dev และไม่เปลี่ยนต้นฉบับ SD เป็น Tapo Care.
 
 - **OD-30 — OWNER_INSTRUCTION:** Owner ย้ำให้ Codex ค้นหาคำตอบเอง ไม่มอบงานค้นหา VPN/router/API หรือสอบถามผู้ผลิตให้ Owner. Supersedes next action ที่รอ Owner ถาม AIS/TP-Link ใน ROUTE_DECISION/STATUS; ทีมรับผิดชอบ source research และเสนอทางที่มีหลักฐาน. ไม่ตีความการค้นหาว่าอนุญาตส่งข้อความในนาม Owner, ใช้บัญชี/รหัสลับ หรือเปลี่ยนอุปกรณ์. ขอ Owner เฉพาะงานหน้างาน/การตัดสินใจที่ทีมทำแทนไม่ได้จริง พร้อมข้อเสนอที่ตรวจแล้ว.

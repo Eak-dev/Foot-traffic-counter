@@ -3,7 +3,7 @@
 BASELINE ตอนเริ่มเขียนแผน 2026-10-07: `0eeeb12296551cb6e887245f60a610a83fdb9765`; อยู่ใน checkpoint PR #4 แล้ว. สถานะงานปัจจุบันดู STATUS/local HEAD
 PHASE: FT-D0 merged เป็น `v0.1.0`; เตรียม D1 local ตาม OD-24/25 — isolated prerequisites ติดตั้งและ private IPv4-input/offline check ตรวจรับแล้ว; งานนี้ยังไม่เปิดเกตกล้อง/เครือข่าย
 BLOCKERS: B1 downloader ยังไม่เขียน · B2 private endpoint configured และ offline validation PASS (OD-28); บัญชียังไม่รับ · B3 เส้นทางบ้าน→ร้าน NOT_TESTED (ไม่มี shop computer/NAS, OD-21) · B4 auth/adapter/Fixed Lens channel mapping UNKNOWN · B5 คลิป/มุมหลักยืนยันแล้ว OD-22/23; metadata/timezone/เพดานยังไม่ยืนยัน
-NEXT_ACTION: OD-30 ให้ทีมค้นหา capability ของ router/interface เองตาม [ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md); ไม่รอ Owner ถาม AIS/TP-Link. ปรับแบบตรวจ SD dual tracks ตาม FAQ 4666; ยังไม่เขียน home downloader โดยเดา route. PO ตรวจ Mac แล้วตาม MAC_READINESS; scope live ยังไม่เปิด
+NEXT_ACTION: OD-32 offline core ตรวจรับแล้ว; ดู [คู่มือ](ACQUISITION_CORE_GUIDE.md). ทีมทำ scoped pytapo binding/auth/media audit และค้น capability ของ router/interface เองตาม [ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md); ไม่รอ Owner ถาม AIS/TP-Link. ปรับแบบตรวจ SD dual tracks ตาม FAQ 4666; ยังไม่เรียกกล้องโดยเดา route. PO ตรวจ Mac แล้วตาม MAC_READINESS; scope live ยังไม่เปิด
 
 ## 1. ข้อค้นพบจากหลักฐาน PO (2026-10-07, ไม่สมมติ live)
 
@@ -59,11 +59,11 @@ Source update 2026-10-08: [TP-Link FAQ 4666](https://www.tp-link.com/us/support/
 
 ## 7. ผลปัจจุบัน
 
-Source-only review; camera requests = 0, auth attempts = 0, clips ดึง = 0. Downloader ยังไม่ implement. หลัง OD-21 ยืนยันไม่มี shop host ให้ใช้ผล ROUTE_DECISION ก่อนเขียน home downloader; bounded adapter เป็นแบบที่ยังไม่ implement และต้องมี route/interface evidence กับ scoped write paths ก่อนมอบหมาย. Dev ไม่เปิดเกต live เอง
+OD-32 offline core implement และ PO review แล้ว: synthetic tests 295/295 PASS; injected guard/listing/copy/manifest pipeline PASS. Camera requests = 0, auth attempts = 0, clips ดึงจริง = 0. Live pytapo binding/constructor/auth/media/interruptible deadlines/atomic file publication ยังไม่ implement. Core ไม่อ่าน config หรือเรียก upstream และ trusted proof inputs ไม่ใช่ผลตรวจไฟล์จริง. ใช้ผล ROUTE_DECISION และ scoped task ก่อนทดลองกล้อง; Dev ไม่เปิดเกต live เอง
 
 ## READY_FOR_REVIEW / PENDING_OWNER_INPUT / NOT_TESTED
 
-- READY_FOR_REVIEW: มีแบบและผล route feasibility สำหรับ Owner review; ยังไม่มี wrapper/tests ใหม่. Home downloader อยู่ HOLD_FOR_ROUTE_EVIDENCE; ไม่ใช่พร้อม live หรือการตัดสินว่าเป็นไปไม่ได้
+- READY_FOR_REVIEW: มีแบบ/ผล route feasibility และ offline core/tests ตาม OD-32 สำหรับ Owner review. Live home downloader อยู่ HOLD_FOR_ROUTE_EVIDENCE; ไม่ใช่พร้อม live หรือการตัดสินว่าเป็นไปไม่ได้
 - PENDING_OWNER_INPUT: readiness ของบัญชีตาม adapter ใน §6; อุปกรณ์ร้าน/คลิป/Fixed Lens/สถานที่เปิด playback ยืนยันแล้ว ไม่ขอซ้ำ. เพดาน §5/rollback ของเส้นทางยังเป็นข้อเสนอ
 - NOT_TESTED: reachability บ้าน→ร้าน, auth กับ C545D จริง, dual-lens mapping, timezone ของ metadata ต้นทาง, quota enforcement จริงกับ upstream library
 

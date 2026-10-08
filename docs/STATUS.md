@@ -1,10 +1,12 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-28 รับ private endpoint จาก iPhoneและตรวจ offline แล้ว; OD-29 ลดข้อความระหว่างงาน · checkpoint เอกสาร PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-32 offline acquisition core ตรวจรับแล้ว; live backend/route ยังไม่พร้อม · checkpoint PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
+
+- **OD-32 / OFFLINE_CORE_REVIEWED:** เพิ่ม `tools/ft_acquire.py`, synthetic tests และ [คู่มือ](ACQUISITION_CORE_GUIDE.md): SD request guard, bounded normalized listing/byte copy, trusted Fixed/container/duration validation inputs และ in-memory manifest/dedup. PO unittest **295/295 PASS**, exit 0 (13.406s); independent synthetic pipeline PASS. CLI `check` BLOCKED/exit 2; backend binding NOT_IMPLEMENTED, route/auth/download NOT_TESTED, กล้อง 0. ไม่มี pytapo import/config จริง/transport/install/file publication. Baseline `62572b2aa91d2a937498a1a5331500ee10889f95`, branch เดิม.
 
 - **OD-31 / library reuse research:** PO audit source 17 ไฟล์จาก 4 GitHub candidates ที่ pin full commits; เสนอ pytapo 3.4.26 เป็น backend ตาม LIBRARY_REUSE_PLAN. Runtime มีอยู่แล้ว; ยังไม่สร้าง adapter/ลงแพ็กเกจใหม่/เรียก library จริง. Rust/Python tapo download ที่ตรวจใช้ Hub; tapo-cli ใช้ Tapo Care ไม่ใช่ SD. พบ pytapo read-error recovery อาจเรียก setCruise(False); เพิ่ม gate ของ command boundary ก่อน device trial. Route/compatibility ยัง NOT_TESTED, camera requests 0.
 
@@ -21,9 +23,9 @@
 
 - **เฟส:** เตรียม D1 แบบ offline แล้วใน [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md); D0 ผ่าน review และ merge ตามคำสั่ง Owner แล้ว; PR #2 MERGED, เวอร์ชันแรก `v0.1.0` ที่ `b05b8fb6821fdaf645db2217ed9ea8c45ba21363`. ยังไม่ผ่านเกตอุปกรณ์ D1–D5. เป้าหมายถัดไปที่ Owner สั่งคือทดลองดึงคลิป SD หนึ่งคลิป
 - **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
-- **โค้ดที่มีจริง:** `doctor`, local `inventory`, ตัวเรียก `tools/claude_dev.py` และ private IPv4-input/offline check `tools/ft_connect.py` ที่ตรวจรับแล้ว; **ยังไม่มี downloader**
+- **โค้ดที่มีจริง:** `doctor`, local `inventory`, ตัวเรียก `tools/claude_dev.py`, private IPv4-input/offline check `tools/ft_connect.py` และ offline core `tools/ft_acquire.py`; **ยังไม่มี live downloader/transport binding**
 - **ผลฝั่งกล้อง:** `BLOCKED_BEFORE_CAMERA_REQUEST`; คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 ตามหลักฐานล่าสุด — ไม่ใช่ทดสอบแล้วกล้องเชื่อมไม่ได้
-- **Claude ล่าสุด:** initial OD-25 implementation ผ่าน launcher COMPLETED_LOCAL/exit 0; รายงาน 162/162 tests (DEVELOPER_REPORTED). PO ส่งแก้ตามรีวิว; invocation รอบแก้ TIMEOUT 360.4s จึงไม่รับเป็น PASS และผลทดสอบรอบนั้น NOT_VERIFIED_BY_DEVELOPER. PO audit ไม่พบ stateless Claude child/pending unittest ก่อนปล่อย retained empty lock แล้วแก้จุดเล็กที่ค้างและรันอิสระ 176/176 PASS. Final files ผ่าน PO review; ไม่ใช่ผลกล้อง.
+- **Claude ล่าสุด OD-32:** initial invocation TIMEOUT 600.5s เก็บ draft; PO process audit ไม่พบ child/unittest จึงปล่อย empty retained lock. รอบแก้ guard/listing COMPLETED_LOCAL/exit 0, developer-reported 264 tests. รอบ transfer/manifest child exit 0 แต่ launcher FAILED/RESULT_PERMISSION_DENIALS จาก Bash แก้ไฟล์/ตรวจ syntax นอกคำสั่ง test ที่อนุญาต; ไม่เพิ่มสิทธิ์หรือถือว่า invocation PASS. รายงาน 293 tests เป็น DEVELOPER_REPORTED; PO รันยืนยัน 293 แล้วแก้ timezone/container type อีกสองจุด เพิ่ม regressions และรัน final **295/295 PASS**. ข้ออ้าง UNKNOWN ไม่มีของ Dev ไม่ใช่ผลกล้อง; route/auth/Fixed metadata จริงยัง UNKNOWN.
 - **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
 - **Owner instruction:** พัฒนาและอัปเดตสถานะใน local เป็นหลัก; push เมื่อ reviewable/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner สั่ง. ไม่ sync ทุกข้อความ (supersedes OD-11 cadence); ไม่เผยแพร่ raw transcripts/ข้อมูลลับ
 
@@ -47,7 +49,7 @@
 
 | ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
 | --- | --- | --- |
-| B1 | Downloader ยังไม่เขียน; HOLD_FOR_ROUTE_EVIDENCE | pytapo 3.4.26 เป็น candidate; แบบ quota/dependencies/Fixed mapping ต้องทำหลัง route/interface evidence หรือ Owner เลือก local trial แยก ไม่สร้าง home downloader โดยเดา |
+| B1 | Live downloader/transport binding ยังไม่เขียน; offline core ตรวจรับแล้ว | ต่อ constructor/auth/media guard, interruptible transport และ atomic staging ใน scoped task; pytapo 3.4.26 เป็น candidate. การทดลองจริงยังต้องมี route/interface/credentials/metadata/quota ไม่เดาเส้นทาง |
 | B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
 | B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; ร้านไม่มี computer/NAS สำหรับ gateway | OD-30: PO/Dev ค้นหาเอง ไม่รอ Owner ถาม AIS. ค้น exact model/full firmware และ VPN/OpenVPN/WireGuard รวม ZTE domain แล้วไม่พบคู่มือ server ตรงรุ่น; คู่มือ AIS ไม่ใช่หลักฐาน VPN server. ไม่สรุป unsupported จากการไม่พบเอกสาร |
 | B4 | Auth/adapter channel compatibility ยัง UNKNOWN; SD dual-track layout SOURCE_DOCUMENTED | FAQ 4666 ของผู้ผลิตใช้กับ C545D V1: VLC Track 1 Fixed / Track 2 PT. ยังไม่เท่ากับ pytapo channel IDs หรือไฟล์จริงผ่าน; ทีมต้องตรวจ ffprobe/ภาพตรงต้นทางก่อนนับ. Camera Account/Compatibility/version ยืนยันแล้วไม่ถามซ้ำ |
@@ -78,6 +80,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: PO/Dev รับผิดชอบ route/interface research ตาม OD-30; ไม่รอ Owner ถาม AIS/TP-Link. ผลละเอียดใน ROUTE_DECISION §6 และแบบตรวจ dual tracks ใน ONE_CLIP_PLAN; ยังไม่มี evidenced home route จึงไม่ probe IP ที่อาจเป็นอุปกรณ์บ้าน. หากต้องเลือก local/manual trial ให้ทีมเสนอ scope แยก. Clip/Fixed Lens ยืนยันแล้ว; ยังขาด implementation/route/auth/metadata/quota. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · OD-32 · Claude พัฒนา offline core ตาม Owner approval; PO ส่งแก้ตาม review และตรวจอิสระ. Final unittest 295/295 PASS, exit 0 (13.406s), synthetic guard→listing→copy→manifest/idempotency pipeline PASS, import audit STDLIB_ONLY. PO ปิด malformed container/pseudo-timezone errors และปรับคู่มือไม่อ้าง provenance ที่ตรวจไม่ได้; final PO-corrected revision NOT_RUN_BY_DEVELOPER. Invocation timeout/permission denials บันทึกตามจริงด้านบน; ไม่แก้ launcher/policy. คำขอกล้อง/auth/video/install/network changes 0. เตรียม reviewed checkpoint; สถานะส่งจริงอยู่ delivery record หลัง push/read-back.
 
 - 2026-10-08 · OD-31 · ค้น GitHub libraries ตาม Owner; pin metadata/head/tree และอ่าน public source แบบ static. เลือก pytapo backend candidate ที่มี runtime เดิม พร้อมแบบ bounded listing/transfer/Fixed/dedup และ request guard ที่ต้องหยุด recovery setter. Candidate อื่นไม่ตรง standalone SD หรือมี license readiness ไม่ครบ. PO unittest 176/176 PASS, exit 0 (13.432s), diff check PASS. ไม่มี import/execute upstream/scan LAN/auth/video/new install; NOT_RUN_BY_DEVELOPER รอบนี้. เตรียม documentation checkpoint; ผลส่งจริงใช้ delivery record หลัง push/read-back.
 
