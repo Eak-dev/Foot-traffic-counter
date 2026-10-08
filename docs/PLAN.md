@@ -6,6 +6,8 @@
 
 ## สถานะการเปลี่ยนแผน
 
+**OD-35:** Owner ต้องการแก้การเชื่อมจากบ้านไปที่ร้าน; ไม่ใช้ย้าย Mac เป็นขั้นบังคับ. [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md) เลือกตรวจ gateway บนเราเตอร์เดิม + tunnel/host route แก้ overlap; ยังขาด router UI/capability/WAN/profile จริง. ยังไม่ติดตั้งหรือเปลี่ยน route/settings. Supersedes next action ที่ร้านของ OD-34; เป้าหมาย batch SD/Fixed เดิม
+
 **OD-34 / real route diagnostic (2026-10-08):** Owner อนุญาตให้ PO ตรวจเชื่อมจริงโดยไม่ขอสิทธิ์เดิมซ้ำ. OS route ตรวจแล้วพบ private target ทับ LAN บ้านและไม่ได้ผ่าน shop tunnel; ไม่ส่ง TCP ไปหาอุปกรณ์บ้าน. ขั้นทดลองแรกใช้ Mac เดิมต่อ Wi-Fi ร้าน โดย PO ตรวจพอร์ตตาม PROJECT_CONTROL; auth/SD/Fixed/timezone/storage ยังต้องตรวจแยก. ไม่เปลี่ยนเป้าหมาย acquisition-first/batch และไม่เปลี่ยน settings/ซื้อฮาร์ดแวร์. Scope offline ของ Claude คงเดิม.
 
 แผนเดิมที่ baseline `73249aabf9d413325c4a772cd68a3ebc5890415e` วาง Raspberry Pi 5 ในร้านให้นับแบบ real-time ผ่าน RTSP

@@ -3,10 +3,12 @@
 BASELINE: `ee89a5102ead18022cc5104502dd742b18f3c0f1` · branch `claude/ft-d0-preflight` · root = checkout ปัจจุบัน (ไม่ระบุพาธจริง)
 PHASE: OD-34 actual OS route diagnostic; TCP/auth/SD ยัง NOT_TESTED
 BLOCKERS: B3 private target ทับ attached LAN บ้าน ไม่ผ่าน shop tunnel · B4 auth/adapter/Fixed Lens mapping UNKNOWN (ดู [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md))
-NEXT_ACTION: first trial ใช้ Mac เดิมต่อ Wi-Fi ร้าน; Owner ช่วยย้าย/ต่อเครื่อง ส่วนการตรวจพอร์ตเป็นงาน PO. Home gateway/relay ยังต้องพิสูจน์แยก. ผล source research ด้านล่างเป็นประวัติ ไม่ใช่ device PASS
+NEXT_ACTION: OD-35 แก้ home-to-shop ผ่าน gateway/tunnel ตาม capability จริง; Owner ช่วยเข้าหน้า router ร้านจาก iPhone, PO ทำคำสั่ง Mac. ไม่ใช้ย้าย Mac เป็นขั้นบังคับ. ดู HOME_CONNECTION_PLAN; ผล source research ด้านล่างเป็นประวัติ ไม่ใช่ device PASS
 TEST_RUN: Claude รายงาน baseline unittest 113/113 PASS, exit 0; result JSON ไม่เก็บ stdout ของ test จึงเป็น DEVELOPER_REPORTED. PO ตรวจอิสระตาม STATUS; ไม่ใช่ route/device test
 
 ## สรุปผล
+
+**OD-35:** Owner ต้องการ home-to-shop; supersedes การเลือก first trial ที่ร้านใน OD-34. [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md) เตรียม gateway/tunnel + host route แก้ overlap. ยังขาด actual router UI/VPN Server/WAN/profile; ไม่เปลี่ยน settings และไม่อ้างว่าเชื่อมแล้ว. Source check รอบนี้ไม่ยืนยัน server จากเอกสาร AIS แต่ก็ไม่พิสูจน์ว่า unsupported
 
 **OD-34 observed 2026-10-08:** OS route/default/interface/VPN queries exit 0; target อยู่ใน attached subnet ของ Mac บ้านและ route ไม่ใช่ tunnel. ผล `OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`; ไม่ probe TCP เพราะอาจเป็นอุปกรณ์บ้านคนละตัว. เลือก first trial บน Wi-Fi ร้านด้วย Mac เดิม; การติดตั้ง library หรือ VPN ฝั่งบ้านอย่างเดียวไม่เปลี่ยน route นี้. Auth/SD ยัง NOT_TESTED; ไม่มีการเปลี่ยน settings หรือดาวน์โหลดคลิป.
 

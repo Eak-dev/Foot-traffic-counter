@@ -8,6 +8,8 @@
 
 ## 1. ข้อตัดสินใจ
 
+**OD-35:** Home-to-shop เป็นเส้นทางที่ Owner ต้องการ; ยกเลิก first trial แบบย้าย Mac ที่ร้านเป็นขั้นบังคับ. อ่าน HOME_CONNECTION_PLAN: ตรวจ shop router UI/VPN Server/WAN access ก่อนเลือก client/tunnel และแก้ overlap; ยังไม่มี live tunnel/SD PASS
+
 **OD-34 (2026-10-08):** PO ตรวจ OS route จริงแล้ว: private endpoint อยู่ใน attached LAN subnet บ้าน, route ไม่ใช่ tunnel; TCP/auth/SD ของกล้องร้านยัง NOT_TESTED. Owner อนุญาต bounded real diagnostic ใน PROJECT_CONTROL; first trial ใช้ Mac เดิมต่อ Wi-Fi ร้าน. ไม่อ้าง D1/D2 PASS จาก route observation และไม่เปลี่ยนสิทธิ์ Dev/settings.
 
 **OD-33 (2026-10-08):** PO จัดการใบงาน/ประสาน Claude/review/ตรวจผลตาม Owner; offline [listing bridge](TAPO_BRIDGE_GUIDE.md) ตรวจรับแล้ว (330/330 PO tests PASS). ไม่เรียก SDK constructor, ปฏิเสธ setter/retry/scope widening ก่อน injected sender และ latch เมื่อข้อมูลผิดพลาด. ทดสอบ Fake SDK กับ static attribute contract เท่านั้น; actual SDK/auth/route/media/Fixed metadata/quota ไม่ผ่านเกตเพิ่ม.

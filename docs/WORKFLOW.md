@@ -35,6 +35,8 @@ Lock นี้เป็นกติกาความร่วมมือ ไ�
 
 ## รอบส่งงาน
 
+OD-35 supersedes การนำ Mac ไปที่ร้านเป็น next action: PO รับผิดชอบแก้ home-to-shop ผ่าน gateway ที่ตรวจแล้ว; Owner ช่วยเฉพาะเข้าหน้า router ร้านบน iPhone ที่ PO ยังเข้าถึงไม่ได้. HOME_CONNECTION_PLAN ระบุ capability branches/route/rollback; ไม่ขอสิทธิ์ทดลองทั่วไปซ้ำ และไม่ขยายสิทธิ์ Dev/ติดตั้งโดยเดา
+
 OD-34 เป็น PO private/network diagnostic ตามคำสั่งเชื่อมจริงของ Owner: อ่าน current OS route สำเร็จ พบ IP ร้านทับ LAN บ้าน จึงไม่ส่ง TCP ผิดปลายทาง. ไม่ให้ Claude อ่าน endpoint/credentials หรือเพิ่ม network tools. ขั้นที่ Owner ช่วยคือให้ Mac เดิมต่อ Wi-Fi ร้าน; PO รับผิดชอบคำสั่งทดสอบต่อ. Scope/bounds/ผลดู PROJECT_CONTROL และ STATUS; ไม่วนถามอนุญาตทั่วไปใหม่.
 
 1. Owner บอกเป้าหมายกับ Codex เช่น “ให้ Claude ทำงาน X ตามแผน ตรวจและแก้จนพร้อม review”. ไม่ต้องคัดลอก prompt เอง.

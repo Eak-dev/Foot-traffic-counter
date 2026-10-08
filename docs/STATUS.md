@@ -1,10 +1,12 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-34 ตรวจ route จริงพบ IP ร้านทับ subnet บ้าน; ขั้นถัดไปใช้ Mac เดิมต่อ Wi-Fi ร้าน · checkpoint PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-35 แก้ home-to-shop; รอเข้าถึงเมนู router ร้านเพื่อเลือก gateway/tunnel ตาม capability · checkpoint PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
+
+- **OD-35 / HOME_ROUTE_REQUIRED:** Owner สั่งแก้เส้นทางบ้านไปที่ร้าน; ยกเลิกการย้าย Mac เป็นขั้นบังคับ. PO ตรวจ primary AIS F6107A/PDF LAN/DDNS/Port Forwarding, Tailscale subnet gateway และ pytapo local transport. ยังไม่ยืนยัน VPN Server ของเราเตอร์จริง และไม่มี shop management route/session/WAN/profile. [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md) เตรียม tunnel ผ่านเราเตอร์เดิมเป็น candidate กับ host route แก้ overlap; ไม่สมมติว่ารองรับ. ตรวจ Mac x86_64 และไม่พบชื่อแอป VPN candidates ใน /Applications; ไม่ติดตั้ง/อ่าน credentials/เปลี่ยน settings. ถามเฉพาะ readiness ของหน้า router บน iPhone; ไม่ขอ IP/รุ่น/สิทธิ์ทั่วไปซ้ำ. Camera/auth/SD requests 0 รอบนี้; Claude NOT_RUN_BY_DEVELOPER
 
 - **OD-34 / ACTUAL_OS_ROUTE_CHECK:** อ่าน route/default/interface/VPN บน Mac จริงสำเร็จ (exit 0 ทั้ง 4); private target อยู่ใน attached subnet และใช้ default interface ที่ไม่ใช่ tunnel; native connected VPN profiles 0. เมื่อ Mac อยู่บ้าน route นี้ชี้ไป LAN บ้าน ไม่ใช่ร้าน. ผล `OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`; TCP ports NOT_TESTED เพื่อไม่ติดต่ออุปกรณ์ผิดตัว, auth/SD NOT_TESTED, requests/clips 0. ไม่ใช่ camera-offline diagnosis. ขั้นถัดไป: นำ Mac เดิมต่อ Wi-Fi ร้านแล้ว PO ตรวจ TCP 443/8800 ตาม bounded scope; credentials/live adapter ยังเป็นงานต่อ. Evidence redacted อยู่ ignored/local; code/tests ไม่เปลี่ยน.
 
@@ -55,13 +57,13 @@
 | --- | --- | --- |
 | B1 | Live auth/transport/downloader ยังไม่เขียน; offline core/control bridge ตรวจรับแล้ว | ต่อ audited auth/media transport, interruptible deadlines และ atomic staging ใน scoped task; verify actual pinned SDK ก่อนใช้ bridge. การทดลองจริงยังต้องมี route/interface/credentials/metadata/quota ไม่เดาเส้นทาง |
 | B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
-| B3 | OS route ตรวจจริง OD-34: IP ร้านทับ attached subnet บ้าน; route ไม่ผ่าน shop tunnel | Trial แรกใช้ Mac เดิมต่อ Wi-Fi ร้าน (Owner ช่วยย้าย/เชื่อมเครื่อง; PO รันคำสั่ง). Home automation ระยะยาวยังต้อง shop gateway/relay ที่พิสูจน์; ไม่ติดตั้ง VPN ฝั่งบ้านอย่างเดียวแล้วถือว่าแก้ได้ และไม่ probe อุปกรณ์บ้าน |
+| B3 | OS route OD-34: IP ร้านทับ LAN บ้าน; ยังไม่มี shop gateway/tunnel. OD-35 ต้องแก้จากบ้าน | Owner ช่วยเปิด router UI ร้านบน iPhone; PO ตรวจ VPN Server/endpoint แล้วเลือก client/host route พร้อม rollback ตาม HOME_CONNECTION_PLAN. ไม่ย้าย Mac เป็นขั้นบังคับ ไม่ติดตั้ง VPN บ้านอย่างเดียว ไม่ probe อุปกรณ์บ้าน |
 | B4 | Auth/adapter channel compatibility ยัง UNKNOWN; SD dual-track layout SOURCE_DOCUMENTED | FAQ 4666 ของผู้ผลิตใช้กับ C545D V1: VLC Track 1 Fixed / Track 2 PT. ยังไม่เท่ากับ pytapo channel IDs หรือไฟล์จริงผ่าน; ทีมต้องตรวจ ffprobe/ภาพตรงต้นทางก่อนนับ. Camera Account/Compatibility/version ยืนยันแล้วไม่ถามซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
 
 ## รอจาก Owner และงานถัดไป
 
-**OD-34 ขั้นที่จำเป็นตอนนี้:** นำ Mac เดิมไปต่อ Wi-Fi ร้านและแจ้งเพียงว่าเชื่อมแล้ว; ไม่ต้องหา IP ใหม่หรือเปิด Terminal. PO รับผิดชอบตรวจปลายทาง/พอร์ต แล้วจัด auth/backend งานต่อภายใน scope. หากเครื่องยังอยู่บ้าน งาน live ถูก route overlap นี้บล็อก; ไม่ทำ TCP timeout แล้วอ้างว่าเป็นผลกล้องร้าน.
+**OD-35 ขั้นที่จำเป็นตอนนี้:** เปิดหน้า router ร้านจาก iPhone ที่ต่อ Wi-Fi ร้าน (Settings → Wi-Fi → ⓘ → Router → Safari), ล็อกอินเองและแจ้งว่าเข้าถึงได้หรือไม่ได้; ไม่ส่ง password/OTP. PO ยังไม่มีช่องทางเข้าหน้านี้จาก Mac บ้าน. เมื่อเห็น capability จริง ทีมเลือก tunnel/client/WAN/host route แล้วทดสอบตามลำดับ. ไม่ให้ Owner เปิด Terminal หาข้อมูลเทคนิคเอง หรือย้าย Mac ไปที่ร้าน; ไม่ขอ IP กล้องซ้ำ
 
 ยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7; ไม่ขอข้อมูลนี้หรือ router version ซ้ำ
 
@@ -86,6 +88,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: PO/Dev รับผิดชอบ route/interface research ตาม OD-30; ไม่รอ Owner ถาม AIS/TP-Link. ผลละเอียดใน ROUTE_DECISION §6 และแบบตรวจ dual tracks ใน ONE_CLIP_PLAN; ยังไม่มี evidenced home route จึงไม่ probe IP ที่อาจเป็นอุปกรณ์บ้าน. หากต้องเลือก local/manual trial ให้ทีมเสนอ scope แยก. Clip/Fixed Lens ยืนยันแล้ว; ยังขาด implementation/route/auth/metadata/quota. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · PO · OD-35 Owner ยืนยัน home-to-shop แทน next action ย้าย Mac ที่ร้าน. เตรียม HOME_CONNECTION_PLAN พร้อม branches VPN Server/Client/Passthrough/relay และ rollback. Source research ยืนยันต้องมี shop-side gateway; exact F6107A VPN Server ยัง UNKNOWN. ไม่มี router session/WAN/profile จึงยังไม่สามารถตั้ง tunnel จริง; ถาม readiness ของ router UI จาก iPhone. ไม่มี code/install/setting change และไม่เรียก Claude (NOT_RUN_BY_DEVELOPER). PO regression **330/330 PASS**, exit 0 (13.802s); ไม่ประกาศ live PASS
 
 - 2026-10-08 · PO · OD-34 ตรวจ current OS route จริงตามคำสั่ง Owner. Sandbox route query unavailable; approved read-only escalation สำเร็จทั้ง 4 queries exit 0. พบ target overlap กับ attached LAN บ้าน, route ไม่ใช่ tunnel. หยุดก่อน TCP/auth/SD เพื่อไม่ติดต่อผิดเครื่อง. ไม่เรียก Claude (NOT_RUN_BY_DEVELOPER); code/tests ไม่เปลี่ยน. PO เลือก first trial บน Wi-Fi ร้านด้วย Mac เดิม; ไม่ซื้ออุปกรณ์/เปลี่ยน settings. PO regression **330/330 PASS**, exit 0 (13.322s); ไม่อ้าง device PASS.
 

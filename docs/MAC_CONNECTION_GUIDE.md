@@ -5,7 +5,7 @@
 
 ## วิธีใช้งานหลักปัจจุบัน: Owner ใช้ iPhone (OD-26)
 
-**OD-34 ผลตรวจจริงล่าสุด:** Mac บ้านมี OS route ไป IP ที่บันทึกไว้ผ่าน LAN บ้าน เพราะ subnet ทับกัน; ไม่ได้ผ่าน tunnel ร้าน. จึงยังไม่ได้ทดสอบพอร์ตกล้องร้านหรือ login. ขั้นแรกใช้ Mac เดิมต่อ Wi-Fi ร้าน แล้วแจ้งว่าเครื่องเชื่อม Wi-Fi ร้านแล้ว; Codex รันคำสั่งตรวจต่อเอง ไม่ต้องกรอก IP ซ้ำ/เปิด Terminal. `ft_connect check` ยังคง offline-only ตามเดิม; ผลตรวจ route ล่าสุดอยู่ STATUS ไม่ใช่ผลของ CLI นี้.
+**OD-34/35 ผลล่าสุด:** OS route ของ Mac บ้านไป IP ที่บันทึกไว้ผ่าน LAN บ้าน เพราะ subnet ทับกัน; ไม่ผ่าน tunnel ร้าน. Owner สั่งแก้จากบ้านตาม [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md); ไม่ย้าย Mac เป็นขั้นบังคับ. ตอนนี้ต้องเข้าหน้า router ร้านผ่าน iPhone เพื่อดู capability จริง แล้ว PO เลือกและตั้ง client/route ตาม scope. ไม่ต้องกรอก IP กล้องซ้ำ/เปิด Terminal. `ft_connect check` ยังคง offline-only; OS route observation ไม่ใช่ camera TCP/login PASS
 
 คุณ Eak ไม่ต้องเปิด Terminal หรือรันคำสั่งด้านล่างเอง. Codex รับผิดชอบงานบน Mac ตามสิทธิ์ที่อนุมัติ; ขั้นตอน CLI ด้านล่างเก็บไว้สำหรับผู้ปฏิบัติงานบน Mac และกรณี Owner สะดวกใช้คอมพิวเตอร์เองเท่านั้น.
 
