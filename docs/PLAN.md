@@ -58,15 +58,17 @@
 
 รายละเอียด: [Owner Execution Roadmap](PREPROJECT_PLAN.md#12-owner-execution-roadmap) และ [Owner Checklist](PREPROJECT_PLAN.md#13-owner-checklist).
 ลำดับ: D0 เตรียม/Owner review → D1 วิธีรับข้อมูลและสิทธิ์ → D2 หนึ่งคลิป → D3 คลิปรายวัน → D4 นับ/กรอง → D5 งานตามเวลาและ pilot.
-อุปกรณ์ยืนยันแล้ว: Tapo C545D Hardware 1.0 / Firmware 1.1.7 (ภาพ Owner 2026-10-07); ZTE F6107A HW V9.0.09/FW F6107A_PON_4.1; AIS Fibre 1000/200. รอเฉพาะ readiness ของ endpoint/บัญชี, สถานะเมนูที่เกี่ยวข้อง และเวลาหนึ่งคลิป. ไม่ขอรูปเราเตอร์หรือทดลอง 4G/5G เพิ่มเป็นเงื่อนไขแรก; ทีมรับผิดชอบทางเชื่อม/private input/downloader.
+อุปกรณ์ยืนยันแล้ว: Tapo C545D Hardware 1.0 / Firmware 1.1.7 (ภาพ Owner 2026-10-07); ZTE F6107A HW V9.0.09/FW F6107A_PON_4.1; AIS Fibre 1000/200. Endpoint รับแล้ว OD-28; แอป/คลิป/Fixed Lens ยืนยันแล้ว OD-20/22/23. ยังรอ route/บัญชี/metadata/quota; ไม่ขอรูปเราเตอร์หรือทดลอง 4G/5G เพิ่มเป็นเงื่อนไขแรก. ทีมรับผิดชอบทางเชื่อม/private input/downloader.
 ยังไม่ต้องซื้อซอฟต์แวร์หรือติดตั้งระบบทีม AI เพิ่ม. Python/pytapo/ffmpeg prerequisites ใน runtime แยกติดตั้งแล้วตาม OD-24; ยังไม่มี downloader. OD-25 เพิ่มงาน private IP-input/offline check ซึ่งไม่พิสูจน์ route/auth/SD.
 การเขียน Roadmap นี้ไม่เปิดสิทธิ์ D1–D5 และไม่อนุมัติ merge/deploy โดยอัตโนมัติ.
 
 ## การตัดสินใจและสถานะต่อเนื่อง
 
-Owner ให้ sync GitHub ระหว่างสนทนา: [DECISIONS](DECISIONS.md) เก็บข้อสรุป/ข้อเสนอแยกกัน; [STATUS](STATUS.md) เก็บเฟส/ผลจริง/blockers/next action. PO ปรับเอกสารและ PR ที่เกี่ยวข้องพร้อม read-back ตาม WORKFLOW. คำสั่งให้ทดลองหนึ่งคลิปได้รับแล้ว แต่ไม่มี implementation/endpoint/auth/route ที่พร้อม ไม่ใช่ขาดคำสั่งทั่วไปซ้ำ; ก่อนใช้สิทธิ์นั้น PO ต้องระบุ target/ขอบเขต/rollback ใน control. รอบ sync นี้ไม่เปลี่ยนสิทธิ์หรือเปิดงานจริง
+Owner ให้ sync GitHub ระหว่างสนทนาตาม checkpoint ของ OD-12: [DECISIONS](DECISIONS.md) เก็บข้อสรุป/ข้อเสนอแยกกัน; [STATUS](STATUS.md) เก็บเฟส/ผลจริง/blockers/next action. PO ปรับเอกสารใน local และ PR ที่เกี่ยวข้องพร้อม read-back เมื่อ publish ตาม WORKFLOW. คำสั่งให้ทดลองหนึ่งคลิปและ endpoint ได้รับแล้ว แต่ไม่มี implementation/auth/route ที่พร้อม ไม่ใช่ขาดคำสั่งทั่วไปซ้ำ; ก่อนใช้สิทธิ์นั้น PO ต้องระบุ target/ขอบเขต/rollback ใน control. การ sync ไม่เปลี่ยนสิทธิ์หรือเปิดงานจริง
 
 ## การพัฒนา local (Owner decision 2026-10-07)
+
+OD-26/27/28 (2026-10-08): Owner สั่งงานผ่าน iPhone เป็นหลักและให้ Codex จัดการงานบน Mac. CLI เป็นวิธีสำรอง ไม่ให้ Owner รันเองเป็นเกต. Owner ส่งเฉพาะ IP ภายในผ่านหนึ่งโฟลเดอร์ว่างใน dedicated `FootTrafficSetup` แล้ว; PO พบรายการบน Mac บันทึก ignored local config mode 0600 และตรวจ offline PASS. ไม่ต้องส่ง IP ซ้ำ; ยังไม่รับบัญชี/รหัสผ่าน. ไม่เปิด sync/account/server หรืออ่านไฟล์ iCloud เดิม. Sync/endpoint ไม่พิสูจน์ route บ้าน→ร้าน; check ยัง BLOCKED และ camera requests 0.
 
 Codex และ Claude ใช้ checkout/branch งานเดียวกัน มีหนึ่ง writer ต่อครั้ง. ใช้ `tools/claude_dev.py` ตรวจ baseline/งานค้าง/ownership ก่อนมอบหมายงาน; Claude ทดสอบ local/synthetic ได้ตาม policy. อัปเดตสถานะใน local และเผยแพร่ GitHub ตาม checkpoint ใน [WORKFLOW](WORKFLOW.md), [DECISIONS OD-12/13](DECISIONS.md). สิทธิ์ Dev นี้ไม่เปลี่ยนสเปก batch acquisition หรือเปิดเกตอุปกรณ์ D1–D5.
 

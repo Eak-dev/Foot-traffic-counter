@@ -1,10 +1,16 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-24/25 private IP-input/offline check พร้อม checkpoint PR #4; ก่อน push/read-back เป็น LOCAL_ONLY · Issue #1 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-28 รับ private endpoint จาก iPhoneและตรวจ offline แล้ว; OD-29 ลดข้อความระหว่างงาน · checkpoint เอกสาร PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
+
+- **OD-29:** Owner ให้ทีมทำงานต่อเนื่องและลดข้อความระหว่างงาน. PO ตรวจเอกสารผู้ผลิตซ้ำ: remote SD rollout อ่านได้แล้ว แต่ยังไม่ยืนยัน C545D/Mac API; คู่มือ AIS ยังไม่มี VPN server evidence. งาน offline/config พร้อมตาม OD-28; live acquisition ยังติด B3/B4. ชุดเอกสาร OD-26–29 เตรียม checkpoint PR #4; ผลส่งจริงใช้ delivery record หลัง push/read-back.
+
+- **OD-26–28 / private config LOCAL_ONLY:** Owner ใช้ iPhone เป็นหลักและให้ Codex จัดการงานบน Mac ไม่ต้องเปิด Terminal. Owner ทำขั้นตอนส่ง private IPv4 เสร็จ; PO พบหนึ่งโฟลเดอร์ว่างที่ส่งใน dedicated iCloud handoff บน Mac แล้ว บันทึก ignored config mode 0600 ด้วย helper เดิมและตรวจ offline PASS. Endpoint configured; credentials ยังไม่ได้รับ. Check ยัง BLOCKED, route/auth/download NOT_TESTED, camera requests 0. ไม่มีการอ่านไฟล์ iCloud เดิมหรือ account/sync/network/camera change.
+
+  Validation รอบ OD-28: PO unittest **176/176 PASS**, exit 0 (13.515s), diff check PASS; actual offline CLI endpoint configured / BLOCKED, exit 2 ตามที่ออกแบบ. Config ถูก Git ignore และค่าจริงไม่อยู่ในเอกสารที่เปลี่ยน. ไม่เรียก Claude รอบใหม่ (NOT_RUN_BY_DEVELOPER); ไม่ commit/push รอบนี้ตาม local-first cadence.
 
 - **OD-24 local runtime (2026-10-08):** Owner authorized Mac software installation/home trials. PO installed isolated Python 3.13.16, pytapo 3.4.26, aiofiles 25.1.0 and 24 pinned wheel dependencies; dependency metadata check PASS. ffmpeg/ffprobe 9.0.2 version checks PASS. All installation files/lock/provenance remain ignored under .venv/; global Python/PATH unchanged. Camera compatibility, route/auth/SD/Fixed mapping NOT_TESTED; camera/auth requests 0, clips 0. PO baseline unittest: 113/113 PASS (13.308s); no developer involved in the earlier OD-24 installation.
 - **OD-25 เสร็จใน local:** Owner อนุมัติ maintenance แยกแล้ว; PO ปรับ control/แผน และตรวจรับ `tools/ft_connect.py` กับ [คู่มือ Mac](MAC_CONNECTION_GUIDE.md). `configure` กรอก IPv4 แบบซ่อนสองครั้งและบันทึกเฉพาะ ignored config mode 0600 ไม่เขียนทับ; `check` ตรวจ offline และคืน BLOCKED เสมอจนมี route evidence. ไม่มี launcher/policy change หรือ live connection. PO ทดสอบอิสระ **176/176 PASS**, exit 0 (14.126s); ก่อน push/read-back เป็น LOCAL_ONLY.
@@ -38,7 +44,7 @@
 | ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
 | --- | --- | --- |
 | B1 | Downloader ยังไม่เขียน; HOLD_FOR_ROUTE_EVIDENCE | pytapo 3.4.26 เป็น candidate; แบบ quota/dependencies/Fixed mapping ต้องทำหลัง route/interface evidence หรือ Owner เลือก local trial แยก ไม่สร้าง home downloader โดยเดา |
-| B2 | Offline check จริง: endpoint missing; ยังไม่รับบัญชี/รหัสผ่าน | private IPv4 input ทำแล้วตาม OD-25; Owner กรอกใน Mac ตาม MAC_CONNECTION_GUIDE เท่านั้น ไม่ส่งค่าในแชต/GitHub. Valid config ยังไม่ใช่ camera PASS |
+| B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
 | B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; ร้านไม่มี computer/NAS สำหรับ gateway | ROUTE_DECISION: คู่มือ AIS ที่พบมี LAN/DDNS/port forwarding ไม่ใช่หลักฐาน VPN server; source downloader เป็น direct socket. รับคำตอบ capability ตามข้อความที่เตรียมให้ Owner หรือเลือก local/manual trial แยก; ไม่อ้างว่า router ไม่รองรับ/ไม่มี API โดยเด็ดขาด |
 | B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Camera Account On, Third-Party Compatibility On และแอป 3.21.106 ยืนยันแล้ว; เหลือ readiness ของบัญชีตาม adapter ไม่ขอข้อมูลยืนยันแล้วซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
@@ -62,12 +68,20 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 ## Local handoff ปัจจุบัน
 
 - Branch: `claude/ft-d0-preflight` เดิม; baseline เวอร์ชันแรก `b05b8fb6821fdaf645db2217ed9ea8c45ba21363` (`v0.1.0`). PO นำผล merge มาใน local ด้วย fast-forward เท่านั้น; config/root เดิม.
-- Writer: PO หลัง audit/รับงานกลับจาก Claude; ไม่มี delegated child ถือ tree. Full pre-checkpoint baseline: `026c8763130dcdf16484edd21b4f8df53e0f5475`. Dirty files เป็นชุด OD-24/25 ที่ตรวจแล้ว; B1–B5 ยังขาด downloader/route/auth/metadata/quota ไม่ใช่ขาดสิทธิ์ maintenance.
+- Writer: PO หลัง audit/รับงานกลับจาก Claude; ไม่มี delegated child ถือ tree. Baseline ก่อน checkpoint OD-26–29: `80ca93bee4744afe458193bf5462a387f3bf938b`; full HEAD ปัจจุบันอ่านจาก local Git และ delivery record. ชุดนี้เป็นเอกสาร OD-26–29; runtime/config ที่รับไม่ขึ้น Git. ยังขาด downloader/route/auth/metadata/quota ไม่ใช่ขาดสิทธิ์ maintenance.
 - Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว; PR #4 OPEN ใช้ branch เดิมสำหรับ D1 preparation. ชุด OD-20–23/ROUTE_DECISION พร้อม checkpoint ที่ตรวจแล้ว. ก่อน push/read-back เป็น LOCAL_ONLY; ผลส่งจริง/HEAD เก็บใน ignored `.claude/delivery.local.json`. ไม่แก้ main ตรง ไม่ merge รอบนี้.
-- Final validation: PO รัน **176/176 unittest PASS**, exit 0 (113 baseline + 63 private-input tests). `check` จริงคืน endpoint missing / BLOCKED, exit 2 ตามที่ออกแบบ; requests 0. ตรวจ diff/ขอบเขต/ข้อมูลลับและ ignore pattern ก่อน checkpoint. หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้.
+- Final validation: PO ล่าสุดรัน **176/176 unittest PASS**, exit 0 (113 baseline + 63 private-input tests); code/tests ไม่เปลี่ยน. OD-28 ใช้ helper จริงบันทึก config และ `check_command` คืน endpoint configured / BLOCKED ตามที่ออกแบบ; requests 0. ตรวจ diff/ขอบเขต/ข้อมูลลับและ ignore pattern ก่อน checkpoint. หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้.
 - Next action: Owner ใช้คำถาม capability ใน ROUTE_DECISION สอบถาม AIS/TP-Link หรือเลือก local/manual trial แยก; PO ประเมินหลักฐานแล้วจัด scope ต่อ. Clip/Fixed Lens ยืนยันแล้ว; B1–B5 เหลือ implementation/route/auth/metadata/quota ไม่ขอข้อมูลเดิมซ้ำ. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · OD-29 / route refresh · บันทึก preference ทำงานต่อเนื่อง/ลดข้อความ; อ่าน TP-Link remote SD announcement ที่เคย 403 ได้แล้วและปรับข้ออ้างใน ROUTE_DECISION. App rollout ไม่พิสูจน์ C545D/automated Mac API; AIS VPN server ยัง UNKNOWN. ไม่มีการติดต่อผู้ผลิตแทน Owner/เปลี่ยนค่า/เรียกกล้อง. Code/tests ไม่เปลี่ยน; PO ล่าสุด 176/176 PASS ตาม OD-28, NOT_RUN_BY_DEVELOPER รอบนี้. เตรียม reviewed documentation checkpoint; ไม่ส่ง config/endpoint หรือ merge.
+
+- 2026-10-08 · OD-28 · Owner แจ้ง “ทำแล้ว”; PO ตรวจเฉพาะ dedicated iCloud handoff พบหนึ่งเป้าหมาย RFC1918 เป็นโฟลเดอร์ว่างไม่ตาม symlink แล้วสร้าง ignored local config mode 0600 แบบ atomic/no-overwrite. ไม่แสดงค่าหรือชื่อจริง. Offline validation PASS, endpoint configured / BLOCKED, route/auth/download NOT_TESTED, camera requests 0. ไม่รับ password/บัญชี ไม่ลบรายการของ Owner ไม่สแกน iCloud เดิม. เอกสาร LOCAL_ONLY; code/tests ไม่เปลี่ยนและ NOT_RUN_BY_DEVELOPER รอบนี้.
+
+- 2026-10-08 · OD-27 · Owner ยืนยันเปิด iCloud Drive; PO ตรวจ directory presence และสร้าง dedicated folder/marker ใหม่ผ่าน platform approval. ไม่อ่านไฟล์เดิม/ไม่เปลี่ยน sync ไม่รับ endpoint/บัญชีจริง. คู่มือมีขั้นตอน Files บน iPhone: เห็น marker → สร้างหนึ่งโฟลเดอร์ว่างชื่อ IP ภายใน → แจ้ง “ทำแล้ว”. รอ sync observation; ไม่มี scheduled watcher/server/new public tool, ไม่มี camera requests. Docs-only LOCAL_ONLY; code/tests ไม่เปลี่ยนและผล PO ล่าสุด 176/176 PASS ก่อนการอัปเดต marker docs นี้.
+
+- 2026-10-08 · OD-26 · Owner ระบุใช้ iPhone เป็นหลักและให้ Codex ทำงานบน Mac. PO ปรับ workflow/guide/PLAN/STATUS/DECISIONS ให้เลิกผลัก Terminal เป็นงาน Owner. ตรวจเครื่องมือที่มีไม่พบช่องรับ private camera input ลง local Mac จากมือถือโดยตรง; iCloud Drive เป็นข้อเสนอรอ readiness ไม่ค้นไฟล์ส่วนตัวหรือเปิด sync เอง. Docs-only LOCAL_ONLY; code/tests ไม่เปลี่ยน ไม่มี Claude invocation ใหม่และไม่มี camera/auth/SD requests.
 
 - 2026-10-08 · OD-24/25 · isolated prerequisites ติดตั้งแล้ว; Owner อนุมัติ maintenance แยกจึงแก้ control/แผนและมอบ Claude ทำ private-input/offline tool. PO review ส่งแก้, รอบแก้ timeout ไม่ประกาศ PASS; audit child/test processes แล้วคืน ownership ตาม WORKFLOW. PO ปิดข้อผิดพลาดรายงาน/descriptor cleanup/interrupt และตรวจอิสระ 176/176 PASS. `.ft_connect-*.tmp` และ local config ถูก ignore; ไม่มี secret/IP จริง/วิดีโอในชุด publish. Camera/auth/clips 0/0/0. Live route/SD/Fixed mapping ยัง NOT_TESTED; พร้อม checkpoint PR #4 ตาม branch เดิม ไม่ merge.
 

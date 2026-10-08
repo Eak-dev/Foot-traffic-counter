@@ -12,6 +12,12 @@ Owner decision 2026-10-07: ใช้ **local folder เดียวและ bra
 
 ## หน้าที่และการถือสิทธิ์แก้ไฟล์
 
+**OD-29 communication:** ทำงานที่อนุมัติแล้วต่อเนื่องตามลำดับจนจบหรือพบ blocker ที่ต้องให้ Owner ช่วย; ลดข้อความระหว่างงานและแจ้งเฉพาะปัญหา/คำถามที่จำเป็น พร้อมสรุปเมื่อจบชุดงาน. เก็บรายละเอียดและผลจริงใน local STATUS/evidence; ไม่สร้าง worker/scheduler และไม่ตีความเป็นสิทธิ์ข้ามเกตอุปกรณ์.
+
+**OD-26 (2026-10-08): Owner ใช้ iPhone เป็นหลัก.** Codex เป็นผู้รันงานบน Mac ที่เชื่อมถึงได้และอยู่ใน scope ที่อนุมัติ; ไม่ให้ Owner เปิด Terminal/พิมพ์คำสั่งเป็นเกตบังคับ. งานใน Tapo และการตัดสินใจยังเป็นของ Owner. การรับ private endpoint/credentials ต้องมีช่องทางที่ตรวจแล้วก่อน ไม่ให้ส่งค่าในแชต/Issue และไม่ค้นไฟล์บ้านหรือ secrets ทั้งเครื่อง. iCloud Drive ของ Owner เป็นเพียงทางเลือกที่รอ readiness/ไฟล์เป้าหมายที่ระบุชัด ไม่ติดตั้ง/เปิด sync/เปลี่ยน account อัตโนมัติ. การทำงานจาก iPhone ไม่ได้เปิด scheduler หรือรับรองว่า Mac ที่ offline จะรันงานได้.
+
+**OD-27/28 readiness update:** Owner แจ้ง iCloud Drive เปิดอยู่และทำขั้นตอนส่ง IP เสร็จ; PO พบหนึ่งโฟลเดอร์ว่างที่ส่งใน `FootTrafficSetup` บน Mac แล้ว. ตรวจ RFC1918/ความกำกวม/ไม่ตาม symlink และบันทึกด้วย atomic helper เดิมใน ignored config mode 0600; offline validation PASS. ไม่ต้องส่ง IP ซ้ำ. PO รับเฉพาะจุดที่ Owner ส่งและเก็บ output ที่ redacted ไม่อ่านไฟล์ส่วนตัวเดิมหรือเก็บ raw names ใน Git. ช่องทางนี้ไม่รับ password/account/video; Claude ไม่มีสิทธิ์อ่านค่าจริง. Check ยัง BLOCKED, route/auth/download NOT_TESTED และ camera requests 0.
+
 OD-25 Owner อนุมัติ maintenance/control แยกและ private IP-input/offline check แล้ว. PO เตรียม scope ใน PROJECT_CONTROL; Claude รับเฉพาะ `tools/ft_connect.py`, `tests/test_ft_connect.py`, `docs/MAC_CONNECTION_GUIDE.md` ตามใบงาน. ไม่แก้ launcher/policy ไม่ให้ Dev อ่าน local IP/config/runtime หรือเชื่อมกล้อง; tests ใช้ temporary synthetic config เท่านั้น. สิทธิ์ติดตั้ง OD-24 เป็นของ PO และเสร็จใน ignored runtime แล้ว ไม่ขยายสิทธิ์ shell/เครือข่ายของ Dev.
 
 | ผู้ทำ | หน้าที่ |
