@@ -35,6 +35,10 @@ Lock นี้เป็นกติกาความร่วมมือ ไ�
 
 ## รอบส่งงาน
 
+**OD-36 ปัจจุบัน:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้
+
+ข้อความ OD-34/35 ด้านล่างเป็นประวัติ; ไม่ใช่ขั้น Owner ที่ต้องทำตอนนี้. PO เสนอ cloud experiment ที่มี scope/ราคา/stop rule หรือ manual validation แล้วให้ Owner ตัดสินใจเฉพาะ requirement ที่เปลี่ยน; ไม่ผลักงานค้นหาให้ Owner
+
 OD-35 supersedes การนำ Mac ไปที่ร้านเป็น next action: PO รับผิดชอบแก้ home-to-shop ผ่าน gateway ที่ตรวจแล้ว; Owner ช่วยเฉพาะเข้าหน้า router ร้านบน iPhone ที่ PO ยังเข้าถึงไม่ได้. HOME_CONNECTION_PLAN ระบุ capability branches/route/rollback; ไม่ขอสิทธิ์ทดลองทั่วไปซ้ำ และไม่ขยายสิทธิ์ Dev/ติดตั้งโดยเดา
 
 OD-34 เป็น PO private/network diagnostic ตามคำสั่งเชื่อมจริงของ Owner: อ่าน current OS route สำเร็จ พบ IP ร้านทับ LAN บ้าน จึงไม่ส่ง TCP ผิดปลายทาง. ไม่ให้ Claude อ่าน endpoint/credentials หรือเพิ่ม network tools. ขั้นที่ Owner ช่วยคือให้ Mac เดิมต่อ Wi-Fi ร้าน; PO รับผิดชอบคำสั่งทดสอบต่อ. Scope/bounds/ผลดู PROJECT_CONTROL และ STATUS; ไม่วนถามอนุญาตทั่วไปใหม่.

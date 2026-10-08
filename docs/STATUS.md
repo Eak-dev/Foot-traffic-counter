@@ -1,10 +1,14 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-35 แก้ home-to-shop; รอเข้าถึงเมนู router ร้านเพื่อเลือก gateway/tunnel ตาม capability · checkpoint PR #4; สถานะ push/read-back จริงอยู่ใน ignored delivery record · Issue #1 · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-36 feasibility reviewed กับ Claude: home SD NO-GO implementation ตอนนี้; manual/cloud เป็นข้อเสนอมีเงื่อนไข · PR #4 · ผล push/read-back ใน ignored delivery record · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
+
+- **OD-36 / FEASIBILITY_REVIEWED:** Claude รอบแรก COMPLETED_LOCAL (155.3s), review revision TIMEOUT (180.6s), PO process audit/release retained empty lock, final COMPLETED_LOCAL / child exit 0 (120.2s). Claude NOT_RUN_BY_DEVELOPER (advisory/docs-only). PO ตรวจแหล่งข้อมูลและแก้ CGNAT/token/process claims. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md): automatic SD จากบ้าน NO-GO implementation ภายใต้หลักฐานปัจจุบัน ไม่ใช่ unsupported ถาวร; เลิกใช้ router ที่ไม่ยืนยันเป็นแผนหลักและพัก scaffolding. Manual SD/local import หนึ่งคลิปกับ Tapo Care เป็น CONDITIONAL proposals. Cloud ไม่ใช่ SD เดิม ต้องยอมรับ privacy/source/subscription และผ่าน auth/Fixed/complete-day evidence ก่อนยอดทั้งวัน. Requests/clips 0, counting UNTESTED. ไม่ลงโปรแกรม/เปลี่ยน settings/ซื้อในงานนี้
+
+รายการ OD-35 และก่อนหน้าด้านล่างเป็นประวัติ; current next action ยึด OD-36
 
 - **OD-35 / HOME_ROUTE_REQUIRED:** Owner สั่งแก้เส้นทางบ้านไปที่ร้าน; ยกเลิกการย้าย Mac เป็นขั้นบังคับ. PO ตรวจ primary AIS F6107A/PDF LAN/DDNS/Port Forwarding, Tailscale subnet gateway และ pytapo local transport. ยังไม่ยืนยัน VPN Server ของเราเตอร์จริง และไม่มี shop management route/session/WAN/profile. [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md) เตรียม tunnel ผ่านเราเตอร์เดิมเป็น candidate กับ host route แก้ overlap; ไม่สมมติว่ารองรับ. ตรวจ Mac x86_64 และไม่พบชื่อแอป VPN candidates ใน /Applications; ไม่ติดตั้ง/อ่าน credentials/เปลี่ยน settings. ถามเฉพาะ readiness ของหน้า router บน iPhone; ไม่ขอ IP/รุ่น/สิทธิ์ทั่วไปซ้ำ. Camera/auth/SD requests 0 รอบนี้; Claude NOT_RUN_BY_DEVELOPER
 
@@ -31,7 +35,7 @@
 - **ทีม:** Codex และ Claude ใช้ local checkout/branch งานเดียวกันตาม OD-12/13; หนึ่ง writer ต่อครั้ง. พาธจริงอยู่ใน ignored local config; สำเนาเก่า dormant
 - **โค้ดที่มีจริง:** `doctor`, local `inventory`, ตัวเรียก `tools/claude_dev.py`, private IPv4-input/offline check `tools/ft_connect.py`, offline core `tools/ft_acquire.py` และ control-method bridge `tools/ft_tapo_bridge.py`; **ยังไม่มี live auth/transport/downloader**
 - **ผลฝั่งกล้อง:** OS route ตรวจจริงแล้วพบ `OVERLAPPING_HOME_LAN_ROUTE_NOT_SHOP`; ยังไม่ส่ง TCP/application/auth ไปยัง IP ที่ทับ LAN บ้าน. คำขอกล้อง 0, auth attempts 0, คลิปดาวน์โหลด 0 — ยังไม่ได้ทดสอบว่ากล้องตอบหรือไม่
-- **Claude ล่าสุด OD-33:** initial TIMEOUT 600.4s หลังเขียน draft; PO process audit ไม่พบ child/unittest ก่อนปล่อย retained empty lock. รอบแก้ child exit 0 (500.3s) แต่ launcher FAILED/RESULT_PERMISSION_DENIALS เพราะพยายามเติม pipe/tail/echo หลัง test command ที่อนุญาต; ไม่เพิ่มสิทธิ์หรือถือว่า invocation PASS. รายงาน 326 tests เป็น DEVELOPER_REPORTED; PO ยืนยัน 326 แล้วปิด failure latch ของ malformed replies/SDK output, strict error-code/JSON copy hooks และ request mutation boundary. Final PO-corrected revision **330/330 PASS**, NOT_RUN_BY_DEVELOPER. Actual SDK/route/auth/media/Fixed metadata/timezone/quota ยัง UNKNOWN.
+- **Claude OD-33 (ประวัติ):** initial TIMEOUT 600.4s หลังเขียน draft; PO process audit ไม่พบ child/unittest ก่อนปล่อย retained empty lock. รอบแก้ child exit 0 (500.3s) แต่ launcher FAILED/RESULT_PERMISSION_DENIALS เพราะพยายามเติม pipe/tail/echo หลัง test command ที่อนุญาต; ไม่เพิ่มสิทธิ์หรือถือว่า invocation PASS. รายงาน 326 tests เป็น DEVELOPER_REPORTED; PO ยืนยัน 326 แล้วปิด failure latch ของ malformed replies/SDK output, strict error-code/JSON copy hooks และ request mutation boundary. Final PO-corrected revision **330/330 PASS**, NOT_RUN_BY_DEVELOPER. Actual SDK/route/auth/media/Fixed metadata/timezone/quota ยัง UNKNOWN.
 - **ไม่มี scheduler/worker เปิดอยู่:** การอัปเดต docs ไม่ทำให้ Claude ทำงานต่อหลังจบแชตเอง
 - **Owner instruction:** พัฒนาและอัปเดตสถานะใน local เป็นหลัก; push เมื่อ reviewable/ข้อสรุปหรือ blocker สำคัญ/handoff ที่ต้องใช้ remote/Owner สั่ง. ไม่ sync ทุกข้อความ (supersedes OD-11 cadence); ไม่เผยแพร่ raw transcripts/ข้อมูลลับ
 
@@ -55,15 +59,15 @@
 
 | ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
 | --- | --- | --- |
-| B1 | Live auth/transport/downloader ยังไม่เขียน; offline core/control bridge ตรวจรับแล้ว | ต่อ audited auth/media transport, interruptible deadlines และ atomic staging ใน scoped task; verify actual pinned SDK ก่อนใช้ bridge. การทดลองจริงยังต้องมี route/interface/credentials/metadata/quota ไม่เดาเส้นทาง |
+| B1 | Live downloader ยังไม่มี; หยุด scaffolding ตาม OD-36 | PO เสนอ acquisition ที่มีหลักฐานขั้นต่ำก่อนเริ่ม transport code; manual/cloud ยังต้อง scope/storage acceptance แยก |
 | B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
-| B3 | OS route OD-34: IP ร้านทับ LAN บ้าน; ยังไม่มี shop gateway/tunnel. OD-35 ต้องแก้จากบ้าน | Owner ช่วยเปิด router UI ร้านบน iPhone; PO ตรวจ VPN Server/endpoint แล้วเลือก client/host route พร้อม rollback ตาม HOME_CONNECTION_PLAN. ไม่ย้าย Mac เป็นขั้นบังคับ ไม่ติดตั้ง VPN บ้านอย่างเดียว ไม่ probe อุปกรณ์บ้าน |
+| B3 | OS route ทับ LAN บ้าน ไม่มี shop tunnel ที่พิสูจน์; automatic SD NO-GO ตอนนี้ | OD-36 ไม่รอ router UI; PO เสนอ cloud-source experiment หรือ manual SD import. การเปลี่ยน source/คลาวด์/งบต้อง Owner ตัดสินใจ ไม่ probe อุปกรณ์บ้าน |
 | B4 | Auth/adapter channel compatibility ยัง UNKNOWN; SD dual-track layout SOURCE_DOCUMENTED | FAQ 4666 ของผู้ผลิตใช้กับ C545D V1: VLC Track 1 Fixed / Track 2 PT. ยังไม่เท่ากับ pytapo channel IDs หรือไฟล์จริงผ่าน; ทีมต้องตรวจ ffprobe/ภาพตรงต้นทางก่อนนับ. Camera Account/Compatibility/version ยืนยันแล้วไม่ถามซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
 
 ## รอจาก Owner และงานถัดไป
 
-**OD-35 ขั้นที่จำเป็นตอนนี้:** เปิดหน้า router ร้านจาก iPhone ที่ต่อ Wi-Fi ร้าน (Settings → Wi-Fi → ⓘ → Router → Safari), ล็อกอินเองและแจ้งว่าเข้าถึงได้หรือไม่ได้; ไม่ส่ง password/OTP. PO ยังไม่มีช่องทางเข้าหน้านี้จาก Mac บ้าน. เมื่อเห็น capability จริง ทีมเลือก tunnel/client/WAN/host route แล้วทดสอบตามลำดับ. ไม่ให้ Owner เปิด Terminal หาข้อมูลเทคนิคเอง หรือย้าย Mac ไปที่ร้าน; ไม่ขอ IP กล้องซ้ำ
+**OD-36 ขั้นถัดไป:** PO เตรียมข้อเสนอพร้อมแหล่งข้อมูลแล้ว: ทดลอง Tapo Care จากบ้านหลังยอมรับ source/cloud/งบสูงสุด 129 บาทหนึ่งเดือนและ scope หนึ่งคลิป/1 GiB/10 นาที/retention 24 ชั่วโมง หรือคง SD แล้ว export ผ่าน iPhone โอน local เพื่อพิสูจน์หนึ่งคลิป. ยังไม่อนุมัติ/ดำเนินการทั้งสองทาง; ไม่รอ Owner router UI ไม่ให้ย้าย Mac/ค้นเทคนิคเอง. ดูข้อเสนอและ stop rule ใน FEASIBILITY_REVIEW
 
 ยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7; ไม่ขอข้อมูลนี้หรือ router version ซ้ำ
 
@@ -82,12 +86,14 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 ## Local handoff ปัจจุบัน
 
 - Branch: `claude/ft-d0-preflight` เดิม; baseline เวอร์ชันแรก `b05b8fb6821fdaf645db2217ed9ea8c45ba21363` (`v0.1.0`). PO นำผล merge มาใน local ด้วย fast-forward เท่านั้น; config/root เดิม.
-- Writer: PO หลัง audit/รับงานกลับจาก Claude; ไม่มี delegated child ถือ tree. Baseline ก่อน checkpoint OD-26–29: `80ca93bee4744afe458193bf5462a387f3bf938b`; full HEAD ปัจจุบันอ่านจาก local Git และ delivery record. ชุดนี้เป็นเอกสาร OD-26–29; runtime/config ที่รับไม่ขึ้น Git. ยังขาด downloader/route/auth/metadata/quota ไม่ใช่ขาดสิทธิ์ maintenance.
+- Writer: PO หลัง Claude final OD-36 ส่งมอบ; launcher lock ถูกปล่อยแล้ว. Baseline ก่อน checkpoint นี้ `e62a9ac31c5a238b705ff827dd9c99efad7f8168`; เปลี่ยนเอกสารเท่านั้น. Full HEAD/ผล sync ใช้ local Git และ ignored delivery record
 - Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว; PR #4 OPEN ใช้ branch เดิมสำหรับ D1 preparation. ชุด OD-20–23/ROUTE_DECISION พร้อม checkpoint ที่ตรวจแล้ว. ก่อน push/read-back เป็น LOCAL_ONLY; ผลส่งจริง/HEAD เก็บใน ignored `.claude/delivery.local.json`. ไม่แก้ main ตรง ไม่ merge รอบนี้.
-- Final validation: PO ล่าสุดรัน **176/176 unittest PASS**, exit 0 (113 baseline + 63 private-input tests); code/tests ไม่เปลี่ยน. OD-28 ใช้ helper จริงบันทึก config และ `check_command` คืน endpoint configured / BLOCKED ตามที่ออกแบบ; requests 0. ตรวจ diff/ขอบเขต/ข้อมูลลับและ ignore pattern ก่อน checkpoint. หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้.
-- Next action: PO/Dev รับผิดชอบ route/interface research ตาม OD-30; ไม่รอ Owner ถาม AIS/TP-Link. ผลละเอียดใน ROUTE_DECISION §6 และแบบตรวจ dual tracks ใน ONE_CLIP_PLAN; ยังไม่มี evidenced home route จึงไม่ probe IP ที่อาจเป็นอุปกรณ์บ้าน. หากต้องเลือก local/manual trial ให้ทีมเสนอ scope แยก. Clip/Fixed Lens ยืนยันแล้ว; ยังขาด implementation/route/auth/metadata/quota. Workflow สำเร็จไม่เปิดเกตกล้อง
+- Final validation OD-36: PO regression **330/330 PASS**, exit 0 (14.140s); Claude NOT_RUN_BY_DEVELOPER. ไม่มี code/tests/camera changes; regression ไม่พิสูจน์ auth/SD/cloud/counting
+- Next action: Owner เลือกข้อเสนอ cloud-source หรือคง SD/manual ตาม OD-36; PO จัด secure auth/storage task หลัง acceptance. ไม่รอ router UI ไม่ซื้อ/ติดตั้ง/เปิด live gate เอง; ยังไม่มีไฟล์หรือความแม่นยำจริง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · PO/Claude · OD-36 internet feasibility/alternatives reviewed. Actual Claude final exit 0; prior review revision TIMEOUT ไม่อ้างสำเร็จ, process audit แล้วคืน ownership. Home SD NO-GO implementation ตอนนี้; manual/cloud CONDITIONAL; counting UNTESTED. เพิ่มรายงาน/ปรับ next action เลิกวน router UI และพัก scaffolding. ไม่มี requests/clips/install/settings/purchase; PO regression **330/330 PASS**, exit 0 (14.140s)
 
 - 2026-10-08 · PO · OD-35 Owner ยืนยัน home-to-shop แทน next action ย้าย Mac ที่ร้าน. เตรียม HOME_CONNECTION_PLAN พร้อม branches VPN Server/Client/Passthrough/relay และ rollback. Source research ยืนยันต้องมี shop-side gateway; exact F6107A VPN Server ยัง UNKNOWN. ไม่มี router session/WAN/profile จึงยังไม่สามารถตั้ง tunnel จริง; ถาม readiness ของ router UI จาก iPhone. ไม่มี code/install/setting change และไม่เรียก Claude (NOT_RUN_BY_DEVELOPER). PO regression **330/330 PASS**, exit 0 (13.802s); ไม่ประกาศ live PASS
 

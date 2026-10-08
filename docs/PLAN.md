@@ -6,6 +6,8 @@
 
 ## สถานะการเปลี่ยนแผน
 
+**OD-36 ปัจจุบัน:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้
+
 **OD-35:** Owner ต้องการแก้การเชื่อมจากบ้านไปที่ร้าน; ไม่ใช้ย้าย Mac เป็นขั้นบังคับ. [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md) เลือกตรวจ gateway บนเราเตอร์เดิม + tunnel/host route แก้ overlap; ยังขาด router UI/capability/WAN/profile จริง. ยังไม่ติดตั้งหรือเปลี่ยน route/settings. Supersedes next action ที่ร้านของ OD-34; เป้าหมาย batch SD/Fixed เดิม
 
 **OD-34 / real route diagnostic (2026-10-08):** Owner อนุญาตให้ PO ตรวจเชื่อมจริงโดยไม่ขอสิทธิ์เดิมซ้ำ. OS route ตรวจแล้วพบ private target ทับ LAN บ้านและไม่ได้ผ่าน shop tunnel; ไม่ส่ง TCP ไปหาอุปกรณ์บ้าน. ขั้นทดลองแรกใช้ Mac เดิมต่อ Wi-Fi ร้าน โดย PO ตรวจพอร์ตตาม PROJECT_CONTROL; auth/SD/Fixed/timezone/storage ยังต้องตรวจแยก. ไม่เปลี่ยนเป้าหมาย acquisition-first/batch และไม่เปลี่ยน settings/ซื้อฮาร์ดแวร์. Scope offline ของ Claude คงเดิม.

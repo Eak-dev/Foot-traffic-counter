@@ -1,5 +1,8 @@
 # บ้าน → ร้าน: แผนเชื่อมต่อด้วยอุปกรณ์เดิม (OD-35)
 
+> **OD-36 ปัจจุบัน:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้
+> รายละเอียด candidate/next action เดิมด้านล่างเป็นประวัติ OD-30–35; OD-36 มีผลเหนือข้อความที่ให้รอ router UI หรือพัฒนา adapter ต่อ
+
 Owner ต้องการให้ Mac อยู่บ้านและเชื่อมไปกล้องร้าน. ไม่ใช้การย้าย Mac ไปที่ร้านเป็นขั้นบังคับ. Baseline `4681569f2b028e6def1f2a62616f5e981540cfa1`, branch งานเดิม; PO เป็นผู้ดำเนินการ. แผนนี้ยังไม่ใช่ tunnel ที่ตั้งแล้ว
 
 ## ผลที่ตรวจแล้วและจุดที่ขาด
