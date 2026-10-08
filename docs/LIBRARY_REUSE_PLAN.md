@@ -1,6 +1,6 @@
 # ใช้ GitHub library เป็นส่วนดึงคลิป SD ของโปรแกรมเรา
 
-สถานะ 2026-10-08: SOURCE_AUDITED / OFFLINE_CORE_IMPLEMENTED / LIVE_BINDING_NOT_IMPLEMENTED. OD-31 เป็น source research ที่ baseline `d25670ef335ae772f1a96778fb111bf062942c28`; OD-32 Owner อนุมัติและทีมพัฒนา core ตามแบบที่ baseline `62572b2aa91d2a937498a1a5331500ee10889f95`, branch เดิม. ไม่เปิดเกตกล้อง; IP/runtime ที่มีอยู่ยังเป็นข้อมูล local ไม่ส่งให้ coding agent.
+สถานะ 2026-10-08: SOURCE_AUDITED / OFFLINE_CORE_AND_CONTROL_BRIDGE_IMPLEMENTED / LIVE_TRANSPORT_NOT_IMPLEMENTED. OD-31 source research ที่ baseline `d25670ef335ae772f1a96778fb111bf062942c28`; OD-32 core ที่ `62572b2aa91d2a937498a1a5331500ee10889f95`; OD-33 control bridge ที่ `9f645fc71bcfa5262e722b0c3d1b608f7a04435f`, branch เดิม. ไม่เปิดเกตกล้อง; IP/runtime ยังเป็นข้อมูล local ไม่ส่งให้ coding agent.
 
 ## ข้อเสนอที่เลือก
 
@@ -27,6 +27,8 @@ Adapter ต้องตรวจคำสั่งที่ขอบเขตส
 
 ## แบบโปรแกรมและสถานะงานพัฒนา
 
+OD-33 เพิ่ม [control-method bridge](TAPO_BRIDGE_GUIDE.md) แล้ว: bind เฉพาะ 4 audited methods บน facade โดยไม่เรียก constructor, guard ก่อน sender, fixed query scope, suppress retry/recovery และ latch failures รวม malformed SDK/replies. PO tests 330/330 PASS, static source attributes/import contract PASS. ทดสอบ SDK จำลอง; actual pinned SDK identity/execution, authentication และ transport ยังไม่ตรวจรับ. ไม่ใช่ sandbox สำหรับ SDK arbitrary code และไม่มี media downloader.
+
 OD-32 เพิ่ม [offline core](ACQUISITION_CORE_GUIDE.md) แล้ว: strict SD request guard + injected sender, bounded normalized pagination, cooperative byte-copy, Fixed/container/duration proof inputs และ in-memory manifest/dedup. PO tests 295/295 PASS และ synthetic pipeline PASS. Core ยังไม่ import/ผูก pytapo; ไม่มี auth/media framing, interruptible transport, validator จริง หรือ atomic file publication. การตรวจ request shape ไม่ใช่หลักฐาน intercept constructor/recovery ของ upstream ได้แล้ว และ flags/staged dict ไม่พิสูจน์ provenance ด้วยตัวเอง.
 
 | ส่วน | หน้าที่ / เกณฑ์ตรวจ |
@@ -38,7 +40,7 @@ OD-32 เพิ่ม [offline core](ACQUISITION_CORE_GUIDE.md) แล้ว: st
 | Fixed Lens validation | ffprobe ตรวจ streams/duration และตรวจมุมกับต้นทาง; [ผู้ผลิต](https://www.tp-link.com/us/support/faq/4666/) อธิบาย VLC Track 1 Fixed / Track 2 PT แต่ไม่ใช้เลขนี้แทน downloader channel IDs. ไม่รวมยอด PT |
 | Manifest/idempotency | ใช้ clip reference + SHA256, ไม่เผย path/ชื่อจริง; รับเป็นสำเร็จหลังตรวจไฟล์ครบ, retry ช่วงเดิมต้องไม่เพิ่มรายการซ้ำ |
 
-ขั้น offline interface → synthetic tests → PO review เสร็จตาม OD-32; ผล guard ไม่เปิดสิทธิ์ live. งานถัดไปคือ scoped binding ที่ audit constructor/auth/media send จริง พร้อม interruptible deadlines และ atomic staging. เมื่อ route/credentials/metadata/quota prerequisites ผ่านจึงทดลองหนึ่งคลิป แล้วค่อยขยายเป็น batch รายวันตาม D2→D3.
+ขั้น offline core/control-method binding → synthetic tests → PO review เสร็จตาม OD-32/33; ผล guard ไม่เปิดสิทธิ์ live. งานถัดไปคือ actual SDK identity/function audit และ scoped auth/media transport พร้อม interruptible deadlines/atomic staging. เมื่อ route/credentials/metadata/quota prerequisites ผ่านจึงทดลองหนึ่งคลิป แล้วค่อยขยายเป็น batch รายวันตาม D2→D3.
 
 ## ข้อสรุปเรื่องบ้าน→ร้าน
 

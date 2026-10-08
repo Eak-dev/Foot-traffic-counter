@@ -8,6 +8,8 @@
 
 ## 1. ข้อตัดสินใจ
 
+**OD-33 (2026-10-08):** PO จัดการใบงาน/ประสาน Claude/review/ตรวจผลตาม Owner; offline [listing bridge](TAPO_BRIDGE_GUIDE.md) ตรวจรับแล้ว (330/330 PO tests PASS). ไม่เรียก SDK constructor, ปฏิเสธ setter/retry/scope widening ก่อน injected sender และ latch เมื่อข้อมูลผิดพลาด. ทดสอบ Fake SDK กับ static attribute contract เท่านั้น; actual SDK/auth/route/media/Fixed metadata/quota ไม่ผ่านเกตเพิ่ม.
+
 **OD-32 (2026-10-08):** Owner อนุมัติ offline acquisition core; Claude พัฒนาและ PO ตรวจรับ `ft_acquire` กับ synthetic tests แล้ว (295/295 PASS). Request guard/listing/chunk budgets/manifest อยู่ใน [คู่มือ](ACQUISITION_CORE_GUIDE.md); ไม่มี upstream import/transport/auth/real-file publication. Proof flags เป็น input ของ validator ในอนาคต; cooperative deadline ไม่ interrupt callback ที่ค้าง. ไม่เปิดเกตอุปกรณ์และไม่ถือว่าเพดานพัฒนาเป็น quota ที่อนุมัติ live.
 
 **ปัจจุบัน OD-24–28 (2026-10-08):** Owner อนุญาตติดตั้ง acquisition prerequisites แบบแยกบน Mac และอนุมัติ maintenance/control พร้อม private IPv4-input/offline check แล้ว. OD-28 รับ endpoint ที่ Owner ส่งจาก iPhone และบันทึก ignored local config mode 0600; offline validation PASS. คำห้ามติดตั้งเดิมด้านล่างเป็น baseline ก่อนข้อยกเว้นนี้; คำสั่งใหม่ไม่เปิด DNS/socket/auth/SD/video ในงานนี้. Private route/บัญชียังขาด; เกต quota/timezone/Fixed mapping ยังไม่ผ่าน. ใช้ PROJECT_CONTROL เป็น scope ปัจจุบัน.

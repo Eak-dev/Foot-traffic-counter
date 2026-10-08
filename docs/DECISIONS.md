@@ -34,6 +34,8 @@ OD-05/08 เก็บข้อสรุปเดิมเป็นประว�
 
 ## Owner evidence — 2026-10-08
 
+- **OD-33 — OWNER_PO_DELEGATION:** Owner ให้ Codex ในตำแหน่ง PO คุยและสั่ง Claude เพื่อให้ตรงจุดประสงค์และจัดการงานทั้งหมดใน scope. PO รับผิดชอบแตกงาน/review/ค้นคำตอบ/ตรวจผล/ส่งแก้/จัด checkpoint; ขอ Owner เฉพาะการตัดสินใจหรือหน้างานที่ทีมทำแทนไม่ได้. เริ่ม offline constructor-free SD listing bridge กับ synthetic tests ต่อจาก OD-32; ไม่ขยายสิทธิ์กล้อง/รหัส/ติดตั้ง/merge/scheduler และไม่ให้ Dev แก้ policy.
+
 - **OD-32 — OWNER_IMPLEMENTATION_APPROVAL:** Owner ตอบ “จัดการได้เลย” ต่อข้อเสนอ reuse pytapo. PO เริ่ม scoped offline acquisition core ผ่าน Claude: guard ของ SD request, bounded normalized listing/chunk transfer, Fixed/manifest/dedup helpers และ synthetic tests. ไม่ import/เรียก upstream หรือเปิด live route/auth/video; auth/media binding, stalled transport interruption และ real-file publication ยังเป็นงานแยก. Scope และ write paths อยู่ PROJECT_CONTROL; ไม่แก้ launcher/policy ไม่ติดตั้งเพิ่ม.
 
 - **OD-31 — OWNER_RESEARCH_REQUEST:** Owner ขอค้นวิธีสร้างโปรแกรมเรียกใช้ GitHub library ของผู้อื่น. PO audit 4 candidates แบบ static ที่ pin commit แล้ว เสนอ `pytapo==3.4.26` ซึ่งติดตั้งใน isolated runtime อยู่แล้วเป็น backend ของ scoped CLI; เพิ่ม LIBRARY_REUSE_PLAN. ยังไม่ใช่ implementation/live/install approval เพิ่ม. พบ upstream read-error recovery อาจเรียก `setCruise(False)` จึงต้อง guard/patch ก่อน device trial; C545D compatibility/private route ยังไม่ยืนยัน. ไม่ส่งข้อมูลจริงให้ Dev และไม่เปลี่ยนต้นฉบับ SD เป็น Tapo Care.

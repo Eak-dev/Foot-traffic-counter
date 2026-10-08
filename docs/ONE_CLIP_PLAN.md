@@ -59,6 +59,8 @@ Source update 2026-10-08: [TP-Link FAQ 4666](https://www.tp-link.com/us/support/
 
 ## 7. ผลปัจจุบัน
 
+OD-33 control-method bridge ตรวจรับด้วย synthetic SDK แล้ว (330/330 PO tests PASS); selective getter binding บน facade ไม่เรียก constructor และ guard/latch ก่อน sender. ดู [คู่มือ](TAPO_BRIDGE_GUIDE.md). ไม่ได้ execute SDK จริงหรือพิสูจน์ auth/transport/device compatibility; media/metadata/atomic staging ยังไม่ implement. งานนี้ไม่เปลี่ยน HOLD_FOR_ROUTE_EVIDENCE ของ live.
+
 OD-32 offline core implement และ PO review แล้ว: synthetic tests 295/295 PASS; injected guard/listing/copy/manifest pipeline PASS. Camera requests = 0, auth attempts = 0, clips ดึงจริง = 0. Live pytapo binding/constructor/auth/media/interruptible deadlines/atomic file publication ยังไม่ implement. Core ไม่อ่าน config หรือเรียก upstream และ trusted proof inputs ไม่ใช่ผลตรวจไฟล์จริง. ใช้ผล ROUTE_DECISION และ scoped task ก่อนทดลองกล้อง; Dev ไม่เปิดเกต live เอง
 
 ## READY_FOR_REVIEW / PENDING_OWNER_INPUT / NOT_TESTED

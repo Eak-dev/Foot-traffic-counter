@@ -74,6 +74,8 @@ Codex และ Claude ใช้ checkout/branch งานเดียวกั�
 
 ## งานถัดไป: หนึ่งคลิปจาก SD
 
+OD-33 offline control-method bridge `tools/ft_tapo_bridge.py` ตรวจรับแล้ว; [คู่มือ](TAPO_BRIDGE_GUIDE.md). Selective method binding บน facade ที่ไม่เรียก SDK constructor, request guard ก่อน injected sender, exact query scope, call budget/deadline และ failure latch ของ recovery/retries/invalid replies. PO ทดสอบ SDK/sender จำลอง 330/330 PASS และ source attribute contract แบบ static; ไม่ import/รัน pytapo ที่ติดตั้งจริง. SDK class identity ยังเป็น caller trust; transport/auth/media/real-file publication และการทดลองกล้องยังต้อง scoped audit แยก.
+
 OD-32 offline core `tools/ft_acquire.py` กับ synthetic tests ตรวจรับแล้วตาม PROJECT_CONTROL; [คู่มือ API](ACQUISITION_CORE_GUIDE.md). Core แยก request guard/listing/budget/Fixed/manifest ออกจาก transport; `check` คง BLOCKED และไม่อ่าน config/IP จริง. Cooperative deadline ไม่ใช่หลักฐาน interrupt stalled upstream ได้; live pytapo binding/auth/media และ real-file publication ต้อง audit แยกก่อนกล้อง. Manifest proof flags มาจาก trusted validator ที่ยังไม่มี ไม่ใช่หลักฐานกล้องจริง. ไม่รอ route เพื่อทำส่วน offline ที่ Owner อนุมัติ แต่ live gates เดิมคงอยู่.
 
 OD-31: [LIBRARY_REUSE_PLAN](LIBRARY_REUSE_PLAN.md) เป็นผล audit GitHub libraries และแบบนำ `pytapo==3.4.26` มาเป็น backend ของโปรแกรมเรา. เป็นข้อเสนอ adapter ยังไม่ implement; ต้องปิด upstream recovery setter, บังคับ quota ที่จุดรับ bytes และตรวจ Fixed mapping ก่อน live. Dependency นี้ติดตั้งตาม OD-24 แล้ว; ไม่ต้องเพิ่ม Hub/Home Assistant หรือเปลี่ยนเป้าหมาย SD เป็น Tapo Care. Library ไม่พิสูจน์ private route ข้ามเครือข่าย.
