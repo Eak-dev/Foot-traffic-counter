@@ -6,6 +6,8 @@
 
 ## สรุปปัจจุบัน
 
+- **OD-30 / source research:** Owner ให้ทีมค้นคำตอบเอง; ยกเลิกงานรอ Owner ถาม AIS/TP-Link. PO ตรวจ exact model/firmware/router terms และ primary sources แล้ว; F6107A VPN server กับ C545D automated remote SD บน Mac ยัง UNVERIFIED. พบ FAQ 4666 ของ C545D V1 ยืนยัน SD dual tracks: VLC Track 1 Fixed / Track 2 PT; เพิ่มแบบตรวจ tracks ใน ONE_CLIP_PLAN. เป็น SOURCE_DOCUMENTED เท่านั้น ไม่ใช่ adapter/device PASS. เอกสาร LOCAL_ONLY ก่อน checkpoint; live requests 0.
+
 - **OD-29:** Owner ให้ทีมทำงานต่อเนื่องและลดข้อความระหว่างงาน. PO ตรวจเอกสารผู้ผลิตซ้ำ: remote SD rollout อ่านได้แล้ว แต่ยังไม่ยืนยัน C545D/Mac API; คู่มือ AIS ยังไม่มี VPN server evidence. งาน offline/config พร้อมตาม OD-28; live acquisition ยังติด B3/B4. ชุดเอกสาร OD-26–29 เตรียม checkpoint PR #4; ผลส่งจริงใช้ delivery record หลัง push/read-back.
 
 - **OD-26–28 / private config LOCAL_ONLY:** Owner ใช้ iPhone เป็นหลักและให้ Codex จัดการงานบน Mac ไม่ต้องเปิด Terminal. Owner ทำขั้นตอนส่ง private IPv4 เสร็จ; PO พบหนึ่งโฟลเดอร์ว่างที่ส่งใน dedicated iCloud handoff บน Mac แล้ว บันทึก ignored config mode 0600 ด้วย helper เดิมและตรวจ offline PASS. Endpoint configured; credentials ยังไม่ได้รับ. Check ยัง BLOCKED, route/auth/download NOT_TESTED, camera requests 0. ไม่มีการอ่านไฟล์ iCloud เดิมหรือ account/sync/network/camera change.
@@ -45,8 +47,8 @@
 | --- | --- | --- |
 | B1 | Downloader ยังไม่เขียน; HOLD_FOR_ROUTE_EVIDENCE | pytapo 3.4.26 เป็น candidate; แบบ quota/dependencies/Fixed mapping ต้องทำหลัง route/interface evidence หรือ Owner เลือก local trial แยก ไม่สร้าง home downloader โดยเดา |
 | B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
-| B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; ร้านไม่มี computer/NAS สำหรับ gateway | ROUTE_DECISION: คู่มือ AIS ที่พบมี LAN/DDNS/port forwarding ไม่ใช่หลักฐาน VPN server; source downloader เป็น direct socket. รับคำตอบ capability ตามข้อความที่เตรียมให้ Owner หรือเลือก local/manual trial แยก; ไม่อ้างว่า router ไม่รองรับ/ไม่มี API โดยเด็ดขาด |
-| B4 | Auth/adapter compatibility ยัง UNKNOWN; camera version ยืนยันแล้ว | ทีมตรวจวิธีที่เลือกกับ C545D HW 1.0 / FW 1.1.7; Camera Account On, Third-Party Compatibility On และแอป 3.21.106 ยืนยันแล้ว; เหลือ readiness ของบัญชีตาม adapter ไม่ขอข้อมูลยืนยันแล้วซ้ำ |
+| B3 | เส้นทางบ้านไปกล้องร้าน NOT_TESTED; ร้านไม่มี computer/NAS สำหรับ gateway | OD-30: PO/Dev ค้นหาเอง ไม่รอ Owner ถาม AIS. ค้น exact model/full firmware และ VPN/OpenVPN/WireGuard รวม ZTE domain แล้วไม่พบคู่มือ server ตรงรุ่น; คู่มือ AIS ไม่ใช่หลักฐาน VPN server. ไม่สรุป unsupported จากการไม่พบเอกสาร |
+| B4 | Auth/adapter channel compatibility ยัง UNKNOWN; SD dual-track layout SOURCE_DOCUMENTED | FAQ 4666 ของผู้ผลิตใช้กับ C545D V1: VLC Track 1 Fixed / Track 2 PT. ยังไม่เท่ากับ pytapo channel IDs หรือไฟล์จริงผ่าน; ทีมต้องตรวจ ffprobe/ภาพตรงต้นทางก่อนนับ. Camera Account/Compatibility/version ยืนยันแล้วไม่ถามซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
 
 ## รอจาก Owner และงานถัดไป
@@ -71,9 +73,11 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Writer: PO หลัง audit/รับงานกลับจาก Claude; ไม่มี delegated child ถือ tree. Baseline ก่อน checkpoint OD-26–29: `80ca93bee4744afe458193bf5462a387f3bf938b`; full HEAD ปัจจุบันอ่านจาก local Git และ delivery record. ชุดนี้เป็นเอกสาร OD-26–29; runtime/config ที่รับไม่ขึ้น Git. ยังขาด downloader/route/auth/metadata/quota ไม่ใช่ขาดสิทธิ์ maintenance.
 - Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว; PR #4 OPEN ใช้ branch เดิมสำหรับ D1 preparation. ชุด OD-20–23/ROUTE_DECISION พร้อม checkpoint ที่ตรวจแล้ว. ก่อน push/read-back เป็น LOCAL_ONLY; ผลส่งจริง/HEAD เก็บใน ignored `.claude/delivery.local.json`. ไม่แก้ main ตรง ไม่ merge รอบนี้.
 - Final validation: PO ล่าสุดรัน **176/176 unittest PASS**, exit 0 (113 baseline + 63 private-input tests); code/tests ไม่เปลี่ยน. OD-28 ใช้ helper จริงบันทึก config และ `check_command` คืน endpoint configured / BLOCKED ตามที่ออกแบบ; requests 0. ตรวจ diff/ขอบเขต/ข้อมูลลับและ ignore pattern ก่อน checkpoint. หลักฐาน D0 7 independent checks เป็นประวัติ ไม่ได้รันซ้ำรอบนี้.
-- Next action: Owner ใช้คำถาม capability ใน ROUTE_DECISION สอบถาม AIS/TP-Link หรือเลือก local/manual trial แยก; PO ประเมินหลักฐานแล้วจัด scope ต่อ. Clip/Fixed Lens ยืนยันแล้ว; B1–B5 เหลือ implementation/route/auth/metadata/quota ไม่ขอข้อมูลเดิมซ้ำ. Workflow สำเร็จไม่เปิดเกตกล้อง
+- Next action: PO/Dev รับผิดชอบ route/interface research ตาม OD-30; ไม่รอ Owner ถาม AIS/TP-Link. ผลละเอียดใน ROUTE_DECISION §6 และแบบตรวจ dual tracks ใน ONE_CLIP_PLAN; ยังไม่มี evidenced home route จึงไม่ probe IP ที่อาจเป็นอุปกรณ์บ้าน. หากต้องเลือก local/manual trial ให้ทีมเสนอ scope แยก. Clip/Fixed Lens ยืนยันแล้ว; ยังขาด implementation/route/auth/metadata/quota. Workflow สำเร็จไม่เปิดเกตกล้อง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · OD-30 · เปลี่ยน research ownership เป็นทีมและยกเลิก Owner capability enquiry task. PO ค้น AIS/ZTE/TP-Link/maintainer/ONVIF เอง พบ C545D V1 FAQ 4666 ระบุ dual synchronous SD tracks และ lens filter; ปรับแผนยืนยัน Fixed track โดยไม่เดา adapter channel. F6107A VPN และ C545D Mac cloud export ยังไม่ยืนยัน; ไม่ประกาศ unsupported. PO unittest 176/176 PASS, exit 0 (13.718s), diff check PASS. Docs-only; ไม่มี Claude invocation (NOT_RUN_BY_DEVELOPER), กล้อง/auth/video/network settings 0.
 
 - 2026-10-08 · OD-29 / route refresh · บันทึก preference ทำงานต่อเนื่อง/ลดข้อความ; อ่าน TP-Link remote SD announcement ที่เคย 403 ได้แล้วและปรับข้ออ้างใน ROUTE_DECISION. App rollout ไม่พิสูจน์ C545D/automated Mac API; AIS VPN server ยัง UNKNOWN. ไม่มีการติดต่อผู้ผลิตแทน Owner/เปลี่ยนค่า/เรียกกล้อง. Code/tests ไม่เปลี่ยน; PO ล่าสุด 176/176 PASS ตาม OD-28, NOT_RUN_BY_DEVELOPER รอบนี้. เตรียม reviewed documentation checkpoint; ไม่ส่ง config/endpoint หรือ merge.
 

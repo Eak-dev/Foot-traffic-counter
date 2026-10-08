@@ -3,7 +3,7 @@
 BASELINE: `ee89a5102ead18022cc5104502dd742b18f3c0f1` · branch `claude/ft-d0-preflight` · root = checkout ปัจจุบัน (ไม่ระบุพาธจริง)
 PHASE: D1 preparation เอกสารเท่านั้น; ยังไม่เปิดเกตกล้อง/เครือข่าย
 BLOCKERS: B3 เส้นทางบ้าน→ร้าน NOT_TESTED · B4 auth/adapter/Fixed Lens mapping UNKNOWN (ดู [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md))
-NEXT_ACTION: Owner ใช้ข้อความ §3 สอบถาม capability; PO ประเมินคำตอบก่อนเขียน downloader บ้าน. ยังไม่ได้ติดต่อผู้ผลิต/ISP จริง และ PO ไม่มีสิทธิ์ส่งข้อความแทน Owner จากใบงานนี้
+NEXT_ACTION: OD-30 ให้ PO/Dev ค้นหาหลักฐาน router/vendor interface เอง; ไม่รอ Owner ถาม AIS/TP-Link. ยังไม่ได้ติดต่อผู้ผลิต/ISP จริงและไม่ส่งข้อความในนาม Owner. Offline source results ด้านล่างไม่ใช่ route/device PASS
 TEST_RUN: Claude รายงาน baseline unittest 113/113 PASS, exit 0; result JSON ไม่เก็บ stdout ของ test จึงเป็น DEVELOPER_REPORTED. PO ตรวจอิสระตาม STATUS; ไม่ใช่ route/device test
 
 ## สรุปผล
@@ -28,7 +28,7 @@ TEST_RUN: Claude รายงาน baseline unittest 113/113 PASS, exit 0; resu
 - pytapo 3.4.26 wheel (SHA256 `d69a63c8765de82eae244d46156a9d494bf6233d150d15502b5a8f7adc8f5449`, [PyPI](https://pypi.org/project/pytapo/3.4.26/), [source](https://github.com/JurajNyiri/pytapo)) — ตรวจแบบ static เท่านั้น ไม่ install/import. `HttpMediaSession.start` เรียก `asyncio.open_connection(self.ip, self.port)` ตรง ไม่มี cloud relay transport ในชั้นนี้; `cloud_password` เป็นชื่อ credential ไม่ใช่เส้นทาง relay. Downloader ต้องมี `self.tapo.host`/`streamPort` ที่เข้าถึงได้จริงจาก Mac — SDK candidate ไม่สร้างเส้นทางบ้าน→ร้านให้เอง
 - ผูกกับ [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md): `aiofiles` ไม่อยู่ใน wheel `Requires-Dist`; ต้องมีทั้ง ffmpeg และ ffprobe แม้ output เป็น `.ts`; quota/retry/fallback ของ upstream ไม่ถูกบังคับโดย wrapper polling output อย่างเดียว — ยังไม่พร้อม live trial ตรงจาก example upstream
 
-## 3. คำถามเสนอให้ Owner ใช้สอบถามผู้ผลิต/ISP (ยังไม่ติดต่อจริง)
+## 3. ประเด็นค้นหาของทีม (OD-30; ไม่เป็นงานที่รอ Owner)
 
 **ถาม AIS** (ZTE F6107A HW V9.0.09 / FW F6107A_PON_4.1): เราเตอร์รุ่นนี้รองรับ authenticated VPN server/gateway ที่ Mac เข้าถึง LAN ร้านได้โดยไม่ต้องเปิดพอร์ตกล้องหรือไม่? (VPN passthrough/client-only ไม่ใช่คำตอบที่ต้องการ) ถ้ารองรับ ขอเอกสารวิธีตั้งค่าและข้อจำกัด WAN/CGNAT ตามวิธีนั้น — ไม่ขอ IP/password/account ของ Owner
 
@@ -40,7 +40,19 @@ TEST_RUN: Claude รายงาน baseline unittest 113/113 PASS, exit 0; resu
 
 ## 5. Next action และเกต
 
-Owner ใช้คำถาม §3 สอบถามผู้ผลิต/ISP; PO ประเมินเอกสาร/คำตอบเรื่อง capability ก่อนเลือกวิธีและเสนอ control สำหรับ route/live ตามเกต D1→D2 ใน [PLAN](PLAN.md)/[PREPROJECT_PLAN](PREPROJECT_PLAN.md). ถ้า Owner เลือก local/manual trial แทน ให้จัด scope/พื้นที่/runtime ที่จำเป็นแยก ไม่ถือเป็นความสำเร็จของ automatic acquisition จากบ้าน. ไม่มี downloader/script ใหม่รอบนี้, ไม่ติดต่อผู้ผลิต/ISP แทน Owner, ไม่มี merge/deploy/scheduler. เอกสารผ่าน PO review โดยยังไม่ลดเกต.
+PO/Dev รับผิดชอบประเด็น §3 ตาม OD-30; ไม่รอ Owner สอบถามผู้ผลิต/ISP. PO ประเมินเอกสารเรื่อง capability ก่อนเลือกวิธีและเสนอ control สำหรับ route/live ตามเกต D1→D2 ใน [PLAN](PLAN.md)/[PREPROJECT_PLAN](PREPROJECT_PLAN.md). ถ้าจะใช้ local/manual trial ให้เสนอ scope/พื้นที่/runtime และผลต่อเป้าหมายอัตโนมัติแยกก่อน ไม่เปลี่ยนเป้าหมายเอง. ไม่มี downloader/script ใหม่รอบนี้, ไม่ติดต่อผู้ผลิต/ISP แทน Owner, ไม่มี merge/deploy/scheduler. เอกสารผ่าน PO review โดยยังไม่ลดเกต.
+
+## 6. ผลค้นหาเชิงลึกตาม OD-30 (2026-10-08)
+
+| ประเด็น | หลักฐานที่อ่านได้ / ขอบเขต | ข้อสรุปและผลต่องาน |
+| --- | --- | --- |
+| F6107A VPN server | AIS product guide และหน้า support ที่ redirect มาคู่มือเดียวกัน; ค้น exact model/full firmware กับ VPN/OpenVPN/WireGuard รวม domain ZTE แล้ว ไม่พบ primary-source คู่มือ server ตรงรุ่น/firmware | UNKNOWN; ห้ามสรุปว่าไม่มี feature จากการค้นไม่พบ. ไม่มี route ที่ทีมยืนยันได้จากเอกสารรอบนี้ และไม่ผลักงานค้นให้ Owner |
+| C545D firmware / remote SD | [C545D V1 regional release notes](https://www.tp-link.com/kr/support/download/tapo-c545d/v1/) ระบุ EU V1 1.1.7 Build 260421 เป็น stability/security และ tracking fix; หน้า TH/global ดึงไม่ได้ในรอบนี้ | ไม่พบ remote SD addition ใน note ที่อ่านได้; region/build จริงของ Owner ยังไม่ยืนยัน. ไม่อ้างว่า unsupported ทุก region หรือให้อัปเกรดเพื่อทดลอง |
+| Tapo SD acquisition บน Mac | [pytapo maintainer README](https://github.com/JurajNyiri/pytapo/blob/main/README.md) ระบุ HOST และ SD credentials เป็น local; release ที่ติดตั้งยังเป็น 3.4.26 ไม่ใช้ main README แทน pinned-code audit | Cloud password ไม่ใช่ cloud transport. ยังไม่มีหลักฐาน relay SD export ที่ใช้บน Mac กับอุปกรณ์นี้ได้ |
+| RTSP/ONVIF แทน SD API | [TP-Link FAQ 4465](https://www.tp-link.com/us/support/faq/4465/) ระบุ Profile S/live streaming; [ONVIF Profile G](https://www.onvif.org/profiles/profile-g/) เป็นมาตรฐาน recording/retrieval | ไม่เลือก live RTSP เป็นการดึง SD ย้อนหลัง; ไม่มี Profile G evidence ของ C545D จากหน้าที่ตรวจ |
+| Fixed/PT ในไฟล์ SD | [TP-Link FAQ 4666](https://www.tp-link.com/us/support/faq/4666/) ใช้กับ C545D V1 และระบุ SD dual-track synchronous recording: VLC Track 1 Fixed, Track 2 PT; filter events เลือก lens ได้ | ปิด UNKNOWN เฉพาะรูปแบบไฟล์ที่ผู้ผลิตอธิบาย. Adapter channel IDs/ไฟล์จริงยัง NOT_TESTED; ออกแบบตรวจสอง video tracks และใช้ Fixed เท่านั้น ไม่รวมยอด |
+
+ผลที่ทำได้จากอุปกรณ์เดิมตามหลักฐาน: Tapo app export คลิป SD และการอ่านคลิป local บน Mac เป็น documented manual path ([FAQ 3610](https://www.tp-link.com/th/support/faq/3610/)); pytapo เป็น candidate ดึง SD เมื่อต่อถึง LAN กล้องจริง. ยังไม่มี automatic home route ที่พิสูจน์แล้วภายใต้ร้านมีเฉพาะกล้อง/เราเตอร์. ไม่ส่งคลิปผ่าน iCloud เพราะ scope ปัจจุบันห้าม cloud video transfer; handoff ที่อนุมัติรับเฉพาะ IP. ไม่มีการอ่านวิดีโอ/กล้อง/credentials จริงในงานค้นหา.
 
 ---
 BASELINE_CHECK: PO launcher ตรวจ HEAD เต็ม/branch ก่อนและหลัง invocation; baseline ตามบรรทัดบน. ไม่มีหลักฐาน stdout ว่า Dev รัน git เอง จึงเป็น NOT_VERIFIED_BY_DEVELOPER; ไม่ใช้ข้อความสรุปของโมเดลแทน command evidence

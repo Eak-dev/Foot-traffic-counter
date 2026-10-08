@@ -34,6 +34,8 @@ OD-05/08 เก็บข้อสรุปเดิมเป็นประว�
 
 ## Owner evidence — 2026-10-08
 
+- **OD-30 — OWNER_INSTRUCTION:** Owner ย้ำให้ Codex ค้นหาคำตอบเอง ไม่มอบงานค้นหา VPN/router/API หรือสอบถามผู้ผลิตให้ Owner. Supersedes next action ที่รอ Owner ถาม AIS/TP-Link ใน ROUTE_DECISION/STATUS; ทีมรับผิดชอบ source research และเสนอทางที่มีหลักฐาน. ไม่ตีความการค้นหาว่าอนุญาตส่งข้อความในนาม Owner, ใช้บัญชี/รหัสลับ หรือเปลี่ยนอุปกรณ์. ขอ Owner เฉพาะงานหน้างาน/การตัดสินใจที่ทีมทำแทนไม่ได้จริง พร้อมข้อเสนอที่ตรวจแล้ว.
+
 - **OD-29 — OWNER_WORKFLOW:** Owner ให้ทีมทำงานต่อเนื่องจนจบงานที่ทำได้ใน scope และลดข้อความความคืบหน้าเหลือปัญหาหรือคำถามที่จำเป็น. PO เก็บรายละเอียดใน STATUS/local evidence และสรุปผลเมื่อจบชุดงาน; ไม่รอ Owner ยืนยันซ้ำสำหรับงานที่อนุมัติแล้ว. ไม่ใช่คำสั่งสร้าง scheduler/worker และไม่ขยาย camera/network/video/merge gates.
 
 - **OD-28 — OWNER_SUBMITTED / PO_OBSERVED:** Owner แจ้ง “ทำแล้ว” หลังขั้นตอนส่ง private IPv4 ผ่านหนึ่งโฟลเดอร์ว่างใน dedicated iCloud handoff. PO พบรายการที่ส่งบน Mac ตรวจ canonical RFC1918/หนึ่งเป้าหมาย/โฟลเดอร์ว่างโดยไม่ตาม symlink แล้วบันทึกด้วย atomic helper เดิมลง ignored local config mode 0600 ไม่เขียนทับ ไม่แสดงค่า/ชื่อจริง/path. Config validation PASS; `check` คืน endpoint configured / BLOCKED, route/auth/download NOT_TESTED, camera requests 0. Supersedes endpoint missing และ sync observation pending ใน OD-26/27 สำหรับสถานะปัจจุบัน; ยังไม่ได้รับบัญชี/รหัสผ่าน และไม่เปิดเกตกล้องหรือพิสูจน์เส้นทางบ้าน→ร้าน. Code/tests ไม่เปลี่ยน; NOT_RUN_BY_DEVELOPER รอบนี้.
