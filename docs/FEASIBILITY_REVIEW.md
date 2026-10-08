@@ -1,5 +1,8 @@
 # Claude Feasibility Review — OD-36 (revision 2)
 
+> **OD-37 ปัจจุบัน:** พบ [OnTapo SD relay และ C545D developer research](REMOTE_SD_RESEARCH.md). เลือกตรวจ/ออกแบบ adaptation ของ SD relay ก่อน Tapo Care; คงต้นฉบับ SD และ Mac บ้าน. มี author-reported TC65 download กับ PO static source review แต่ยังไม่มีผล C545D ของเรา จึง CONDITIONAL research ไม่ใช่ live/production PASS. ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้; auth/input/region/Fixed/quota ยังต้องพิสูจน์
+> OD-36/older next actions ด้านล่างเป็นประวัติและถูกแทนเฉพาะลำดับ candidate; ไม่เปิดเกตอุปกรณ์
+
 BASELINE: `e62a9ac31c5a238b705ff827dd9c99efad7f8168` · branch `claude/ft-d0-preflight`
 สถานะงาน: เอกสารคำปรึกษาเท่านั้น ไม่มีการเข้าถึงกล้อง/เครือข่าย/SDK/credentials ในงานนี้ NOT_RUN_BY_DEVELOPER — ไม่ได้รัน unittest ตามใบงาน (เอกสารล้วน)
 

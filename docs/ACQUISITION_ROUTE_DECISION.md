@@ -1,12 +1,15 @@
 # ทางดึงคลิปจากบ้านเมื่อร้านมีเฉพาะกล้อง
 
-> **OD-36 ปัจจุบัน:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้
+> **OD-37 ปัจจุบัน:** พบ [OnTapo SD relay และ C545D developer research](REMOTE_SD_RESEARCH.md). เลือกตรวจ/ออกแบบ adaptation ของ SD relay ก่อน Tapo Care; คงต้นฉบับ SD และ Mac บ้าน. มี author-reported TC65 download กับ PO static source review แต่ยังไม่มีผล C545D ของเรา จึง CONDITIONAL research ไม่ใช่ live/production PASS. ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้; auth/input/region/Fixed/quota ยังต้องพิสูจน์
+> OD-36/older next actions ด้านล่างเป็นประวัติและถูกแทนเฉพาะลำดับ candidate; ไม่เปิดเกตอุปกรณ์
+
+> **OD-36 ประวัติ — ลำดับ candidate ถูกแทนที่ด้วย OD-37:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้
 > รายละเอียด candidate/next action เดิมด้านล่างเป็นประวัติ OD-30–35; OD-36 มีผลเหนือข้อความที่ให้รอ router UI หรือพัฒนา adapter ต่อ
 
 BASELINE: `ee89a5102ead18022cc5104502dd742b18f3c0f1` · branch `claude/ft-d0-preflight` · root = checkout ปัจจุบัน (ไม่ระบุพาธจริง)
 PHASE: OD-34 actual OS route diagnostic; TCP/auth/SD ยัง NOT_TESTED
 BLOCKERS: B3 private target ทับ attached LAN บ้าน ไม่ผ่าน shop tunnel · B4 auth/adapter/Fixed Lens mapping UNKNOWN (ดู [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md))
-NEXT_ACTION: OD-36 เลือกข้อเสนอ cloud-source experiment หรือ manual SD import ตาม FEASIBILITY_REVIEW; ยังไม่อนุมัติซื้อ/source change/video storage. ไม่รอ router UI ไม่ย้าย Mac ไม่พัฒนา offline acquisition เพิ่ม
+NEXT_ACTION: OD-37 ตรวจและออกแบบ OnTapo SD relay ตาม REMOTE_SD_RESEARCH รวม secure iPhone input, target/region/TLS, Fixed mapping และ bounded complete-clip validation. ยังไม่ติดตั้งหรือทดลองจริงในงานวิจัยนี้; ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้
 TEST_RUN: Claude รายงาน baseline unittest 113/113 PASS, exit 0; result JSON ไม่เก็บ stdout ของ test จึงเป็น DEVELOPER_REPORTED. PO ตรวจอิสระตาม STATUS; ไม่ใช่ route/device test
 
 ## สรุปผล

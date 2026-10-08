@@ -1,14 +1,16 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
-> อัปเดต: 2026-10-08 · OD-36 feasibility reviewed กับ Claude: home SD NO-GO implementation ตอนนี้; manual/cloud เป็นข้อเสนอมีเงื่อนไข · PR #4 · ผล push/read-back ใน ignored delivery record · branch `claude/ft-d0-preflight`
+> อัปเดต: 2026-10-08 · OD-37 พบ SD relay candidate: OnTapo; CONDITIONAL research ก่อน Tapo Care · ยังไม่ทดสอบ C545D จริง · PR #4 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
 
 ## สรุปปัจจุบัน
 
+- **OD-37 / SD_RELAY_CANDIDATE_FOUND:** PO international primary-source research พบ OnTapo `a387f6abddb72f7e6eea72b374df5ad189da1f5f` (author reports TC65 SD download ผ่าน vendor relay ไม่ใช้ Tapo Care) และ tapo-monitoring `d36f0acb7fcc8923886783afaef71404f63c3b0a` (author reports C545D HW1.0/fw1.1.7 local API). ดาวน์โหลด source/doc สาธารณะ 18 ไฟล์เพื่อ static review ส่วนที่เกี่ยวข้อง; ไม่ install/import/run. Claude advisory COMPLETED_LOCAL / exit0 / 95.3s, NOT_RUN_BY_DEVELOPER; PO แก้ packet เรื่อง multipart cap 64MiB, Python/runtime, API process restart และ iPhone input. [REMOTE_SD_RESEARCH](REMOTE_SD_RESEARCH.md) เลือก SD relay เป็นอันดับแรกแบบ CONDITIONAL research; คง SD/Fixed/Macบ้าน ไม่ต้องซื้อหรือเลือก Tapo Care ตอนนี้. ยังไม่มี C545D/region/Fixed/completeness proof; account/input/guard/storage ต้องพร้อมก่อน trial. Camera/auth/SD requests0, clips0, counting UNTESTED
+
 - **OD-36 / FEASIBILITY_REVIEWED:** Claude รอบแรก COMPLETED_LOCAL (155.3s), review revision TIMEOUT (180.6s), PO process audit/release retained empty lock, final COMPLETED_LOCAL / child exit 0 (120.2s). Claude NOT_RUN_BY_DEVELOPER (advisory/docs-only). PO ตรวจแหล่งข้อมูลและแก้ CGNAT/token/process claims. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md): automatic SD จากบ้าน NO-GO implementation ภายใต้หลักฐานปัจจุบัน ไม่ใช่ unsupported ถาวร; เลิกใช้ router ที่ไม่ยืนยันเป็นแผนหลักและพัก scaffolding. Manual SD/local import หนึ่งคลิปกับ Tapo Care เป็น CONDITIONAL proposals. Cloud ไม่ใช่ SD เดิม ต้องยอมรับ privacy/source/subscription และผ่าน auth/Fixed/complete-day evidence ก่อนยอดทั้งวัน. Requests/clips 0, counting UNTESTED. ไม่ลงโปรแกรม/เปลี่ยน settings/ซื้อในงานนี้
 
-รายการ OD-35 และก่อนหน้าด้านล่างเป็นประวัติ; current next action ยึด OD-36
+รายการ OD-36 และก่อนหน้าด้านล่างเป็นประวัติ; current next action ยึด OD-37
 
 - **OD-35 / HOME_ROUTE_REQUIRED:** Owner สั่งแก้เส้นทางบ้านไปที่ร้าน; ยกเลิกการย้าย Mac เป็นขั้นบังคับ. PO ตรวจ primary AIS F6107A/PDF LAN/DDNS/Port Forwarding, Tailscale subnet gateway และ pytapo local transport. ยังไม่ยืนยัน VPN Server ของเราเตอร์จริง และไม่มี shop management route/session/WAN/profile. [HOME_CONNECTION_PLAN](HOME_CONNECTION_PLAN.md) เตรียม tunnel ผ่านเราเตอร์เดิมเป็น candidate กับ host route แก้ overlap; ไม่สมมติว่ารองรับ. ตรวจ Mac x86_64 และไม่พบชื่อแอป VPN candidates ใน /Applications; ไม่ติดตั้ง/อ่าน credentials/เปลี่ยน settings. ถามเฉพาะ readiness ของหน้า router บน iPhone; ไม่ขอ IP/รุ่น/สิทธิ์ทั่วไปซ้ำ. Camera/auth/SD requests 0 รอบนี้; Claude NOT_RUN_BY_DEVELOPER
 
@@ -59,15 +61,15 @@
 
 | ID | สิ่งที่ติด | ขั้นถัดไป / ผู้รับผิดชอบ |
 | --- | --- | --- |
-| B1 | Live downloader ยังไม่มี; หยุด scaffolding ตาม OD-36 | PO เสนอ acquisition ที่มีหลักฐานขั้นต่ำก่อนเริ่ม transport code; manual/cloud ยังต้อง scope/storage acceptance แยก |
+| B1 | Live downloader ยังไม่มี; OnTapo เป็น conditional SD relay candidate | ทีมต้อง audit/pin narrow relay path, allowlist/target/region/TLS, quota/complete-clip validation และ secure iPhone input ตาม OD-37 ก่อน scoped trial; ไม่รัน example ทั้งบัญชี |
 | B2 | private endpoint configured / offline validation PASS; บัญชี/รหัสผ่านยังไม่ได้รับ | OD-28: รายการจาก iPhone มาถึง Mac และบันทึกเฉพาะ ignored local config แล้ว. ไม่ขอ IP ซ้ำ ไม่ให้ Claude อ่านค่าจริง; route/auth/SD ยังไม่ผ่าน |
-| B3 | OS route ทับ LAN บ้าน ไม่มี shop tunnel ที่พิสูจน์; automatic SD NO-GO ตอนนี้ | OD-36 ไม่รอ router UI; PO เสนอ cloud-source experiment หรือ manual SD import. การเปลี่ยน source/คลาวด์/งบต้อง Owner ตัดสินใจ ไม่ probe อุปกรณ์บ้าน |
+| B3 | Direct route ยังทับ LAN บ้าน; vendor SD relay path ของ OnTapo ยังไม่ทดสอบบัญชี/กล้องเรา | OD-37 ประเมิน relay ที่อาจไม่ต้อง shop gateway; ตรวจ region/target/TLS ผ่าน cloud endpoint ที่ audit ก่อน. ไม่มี route PASS; ไม่วน router UI หรือถามซื้อ Tapo Care |
 | B4 | Auth/adapter channel compatibility ยัง UNKNOWN; SD dual-track layout SOURCE_DOCUMENTED | FAQ 4666 ของผู้ผลิตใช้กับ C545D V1: VLC Track 1 Fixed / Track 2 PT. ยังไม่เท่ากับ pytapo channel IDs หรือไฟล์จริงผ่าน; ทีมต้องตรวจ ffprobe/ภาพตรงต้นทางก่อนนับ. Camera Account/Compatibility/version ยืนยันแล้วไม่ถามซ้ำ |
 | B5 | คลิปเป้าหมาย/มุมหลักยืนยันแล้ว; metadata/timezone/channel mapping และเพดานยังไม่ยืนยัน | OD-22/23: 2026-10-08 09:51:53 / 03:00 จาก UI; Fixed Lens เท่านั้นสำหรับการนับ. ทีมตรวจ metadata/มุมในไฟล์และเสนอพื้นที่/bytes ก่อน live |
 
 ## รอจาก Owner และงานถัดไป
 
-**OD-36 ขั้นถัดไป:** PO เตรียมข้อเสนอพร้อมแหล่งข้อมูลแล้ว: ทดลอง Tapo Care จากบ้านหลังยอมรับ source/cloud/งบสูงสุด 129 บาทหนึ่งเดือนและ scope หนึ่งคลิป/1 GiB/10 นาที/retention 24 ชั่วโมง หรือคง SD แล้ว export ผ่าน iPhone โอน local เพื่อพิสูจน์หนึ่งคลิป. ยังไม่อนุมัติ/ดำเนินการทั้งสองทาง; ไม่รอ Owner router UI ไม่ให้ย้าย Mac/ค้นเทคนิคเอง. ดูข้อเสนอและ stop rule ใน FEASIBILITY_REVIEW
+**OD-37 ขั้นถัดไปเป็นงานทีม:** ประเมิน/ออกแบบ OnTapo narrow SD adapter และช่องทางรับ account/MFA ที่ Owner ใช้ iPhone ได้จริง ก่อนทดลองกล้องเดียว/ช่วงสั้น/หนึ่งคลิป Fixed ตามเกต. getpass บน Mac อย่างเดียวไม่ใช่คำตอบสำหรับ Owner; ไม่ขอ secret ใน chat/Issue/iCloud plaintext และไม่ค้น Keychain. ข้อเสนอขอบเขตอยู่ REMOTE_SD_RESEARCH; ยังไม่ติดตั้งหรืออนุมัติ storage/live scope ใหม่ในงานวิจัยนี้. ไม่ต้องเลือก/ซื้อ Tapo Care หรือส่งรูปเราเตอร์ตอนนี้
 
 ยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7; ไม่ขอข้อมูลนี้หรือ router version ซ้ำ
 
@@ -86,12 +88,14 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 ## Local handoff ปัจจุบัน
 
 - Branch: `claude/ft-d0-preflight` เดิม; baseline เวอร์ชันแรก `b05b8fb6821fdaf645db2217ed9ea8c45ba21363` (`v0.1.0`). PO นำผล merge มาใน local ด้วย fast-forward เท่านั้น; config/root เดิม.
-- Writer: PO หลัง Claude final OD-36 ส่งมอบ; launcher lock ถูกปล่อยแล้ว. Baseline ก่อน checkpoint นี้ `e62a9ac31c5a238b705ff827dd9c99efad7f8168`; เปลี่ยนเอกสารเท่านั้น. Full HEAD/ผล sync ใช้ local Git และ ignored delivery record
+- Writer: PO หลัง Claude OD-37 ส่งมอบและปล่อย lock; baseline ก่อน checkpoint `2eda445ef37fad2fd69082f8a59b8fc22fddb24d`. เปลี่ยนเอกสารเท่านั้น; current HEAD/sync ใน local Git และ delivery record
 - Checkpoint: PR #2 MERGED และ `v0.1.0` เผยแพร่แล้ว; PR #4 OPEN ใช้ branch เดิมสำหรับ D1 preparation. ชุด OD-20–23/ROUTE_DECISION พร้อม checkpoint ที่ตรวจแล้ว. ก่อน push/read-back เป็น LOCAL_ONLY; ผลส่งจริง/HEAD เก็บใน ignored `.claude/delivery.local.json`. ไม่แก้ main ตรง ไม่ merge รอบนี้.
-- Final validation OD-36: PO regression **330/330 PASS**, exit 0 (14.140s); Claude NOT_RUN_BY_DEVELOPER. ไม่มี code/tests/camera changes; regression ไม่พิสูจน์ auth/SD/cloud/counting
-- Next action: Owner เลือกข้อเสนอ cloud-source หรือคง SD/manual ตาม OD-36; PO จัด secure auth/storage task หลัง acceptance. ไม่รอ router UI ไม่ซื้อ/ติดตั้ง/เปิด live gate เอง; ยังไม่มีไฟล์หรือความแม่นยำจริง
+- Final validation OD-37: PO regression 330/330 PASS, exit 0 (15.347s); Claude NOT_RUN_BY_DEVELOPER. Upstream tests/SDK/device/network auth NOT_RUN; source inspection ไม่ใช่ compatibility PASS
+- Next action: OnTapo SD relay research/adaptation ตาม REMOTE_SD_RESEARCH; secure input/pinned audited transport/region/Fixed/storage ยังต้องผ่าน. ไม่รอ Owner เลือก paid cloud-source และไม่เปิด worker/live/production เอง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-08 · PO/Claude · OD-37 พบ SD relay source และ C545D local-API report ใหม่ที่เปลี่ยนลำดับ candidate. Claude final exit0/95.3s; PO static verification/corrections และ reconciliation ของแผน. ยังไม่แตะ account/camera/video/install; regression 330/330 PASS, exit 0 (15.347s); ไม่ถือ vendor-cloud transit เป็น Tapo Care storage
 
 - 2026-10-08 · PO/Claude · OD-36 internet feasibility/alternatives reviewed. Actual Claude final exit 0; prior review revision TIMEOUT ไม่อ้างสำเร็จ, process audit แล้วคืน ownership. Home SD NO-GO implementation ตอนนี้; manual/cloud CONDITIONAL; counting UNTESTED. เพิ่มรายงาน/ปรับ next action เลิกวน router UI และพัก scaffolding. ไม่มี requests/clips/install/settings/purchase; PO regression **330/330 PASS**, exit 0 (14.140s)
 
