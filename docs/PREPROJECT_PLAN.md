@@ -21,6 +21,9 @@
 
 - [Owner] ไม่ซื้อฮาร์ดแวร์เพิ่ม; รายจ่ายซอฟต์แวร์ต้องมีข้อเสนอแยกก่อน
 - [Owner] คอมพิวเตอร์ที่บ้านคือ MacBook และอยู่คนละเครือข่ายกับ Wi-Fi ของร้าน
+- [Owner, 2026-10-08, OD-21] ร้านไม่มีคอมพิวเตอร์/NAS; ไม่ใช้ shop host เป็น gateway และไม่ซื้อเพิ่ม
+- [Owner image, 2026-10-08, OD-22] SD playback: 2026-10-08 เริ่ม 09:51:53 ความยาว 03:00; Fixed + PT Lens. ยืนยันรายการ UI ไม่ใช่ source metadata/timezone หรือช่องทาง export จาก Mac
+- [Owner, 2026-10-08, OD-23] ใช้ Fixed Lens เป็นมุมหลัก ไม่ใช้ PT Lens สำหรับการนับ; Owner เปิด playback ขณะอยู่ร้าน. ไม่อนุมาน Wi-Fi/mobile data หรือ remote export จากบ้าน
 - [Owner] คลิปเหตุการณ์ในการ์ด SD ของกล้องมีความยาวไม่แน่นอนสูงสุดราว 3 นาที และมีช่องว่างระหว่างคลิป
 - [Owner, 2026-10-07, OD-15] กล้องบันทึกเฉพาะเมื่อมีคนเดินผ่าน; ช่องว่างเป็นเงื่อนไขของกล้อง จึงรวมยอดจากคลิปของวันเป็นยอดนับการเดินผ่านทั้งวันได้
 - [Owner image, 2026-10-07, OD-16] Device Info: Model C545D, Hardware Version 1.0, Firmware Version 1.1.7; บันทึกค่าที่อ่านได้โดยไม่เก็บภาพใน git
@@ -195,6 +198,8 @@ PO / ChatGPT  ──(PASS: เข้า shell Mac ที่บ้าน)──�
 
 ### จุดตัดสินใจเรื่องการเชื่อมต่อ
 
+ผลล่าสุด: [ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md) ตรวจคู่มือ AIS F6107A และ source `pytapo` แบบ static; ยังไม่ยืนยัน private route/server capability หรือ remote SD API สำหรับ Mac. ชุดคำถามเฉพาะ capability พร้อมให้ Owner ใช้ถาม AIS/TP-Link; ไม่มีการติดต่อจริง ไม่มี network/device test. ถ้า Owner เลือก local/manual trial ให้จัด scope แยก ไม่ถือเป็น automatic acquisition จากบ้านผ่าน.
+
 PO ต้องตรวจอุปกรณ์เดิม/ผู้ดูแลเครือข่ายจริงก่อนเลือกวิธี ไม่สมมติว่าเราเตอร์ทุกตัวทำ VPN ได้ หรือซื้อคลาวด์แล้วดึง SD ได้.
 หากไม่มีช่องทางอัตโนมัติที่พิสูจน์ได้ภายใต้ข้อจำกัดไม่ซื้อฮาร์ดแวร์ ให้หยุดสร้าง downloader ตามการคาดเดาและสรุปหลักฐานให้ Owner เลือกทางที่ทำได้.
 Manual import เป็นทางสำรองสำหรับพัฒนาการนับ ไม่ใช่ automatic acquisition ผ่าน. อุปกรณ์เดิมอีกตัวในร้านใช้เป็นทางเลือกได้เฉพาะเมื่อ Owner ยืนยันว่ามีและอนุญาต ไม่เสนอซื้อเพิ่ม.
@@ -215,8 +220,8 @@ Manual import เป็นทางสำรองสำหรับพัฒน
 ข้อมูลกล้องยืนยันแล้ว: C545D / Hardware 1.0 / Firmware 1.1.7 (ภาพ Owner; OD-16). ขอเฉพาะข้อมูลที่ยังขาด:
 
 1. แจ้งว่าพบ IP/ปลายทางกล้องแล้วหรือยัง; ค่าจริงกรอกใน Mac ผ่านช่องทางส่วนตัวที่ทีมยังต้องจัดให้ ไม่ใส่บน GitHub/ใน prompt
-2. บัญชีเจ้าของ Tapo พร้อมหรือไม่ และ Third-Party Compatibility เปิด/ปิด/ไม่พบ — Camera Account On ยืนยันจากภาพ Owner 2026-10-08 แล้ว ไม่ขอซ้ำ. ขอเพียงสถานะ ไม่ขอ secret และยังไม่สั่งเปลี่ยนค่า
-3. วัน/เวลาของหนึ่งคลิปที่ยังเปิดย้อนหลังได้และมุม/เลนส์ถ้ามีหลายภาพ ไม่ต้องส่งวิดีโอเดิมซ้ำ
+2. แอป Tapo ใช้ได้, Version 3.21.106, Camera Account On และ Third-Party Compatibility On ยืนยันแล้ว (OD-18/19/20); ไม่ขอซ้ำ. เหลือ readiness ของบัญชีตาม adapter ที่เลือก; ไม่ขอ secret ในแชตและไม่สั่งเปลี่ยนค่า
+3. คลิปเป้าหมายมีแล้ว: 2026-10-08 เริ่ม 09:51:53 / 03:00 (OD-22). Owner เลือก Fixed Lens ไม่ใช้ PT Lens และเปิดภาพขณะอยู่ร้าน (OD-23); ไม่ขอซ้ำ ไม่ต้องทดลองสลับ network หรือส่งวิดีโอ. ทีมต้องตรวจ channel mapping/metadata จากไฟล์ก่อนรับผล
 
 ### งานทีม ไม่ใช่ภาระให้ Owner ออกแบบ
 
@@ -237,10 +242,10 @@ PR #2 merged เป็น v0.1.0 แล้ว; merge แยกจากสิท
 | Device Info | C545D / HW 1.0 / FW 1.1.7 ยืนยันแล้ว; endpoint เก็บในเครื่องเป็นส่วนตัว | Version CONFIRMED (OD-16); endpoint ยังรอ |
 | Advanced Settings / Camera Account | On ยืนยันจากภาพ Owner 2026-10-08; ไม่สร้าง/reset เป็นเงื่อนไขบังคับของทุก SD adapter | APP_STATUS_CONFIRMED; SD auth ยังไม่ทดสอบ |
 | บัญชีเจ้าของ Tapo | readiness เท่านั้น; candidate SD downloader อาจใช้ cloud password ไม่ใช่รหัส Wi-Fi | รอ private input |
-| Me / Third-Party Services / Third-Party Compatibility | มีเมนูหรือไม่ เปิด/ปิด; เปิดเฉพาะเมื่อจำเป็นและ Owner เข้าใจความเสี่ยง | ยังไม่เปลี่ยน |
+| Me / Third-Party Services / Third-Party Compatibility | On; แอป Version 3.21.106 จากภาพ Owner 2026-10-08 (OD-20) | APP_STATUS_CONFIRMED; ไม่เปลี่ยนค่า ไม่ใช่ SD auth/route PASS |
 | Storage & Recording | คง event recording และคลิปเดิม ไม่ format SD/เปลี่ยน continuous เพื่อทดลองคลิปที่มี | ไม่ต้องเปลี่ยน |
-| Playback & Download / SD | ระบุเวลาหนึ่งคลิปที่มีอยู่ | รอ Owner |
+| Playback & Download / SD | 2026-10-08 เริ่ม 09:51:53 / 03:00; Fixed + PT ตามภาพ Owner (OD-22) | UI_TARGET_CONFIRMED; metadata/timezone/channel mapping ยังไม่ยืนยัน |
 
 คำแนะนำสรุปจาก brief และ Claude advisory ที่ได้รับจริง ไม่ได้ยืนยันว่าทุกเมนูมีบน firmware เครื่องนี้; ตรวจคู่มือ/release ก่อนใช้
-แหล่งที่ใช้อ้างใน advisory: TP-Link FAQ 2790 (Camera Account), 4416 (Third-Party Compatibility), 2617 (SD Recording), README ของ JurajNyiri/pytapo. ยังไม่ pin/ติดตั้ง/ทดสอบกับ C545D จริง
+แหล่งที่ใช้อ้างใน advisory: TP-Link FAQ 2790 (Camera Account), 4416 (Third-Party Compatibility), 2617 (SD Recording), README ของ JurajNyiri/pytapo. ปัจจุบันเลือก candidate 3.4.26 และตรวจ wheel แบบ static แล้วใน ONE_CLIP_PLAN; ยังไม่ติดตั้ง/ทดสอบกับ C545D จริง
 ไม่มีการส่งรหัส token OTP IP รูปที่มีข้อมูลลับ หรือวิดีโอเข้า repo. การมอบหมายให้ Claude ต้องอ้าง STATUS/DECISIONS ล่าสุดตาม WORKFLOW

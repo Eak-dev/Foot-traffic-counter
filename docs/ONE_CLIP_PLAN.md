@@ -1,9 +1,9 @@
 # แผนทดลองดึงคลิป SD หนึ่งคลิป (D1 preparation)
 
-BASELINE: `0eeeb12296551cb6e887245f60a610a83fdb9765` (local, ยังไม่ push)
+BASELINE ตอนเริ่มเขียนแผน 2026-10-07: `0eeeb12296551cb6e887245f60a610a83fdb9765`; อยู่ใน checkpoint PR #4 แล้ว. สถานะงานปัจจุบันดู STATUS/local HEAD
 PHASE: FT-D0 merged เป็น `v0.1.0`; เอกสารนี้เตรียม D1 เท่านั้น — ยังไม่เปิดเกตกล้อง/เครือข่าย/ติดตั้ง
-BLOCKERS: B1 downloader ยังไม่เขียน · B2 ยังไม่มี private input ใน Mac · B3 เส้นทางบ้าน→ร้าน NOT_TESTED · B4 auth/adapter/dual-lens compatibility UNKNOWN (camera version ยืนยันแล้ว OD-16) · B5 ยังไม่มีคลิปเป้าหมาย/เพดานที่ Owner ยืนยัน
-NEXT_ACTION: PO ตรวจ Mac แล้ว 2026-10-08 ([MAC_READINESS](MAC_READINESS.md)); ทีมทำ dependency audit/แบบทางเชื่อมต่อโดยใช้ข้อมูลหน้างานด้านล่าง → PO ตั้ง scope live ก่อนเริ่ม D2
+BLOCKERS: B1 downloader ยังไม่เขียน · B2 ยังไม่มี private input ใน Mac · B3 เส้นทางบ้าน→ร้าน NOT_TESTED (ไม่มี shop computer/NAS, OD-21) · B4 auth/adapter/Fixed Lens channel mapping UNKNOWN · B5 คลิป/มุมหลักยืนยันแล้ว OD-22/23; metadata/timezone/เพดานยังไม่ยืนยัน
+NEXT_ACTION: ดู [ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md): รับหลักฐาน capability ของ router/interface จากผู้ผลิตหรือให้ Owner เลือก local/manual trial แยก; ยังไม่เขียน home downloader โดยเดา route. PO ตรวจ Mac แล้วตาม MAC_READINESS; scope live ยังไม่เปิด
 
 ## 1. ข้อค้นพบจากหลักฐาน PO (2026-10-07, ไม่สมมติ live)
 
@@ -19,6 +19,10 @@ NEXT_ACTION: PO ตรวจ Mac แล้ว 2026-10-08 ([MAC_READINESS](MAC_RE
 ## 2. เส้นทางที่เสนอ
 
 ใช้เส้นทาง private ที่ Owner อนุมัติแล้วก่อน ถ้ายังไม่มี ให้ทีมตรวจความสามารถของ ZTE F6107A/แพ็กเกจ AIS เดิมจากหลักฐานที่มีก่อน **ไม่สมมติว่า router รองรับ VPN**, ไม่เปิด 8800/443/RTSP ออก WAN/DMZ, ไม่ติดตั้ง/ตั้งค่าใดจนกว่ามี scope+rollback ที่ Owner อนุมัติ. ไม่ซื้อฮาร์ดแวร์เพิ่ม. การนำเข้าคลิปด้วยมือเป็น fallback เสริมที่ต้องระบุชัดเจนเท่านั้น ไม่ใช่ automatic acquisition PASS
+
+### ข้อจำกัดเส้นทางล่าสุด (OD-21/22)
+
+ร้านไม่มี computer/NAS จึงไม่ใช้ shop host เป็น gateway. ตรวจความสามารถ VPN/ทางเชื่อมของเราเตอร์ ZTE/AIS เดิมจากหลักฐานเฉพาะรุ่นก่อน; ยังไม่มีหลักฐานรองรับและไม่เปลี่ยนค่า. ช่องทาง remote SD ในแอป (ถ้ามีสำหรับรุ่น/region นี้) ต้องแยกจาก API สำหรับ Mac; Owner เปิด playback ขณะอยู่ร้าน (OD-23) ไม่ยืนยันชนิด network หรือ export จากบ้าน. หากไม่มีเส้นทางอัตโนมัติที่พิสูจน์ได้ ให้เสนอ manual import จากแอป/การใช้ Mac เดิมที่ร้านชั่วคราวเป็น fallback แยกก่อนดำเนินการ ไม่ใช่ automatic acquisition จากบ้านผ่านและไม่ซื้อฮาร์ดแวร์.
 
 ## 3. ข้อเสนอ secure input (ยังไม่ implement ใน PR นี้)
 
@@ -41,22 +45,22 @@ NEXT_ACTION: PO ตรวจ Mac แล้ว 2026-10-08 ([MAC_READINESS](MAC_RE
 
 หนึ่งคลิป max 180s (ประมาณจาก Owner ไม่ใช่การยืนยันการตัดคลิป), payload ทดลอง max 100 MiB, total deadline 300s, reserve พื้นที่ว่าง 10 GiB, retries = 0 สำหรับการทดลองครั้งแรก. ถ้าบังคับ quota เหล่านี้ใน upstream ไม่ได้ (ดู §1 bullet quota) ให้ **STOP** และเสนอ adapter เล็กแก้เฉพาะจุดก่อน ไม่เริ่ม live. ไม่เปลี่ยน background/power/account settings/firmware และไม่ติดตั้ง/ดาวน์โหลดโมเดลใด ๆ
 
-## 6. ขอ Owner ตอบ 3 ข้อสั้น ๆ
+## 6. ข้อมูลยืนยันแล้วและที่ยังรอ Owner
 
-1. ทีมตรวจ Mac แล้ว ไม่ขอ Owner ตรวจซ้ำ. แจ้งเพียงร้านมีคอมพิวเตอร์หรือ NAS เดิมที่เปิดใช้อยู่หรือไม่ เพื่อเลือกทางเชื่อมโดยไม่ซื้อฮาร์ดแวร์; ไม่ส่ง IP/รหัส ไม่ต้องตั้งค่าเอง
-2. Owner ยืนยันใช้แอป Tapo ได้แล้ว; Camera Account **On ยืนยันแล้วจากภาพ Owner 2026-10-08**; ไม่ขอซ้ำ. Third-Party Compatibility ยังไม่ปรากฏในภาพ — ขอเฉพาะสถานะเมื่อพบเมนู ไม่ขอรหัสผ่าน และยังไม่ต้องเปลี่ยนค่า. UPnP Off; ค่า Network Settings Off ยืนยันเพียงป้ายเมนู ไม่ใช่หลักฐานเส้นทางบ้าน→ร้าน
-3. วัน/เวลา/มุมของหนึ่งคลิปที่เลือกทดลอง (ยังเปิดย้อนหลังได้)
+1. ทีมตรวจ Mac แล้ว; Owner ยืนยันร้านไม่มี computer/NAS (OD-21). ไม่ขอซ้ำ ไม่ส่ง IP/รหัส ไม่ต้องตั้งค่าเอง. ทีมตรวจ router-based route/ช่องทางผู้ผลิตตาม §2
+2. Owner ยืนยันใช้แอป Tapo ได้แล้ว; Camera Account **On**; ภาพล่าสุดยืนยัน Third-Party Compatibility **On**, แอป **3.21.106** และ Privacy Mode **Off** (OD-20). ไม่ขอซ้ำ ไม่ขอรหัสผ่าน ไม่ต้องเปลี่ยนค่า. UPnP Off; ค่า Network Settings Off ยืนยันเพียงป้ายเมนู ไม่ใช่หลักฐานเส้นทางบ้าน→ร้าน หรือผล auth/SD export
+3. ภาพ Owner ระบุคลิป SD วันที่ 2026-10-08 เริ่ม 09:51:53 ความยาว 03:00 (OD-22). Owner เลือก **Fixed Lens เป็นมุมหลัก ไม่ใช้ PT Lens สำหรับการนับ** และเปิดภาพขณะอยู่ร้าน (OD-23); ไม่ถามซ้ำ. UI timestamp ยังไม่ใช่ source metadata/timezone PASS; channel mapping ต้องตรวจจากไฟล์ที่ดึงจริง ถ้าได้ PT อย่างเดียวให้หยุด ไม่ใช้แทน Fixed หรือรวมยอดสองเลนส์
 
 ทีมจะตรวจ quota ที่ใช้จริงอีกครั้งตอนประกอบ live plan; ไม่ขอ Owner ออกแบบ VPN, pin package หรือหารูปเมนูเราเตอร์ซ้ำ
 
 ## 7. ผลปัจจุบัน
 
-Source-only review; camera requests = 0, auth attempts = 0, clips ดึง = 0. Downloader ยังไม่ implement. งาน Dev ถัดไปที่ชัดเจน: เขียน synthetic/offline bounded adapter (mock HTTP, ไม่เรียกกล้องจริง) เฉพาะหลังกำหนด write-path ของ control ชัดเจนแล้ว — Dev ไม่เปิดเกต live เอง
+Source-only review; camera requests = 0, auth attempts = 0, clips ดึง = 0. Downloader ยังไม่ implement. หลัง OD-21 ยืนยันไม่มี shop host ให้ใช้ผล ROUTE_DECISION ก่อนเขียน home downloader; bounded adapter เป็นแบบที่ยังไม่ implement และต้องมี route/interface evidence กับ scoped write paths ก่อนมอบหมาย. Dev ไม่เปิดเกต live เอง
 
-## READY_FOR_IMPLEMENTATION / PENDING_OWNER_INPUT / NOT_TESTED
+## READY_FOR_REVIEW / PENDING_OWNER_INPUT / NOT_TESTED
 
-- READY_FOR_IMPLEMENTATION: มีแบบและรายการตรวจสำหรับงาน Dev offline รอบถัดไป; ยังไม่มี wrapper/tests ใหม่ และยังต้องกำหนด write paths ใน control ก่อนมอบหมาย
-- PENDING_OWNER_INPUT: ข้อมูลอุปกรณ์เดิมที่ร้าน/คลิปเป้าหมาย และ Third-Party Compatibility/บัญชีที่ adapter ต้องใช้ใน §6 (Camera Account On ยืนยันแล้ว), เพดาน §5, policy rollback ของเส้นทาง
+- READY_FOR_REVIEW: มีแบบและผล route feasibility สำหรับ Owner review; ยังไม่มี wrapper/tests ใหม่. Home downloader อยู่ HOLD_FOR_ROUTE_EVIDENCE; ไม่ใช่พร้อม live หรือการตัดสินว่าเป็นไปไม่ได้
+- PENDING_OWNER_INPUT: readiness ของบัญชีตาม adapter ใน §6; อุปกรณ์ร้าน/คลิป/Fixed Lens/สถานที่เปิด playback ยืนยันแล้ว ไม่ขอซ้ำ. เพดาน §5/rollback ของเส้นทางยังเป็นข้อเสนอ
 - NOT_TESTED: reachability บ้าน→ร้าน, auth กับ C545D จริง, dual-lens mapping, timezone ของ metadata ต้นทาง, quota enforcement จริงกับ upstream library
 
 PO review: แผนนี้ตรวจเทียบ source ของ wheel ที่ยืนยัน SHA256 แล้ว; Claude รัน baseline unittest 113/113 PASS, exit 0. Source code/tests เดิมไม่เปลี่ยน. ผล PO อิสระบันทึกใน STATUS; ไม่ใช่ผลทดสอบ downloader/live.

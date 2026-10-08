@@ -30,8 +30,8 @@ Owner อนุญาตให้ PO ตรวจคอมพิวเตอร�
 
 ## สิ่งที่ Owner ช่วยได้จากแอป/หน้างาน
 
-- แอปใช้งานได้และ Camera Account On ยืนยันแล้ว ไม่ขอซ้ำ. ดูเฉพาะสถานะ Tapo → Me → Third-Party Services → Third-Party Compatibility (On/Off/ไม่พบ) ตาม [คู่มือ TP-Link](https://www.tp-link.com/us/support/faq/4416/); ตำแหน่ง Me อาจต่างตามเวอร์ชัน. ยังไม่เปลี่ยนค่า.
-- เลือกคลิปที่มีคนเดินผ่านหนึ่งคลิปซึ่งยังดูย้อนหลังได้ แจ้งวัน เวลา และมุมภาพ ไม่ส่ง raw video.
-- แจ้งว่าที่ร้านมีคอมพิวเตอร์หรือ NAS เดิมที่เปิดใช้อยู่หรือไม่ เพื่อให้ทีมเลือกทางเชื่อมภายใต้ข้อจำกัดไม่ซื้อฮาร์ดแวร์. ไม่ต้องให้ Owner ออกแบบ VPN หรือตรวจ Mac เองซ้ำ.
+- แอปใช้งานได้และ Camera Account On ยืนยันแล้ว; ภาพล่าสุดยืนยัน Tapo Version 3.21.106 / Third-Party Compatibility On / Privacy Mode Off (OD-20). ไม่ขอซ้ำ ไม่เปลี่ยนค่า; สถานะเมนูไม่ใช่ผลทดสอบ auth/route/SD export.
+- คลิปเป้าหมายยืนยันจากภาพ: 2026-10-08 เริ่ม 09:51:53 / 03:00 (OD-22). Owner เลือก Fixed Lens เป็นมุมหลัก ไม่ใช้ PT Lens สำหรับการนับ (OD-23); ไม่ขอซ้ำ ไม่ส่ง raw video. ต้องตรวจมุมในไฟล์ ไม่ใช้ PT แทน Fixed.
+- ร้านไม่มี computer/NAS (OD-21); ทีมตรวจทางเชื่อมที่เราเตอร์เดิม/ผู้ผลิตรองรับ ไม่ซื้อ host และไม่ให้ Owner ออกแบบ VPN. Owner เปิด playback ขณะอยู่ร้าน (OD-23); ไม่ถือภาพเป็น remote export/API PASS และไม่อนุมานชนิด network ของโทรศัพท์.
 
 ผลนี้เป็น LOCAL_INSPECTION เท่านั้น: camera requests/auth attempts/clips = 0/0/0; camera firmware/model ที่ Owner ยืนยันไม่ถูกย้อนเป็น UNKNOWN เพราะ doctor ไม่อ่านกล้อง. Route/auth/SD export ยัง NOT_TESTED.

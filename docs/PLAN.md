@@ -72,4 +72,8 @@ Codex และ Claude ใช้ checkout/branch งานเดียวกั�
 
 ## งานถัดไป: หนึ่งคลิปจาก SD
 
+ข้อมูลล่าสุด 2026-10-08 (OD-20–23): แอป 3.21.106 / Third-Party Compatibility On; ร้านไม่มี computer/NAS จึงไม่ใช้ shop host เป็น gateway. คลิปเป้าหมายใน UI วันที่ 2026-10-08 เริ่ม 09:51:53 ยาว 03:00; Owner เลือก **Fixed Lens เป็นมุมหลัก ไม่ใช้ PT Lens สำหรับการนับ** และเปิด playback ขณะอยู่ร้าน. ไม่ขอข้อมูลเหล่านี้ซ้ำ. ทีมตรวจทางเชื่อมของเราเตอร์เดิม/ผู้ผลิตก่อนเลือกวิธี; UI playback ไม่พิสูจน์ remote export API สำหรับ Mac และไม่เปิดเกต live. ยังต้องยืนยัน source metadata/timezone/channel mapping และเพดานทดลอง; หากไฟล์มี PT อย่างเดียว ห้ามใช้แทน Fixed.
+
 [ONE_CLIP_PLAN](ONE_CLIP_PLAN.md) เป็นแบบ D1 offline preparation ที่ตรวจจาก candidate release และข้อจำกัดจริง. ทำ dependency audit/แบบ adapter ที่คุมขอบเขตก่อน; รับสถานะ route/app และคลิปเป้าหมายจาก Owner แล้ว PO จัด control เฉพาะการทดลองหนึ่งคลิป. แผนนี้ยังไม่มี downloader, credential input หรือ live PASS และไม่ติดตั้ง/เปลี่ยนเครือข่ายอัตโนมัติ.
+
+[ACQUISITION_ROUTE_DECISION](ACQUISITION_ROUTE_DECISION.md) เป็นผลตรวจเส้นทางล่าสุด: ไม่มี shop host; `pytapo` ต้องมีทางเข้าถึงกล้องจริง. คู่มือ AIS ที่พบยังไม่ยืนยัน VPN server และหลักฐาน remote SD ในแอปไม่ยืนยัน API สำหรับ Mac. ชะลอ home downloader จนมี route/interface evidence; เตรียมข้อความถาม capability และทาง local/manual trial แยกให้ Owner เลือก ไม่อ้างว่าเป็นไปไม่ได้หรือเปลี่ยนเป้าหมายโดยอัตโนมัติ.
