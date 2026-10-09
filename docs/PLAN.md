@@ -1,10 +1,14 @@
 # แผนงาน: ดึงคลิปจากกล้องเป็นชุด แล้วนับคนเดินผ่านภายหลัง
 
+OD-38 (Owner, 2026-10-09): The home Mac must connect and retrieve shop-camera SD recordings itself. An iPhone video download/export/transfer step does not satisfy this requirement and must not be a prerequisite. iPhone may support instructions or authentication, but is not the video intermediary. Evaluate camera SD -> Tapo vendor relay -> home Mac -> Fixed Lens processing; this is not a claim of direct IP/P2P connectivity or tested C545D compatibility. Secure account input and audited transport remain unresolved. No device trial occurred in this clarification.
+
 > สเปกกลางฉบับปัจจุบัน ทั้ง ChatGPT และ Claude อ่านไฟล์นี้ก่อนทำงาน
 > รายละเอียดข้อเท็จจริง หลักฐาน และเกต: [PREPROJECT_PLAN.md](PREPROJECT_PLAN.md) · ความคืบหน้า: [STATUS.md](STATUS.md)
 > กติกาควบคุมงาน: [PROJECT_CONTROL.md](../PROJECT_CONTROL.md) (มีผลเหนือเอกสารอื่น)
 
 ## สถานะการเปลี่ยนแผน
+
+**OD-40 ปัจจุบัน:** พัฒนา [cloud probe](CLOUD_PROBE_GUIDE.md) ตามโปรโตคอล OnTapo ด้วย stdlib โดยไม่ติดตั้ง/รัน SDK. Vendor TLS จาก Mac ผ่านจริง 3/3; login/MFA/inventory มี implementation แต่ยังไม่รันบัญชีจริงเพราะไม่มี private input. ใช้ native Mac dialog โดย PO รันให้เมื่อ Owner เข้าถึงเครื่อง; ช่องกรอกจาก iPhone ยังไม่พร้อม. เป้าหมาย Mac รับ SD เองตาม OD-38 ไม่เปลี่ยน; ยังไม่มี SD/media downloader และไม่ใช้ phone import ทดแทน
 
 **OD-37 ปัจจุบัน:** พบ [OnTapo SD relay และ C545D developer research](REMOTE_SD_RESEARCH.md). เลือกตรวจ/ออกแบบ adaptation ของ SD relay ก่อน Tapo Care; คงต้นฉบับ SD และ Mac บ้าน. มี author-reported TC65 download กับ PO static source review แต่ยังไม่มีผล C545D ของเรา จึง CONDITIONAL research ไม่ใช่ live/production PASS. ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้; auth/input/region/Fixed/quota ยังต้องพิสูจน์
 

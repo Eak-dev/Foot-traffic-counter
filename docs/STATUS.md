@@ -1,5 +1,21 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
+**ปัจจุบัน OD-40 / 2026-10-09 — CLOUD_TLS_VERIFIED / AUTH_INPUT_REQUIRED:** มีโปรแกรม stdlib `tools/ft_cloud_probe.py` สำหรับ offline check, TLS-only diagnostic และ native Mac login/MFA/cloud inventory. PO รัน TLS ด้วยโปรแกรมจริงผ่าน 3/3 endpoints, exit 0; check ให้ AUTH_INPUT_REQUIRED / exit 2 ตามจริง. ยังไม่ได้รัน login-check, ไม่มี credentials/token, device/SD requests 0, clips 0. [คู่มือ](CLOUD_PROBE_GUIDE.md). ไม่มี iPhone download เป็นขั้นตอนของระบบ
+
+งานที่ต้องให้ Owner ช่วยเฉพาะจุด: กรอกบัญชี Tapo ในหน้าต่างส่วนตัวเมื่อเข้าถึง Mac ได้; PO รันคำสั่งให้ ไม่ต้องใช้ Terminal. ถ้าใช้ iPhone อย่างเดียว ช่องกรอกระยะไกลยังไม่มี. ไม่รับรหัสในแชต/Issue ไม่ค้น Keychain และไม่ใช้ iCloud plaintext. การเชื่อม vendor TLS ไม่ใช่การเชื่อม C545D หรือ SD สำเร็จ; หลังยืนยันบัญชีต้องตรวจ target/region แล้วพัฒนา SD/media adapter ต่อ
+
+Claude OD-40: source-packet invocation FAILED/RESULT_PERMISSION_DENIALS (68.6s); PO แก้โดยใส่ public packet ใน prompt ไม่เพิ่มสิทธิ์. Draft child exit0 (574.7s) แต่ launcher FAILED/RESULT_PERMISSION_DENIALS จากคำสั่ง shell นอก allowlist. Revision TIMEOUT (420.4s); PO ตรวจ process เหลือแต่ session เก่าที่ไม่เกี่ยวข้อง ไม่มี child Python/test ของงานนี้ จึงปล่อย empty retained lock และรับ ownership. PO ปิด defect ที่เหลือและทดสอบเอง; ห้ามอ้าง developer final PASS. ผล 381 tests ใน draft เป็น DEVELOPER_REPORTED พร้อม arithmetic ผิด ไม่ใช่ผลตรวจรับ
+
+PO ตรวจครั้งแรก 405 tests / 5 failures (13.721s), แก้ fixture ค้างและ code review เพิ่มเรื่อง inner errors, role ของ host, single-read และ budget boundary. ตรวจซ้ำพบ time-boundary floating-point failure 1 ข้อ; PO แก้เป็น absolute deadline แล้ว final 412/412 PASS (13.724s). Final validation ดูบันทึกล่าสุดด้านล่าง. Baseline ก่อน checkpoint `ef965829e786891bb5386c20d8e6bdefb51c8df4`; branch เดิม, writer PO, LOCAL_ONLY จน push/read-back. ไม่ติดตั้งแพ็กเกจ ไม่แก้ OS trust/settings ไม่มี video หรือ actual account login
+
+OD-39 validation: PO unittest 330/330 PASS, exit 0 (14.713s); diff check PASS. Documentation-only changes; no live-connectivity evidence.
+
+**OD-39 / 2026-10-09 — LOCAL_ONLY:** บันทึกเป้าหมายและหน้าที่ PO ใน [PO_OPERATING_BRIEF](PO_OPERATING_BRIEF.md), เพิ่ม required read ใน AGENTS และปรับ control/workflow. PO ต้องเดินงานต่อเองและลด routine updates; ไม่รอคำสั่งซ้ำ. รับทราบงานค้าง OD-38 บน baseline `ef965829e786891bb5386c20d8e6bdefb51c8df4`, branch เดิม, writer PO. เอกสารเท่านั้น; ไม่เรียก Claude ในการบันทึกคำสั่ง Owner (NOT_RUN_BY_DEVELOPER), ไม่มีคำขอกล้องหรือผลเชื่อมใหม่
+
+OD-38 (Owner, 2026-10-09): The home Mac must connect and retrieve shop-camera SD recordings itself. An iPhone video download/export/transfer step does not satisfy this requirement and must not be a prerequisite. iPhone may support instructions or authentication, but is not the video intermediary. Evaluate camera SD -> Tapo vendor relay -> home Mac -> Fixed Lens processing; this is not a claim of direct IP/P2P connectivity or tested C545D compatibility. Secure account input and audited transport remain unresolved. No device trial occurred in this clarification.
+
+LOCAL_ONLY: requirement clarification, documentation only; developer NOT_RUN_BY_DEVELOPER. PO unittest 330/330 PASS, exit 0 (16.364s); diff check PASS. No camera/auth/download requests. Synthetic tests do not verify live connectivity.
+
 > อัปเดต: 2026-10-08 · OD-37 พบ SD relay candidate: OnTapo; CONDITIONAL research ก่อน Tapo Care · ยังไม่ทดสอบ C545D จริง · PR #4 · branch `claude/ft-d0-preflight`
 > Local checkout/HEAD/งานค้างเป็นสถานะปัจจุบัน; remote อาจตามหลังจนถึง checkpoint. สิทธิ์ยึด PROJECT_CONTROL และ Owner Decision
 > [PLAN](PLAN.md) · [Roadmap](PREPROJECT_PLAN.md) · [Owner Decisions](DECISIONS.md) · [Workflow](WORKFLOW.md)
@@ -94,6 +110,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: OnTapo SD relay research/adaptation ตาม REMOTE_SD_RESEARCH; secure input/pinned audited transport/region/Fixed/storage ยังต้องผ่าน. ไม่รอ Owner เลือก paid cloud-source และไม่เปิด worker/live/production เอง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+- 2026-10-09 · PO/Claude · OD-40 เพิ่ม cloud-auth probe และ minimal pinned public CA พร้อม attribution. Actual vendor TLS 3/3 PASS; account auth/SD/Fixed NOT_TESTED. PO final tests 412/412 PASS, exit 0 (13.724s); final corrections NOT_RUN_BY_DEVELOPER. OD-38/39 รวมใน checkpoint นี้; รอเฉพาะ private login input สำหรับขั้น auth ไม่ถามสิทธิ์ทดลองทั่วไปซ้ำ
 
 - 2026-10-08 · PO/Claude · OD-37 พบ SD relay source และ C545D local-API report ใหม่ที่เปลี่ยนลำดับ candidate. Claude final exit0/95.3s; PO static verification/corrections และ reconciliation ของแผน. ยังไม่แตะ account/camera/video/install; regression 330/330 PASS, exit 0 (15.347s); ไม่ถือ vendor-cloud transit เป็น Tapo Care storage
 

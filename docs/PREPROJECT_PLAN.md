@@ -8,6 +8,8 @@
 
 ## 1. ข้อตัดสินใจ
 
+**OD-40:** เพิ่มหลักฐานจริงเฉพาะ public cloud TLS ผ่าน 3/3 ด้วย pinned CA ใน process. Cloud login/MFA/inventory implementation ผ่านการตรวจแยกใน STATUS; ยังไม่รันบัญชีหรือกล้องจริงและยังไม่มี SD media adapter. ไม่ถือ D1/D2 PASS. Owner ช่วยเฉพาะ private login input ที่ PO ทำแทนไม่ได้; iPhone ไม่เป็นตัวกลางคลิป
+
 **OD-37 ปัจจุบัน:** พบ [OnTapo SD relay และ C545D developer research](REMOTE_SD_RESEARCH.md). เลือกตรวจ/ออกแบบ adaptation ของ SD relay ก่อน Tapo Care; คงต้นฉบับ SD และ Mac บ้าน. มี author-reported TC65 download กับ PO static source review แต่ยังไม่มีผล C545D ของเรา จึง CONDITIONAL research ไม่ใช่ live/production PASS. ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้; auth/input/region/Fixed/quota ยังต้องพิสูจน์
 
 **OD-36 ประวัติ — ลำดับ candidate ถูกแทนที่ด้วย OD-37:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้

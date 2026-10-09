@@ -1,5 +1,11 @@
 # Owner Decisions — Foot-traffic-counter
 
+**OD-40 — OWNER_CONTINUE / PO_SCOPE 2026-10-09:** Owner สั่งเดินงานค้างต่อ. PO เลือกทำ cloud auth/inventory probe แบบ stdlib ตาม source ที่ pin เป็นขั้นพิสูจน์ route/account ก่อน media. เพิ่ม CA สาธารณะเฉพาะ process (fingerprint ตรงอีกโครงการ), ไม่แก้ OS trust/ติดตั้งแพ็กเกจ. TLS 3/3 ผ่านจริง; ไม่มี auth/device/video request. Claude draft/revision มี permission denials/timeout; PO รับกลับแก้และทดสอบ ไม่ลด sandbox. ยังต้องมี Owner กรอกบัญชีส่วนตัวบน Mac; iPhone-only input ยังไม่แก้. ไม่ต้องดาวน์โหลดคลิปด้วยมือถือ ไม่สร้าง scheduler หรือขอสิทธิ์ทั่วไปซ้ำ
+
+**OD-39 — OWNER_DIRECTION 2026-10-09:** Owner ย้ำให้ Codex ทำหน้าที่ PO จัดการงานเอง ไม่ส่งแผน/รายงานกลับเพื่อรอคำสั่งต่อ และให้บันทึกหน้าที่กับเป้าหมายในไฟล์ที่อ่านทุกครั้ง. เพิ่ม PO_OPERATING_BRIEF และ required read ใน AGENTS; PO รับผิดชอบค้นข้อมูล สั่ง Claude ตรวจและแก้จนได้ผลภายในสิทธิ์จริง. แจ้งเฉพาะอุปสรรคที่ Owner ต้องช่วยหรือการตัดสินใจที่ยังขาด; ไม่ขอสิทธิ์เดิมซ้ำ ไม่สร้าง worker หรือถือว่ากล้องเชื่อมแล้ว
+
+OD-38 (Owner, 2026-10-09): The home Mac must connect and retrieve shop-camera SD recordings itself. An iPhone video download/export/transfer step does not satisfy this requirement and must not be a prerequisite. iPhone may support instructions or authentication, but is not the video intermediary. Evaluate camera SD -> Tapo vendor relay -> home Mac -> Fixed Lens processing; this is not a claim of direct IP/P2P connectivity or tested C545D compatibility. Secure account input and audited transport remain unresolved. No device trial occurred in this clarification.
+
 อัปเดต 2026-10-08 · บันทึกข้อสรุปที่มีผลต่องาน ไม่ใช่สำเนาแชตหรือข้อมูลลับ
 อ่านร่วมกับ PROJECT_CONTROL, PLAN และ STATUS; หากเปลี่ยนข้อสรุปให้เพิ่มรายการ supersedes ไม่ลบประวัติ
 

@@ -8,6 +8,8 @@
 
 ## ก่อนเริ่มงานทุกครั้ง
 
+0. อ่าน [docs/PO_OPERATING_BRIEF.md](docs/PO_OPERATING_BRIEF.md): เป้าหมาย Owner, หน้าที่ Codex PO และวิธีทำงานต่อโดยไม่รอคำสั่งซ้ำ. ใช้ร่วมกับคำสั่ง Owner ล่าสุดและ PROJECT_CONTROL
+
 1. อ่าน `PROJECT_CONTROL.md`, `docs/PLAN.md` (สเปกกลาง), `docs/PREPROJECT_PLAN.md` (หลักฐานและเกต) และ `docs/STATUS.md` (ใครทำอะไร เฟสไหนเสร็จ)
 2. อ่าน `docs/DECISIONS.md` และ `docs/WORKFLOW.md`; ยืนยัน local root/branch/full HEAD, งานค้าง, phase, blockers และ next action ก่อนลงมือ. Local เป็นสถานะงานหลักระหว่างพัฒนา; GitHub อาจตามหลังจนถึง checkpoint. ไม่ขอข้อมูลที่ Owner ยืนยันแล้วซ้ำ
 3. ดูงานค้างใน GitHub Issues ที่เกี่ยวข้องผ่านข้อมูลที่ PO ตรวจจาก GitHub ล่าสุด; หากไม่มี network tools ให้ PO เตรียม checkout/บริบทให้ ห้ามใช้เครื่องมือนอก scope. Issue ไม่ใช่ worker อัตโนมัติ
