@@ -4,13 +4,25 @@ Owner decision 2026-10-07: ใช้ **local folder เดียวและ bra
 
 ## โฟลเดอร์และ branch กลาง
 
-- ใช้ checkout ที่เลือกในโปรเจกต์ Codex เป็นโฟลเดอร์หลัก. ตอนนี้ branch คือ `claude/ft-d0-preflight`; PR คือ [#2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2).
+- ใช้ checkout ที่เลือกในโปรเจกต์ Codex เป็นโฟลเดอร์หลัก. ตอนนี้ branch คือ `claude/ft-d0-preflight` เดิม; [PR #2](https://github.com/Eak-dev/Foot-traffic-counter/pull/2) merged ตามคำสั่ง Owner เป็น `v0.1.0` แล้ว. งานชุดถัดไปใช้ branch เดิมและเปิด PR ใหม่เมื่อถึง checkpoint; ไม่ส่งงานใหม่ลง PR ที่ merged แล้ว.
 - Codex และ Claude เรียกคำสั่งจาก root เดียวกัน. พาธจริงเก็บเฉพาะ `.claude/workflow.local.json` ที่ Git ไม่ติดตาม; ไม่ใส่พาธเครื่องจริงในเอกสารที่เผยแพร่.
 - สำเนาเก่าเก็บไว้แต่ไม่ใช้ส่งงาน. ไม่สร้าง worktree/branch เพิ่มโดยอัตโนมัติ. หลัง Owner merge ให้ PO ตรวจ tree ก่อนตกลง branch งานถัดไป; กติกา branch เดียวไม่ใช่สิทธิ์ push เข้า main.
 - ระหว่างพัฒนา **local HEAD และไฟล์ที่ยังไม่ commit** เป็นสถานะงานปัจจุบัน. GitHub อาจตามหลังได้ตามจังหวะ checkpoint. ไม่บังคับ pull หรือให้ HEAD ตรง remote ทุกข้อความ.
 - ไม่มีการ switch/main checkout/pull/reset/rebase/merge อัตโนมัติ. งานค้างต้องระบุว่าเป็นของใครและอยู่ใน scope ไหนก่อนทำต่อ.
 
 ## หน้าที่และการถือสิทธิ์แก้ไฟล์
+
+**OD-33 PO ownership:** Owner มอบหมายให้ Codex จัดการงานและคุยกับ Claude โดยตรง. PO เตรียมใบงานที่มี acceptance criteria, review อิสระและส่งแก้ใน scope เดิมจนตรวจรับได้ ก่อนจัด checkpoint. ไม่รอ Owner ทำหน้าที่ประสาน Dev หรือค้นคำตอบทางเทคนิค. สิทธิ์นี้ไม่แทนการอนุมัติเกตอุปกรณ์/รายจ่าย/merge และไม่ทำให้ระบบรันต่อเมื่อ Mac/chat offline.
+
+**OD-30 research ownership:** PO/Dev ค้นหา router/VPN/vendor API evidence เอง ไม่รอ Owner ติดต่อ AIS/TP-Link เป็นงานค้นหา. การไม่พบเอกสารให้รายงานเป็น UNKNOWN พร้อมขอบเขตที่ตรวจ ไม่สรุป unsupported จากผลค้นหา และไม่วนส่งคำถามเดิมกลับ Owner. งานหน้างานหรือการเปลี่ยน scope ที่ต้องใช้ Owner ให้เตรียมข้อเสนอเฉพาะก่อน.
+
+**OD-29 communication:** ทำงานที่อนุมัติแล้วต่อเนื่องตามลำดับจนจบหรือพบ blocker ที่ต้องให้ Owner ช่วย; ลดข้อความระหว่างงานและแจ้งเฉพาะปัญหา/คำถามที่จำเป็น พร้อมสรุปเมื่อจบชุดงาน. เก็บรายละเอียดและผลจริงใน local STATUS/evidence; ไม่สร้าง worker/scheduler และไม่ตีความเป็นสิทธิ์ข้ามเกตอุปกรณ์.
+
+**OD-26 (2026-10-08): Owner ใช้ iPhone เป็นหลัก.** Codex เป็นผู้รันงานบน Mac ที่เชื่อมถึงได้และอยู่ใน scope ที่อนุมัติ; ไม่ให้ Owner เปิด Terminal/พิมพ์คำสั่งเป็นเกตบังคับ. งานใน Tapo และการตัดสินใจยังเป็นของ Owner. การรับ private endpoint/credentials ต้องมีช่องทางที่ตรวจแล้วก่อน ไม่ให้ส่งค่าในแชต/Issue และไม่ค้นไฟล์บ้านหรือ secrets ทั้งเครื่อง. iCloud Drive ของ Owner เป็นเพียงทางเลือกที่รอ readiness/ไฟล์เป้าหมายที่ระบุชัด ไม่ติดตั้ง/เปิด sync/เปลี่ยน account อัตโนมัติ. การทำงานจาก iPhone ไม่ได้เปิด scheduler หรือรับรองว่า Mac ที่ offline จะรันงานได้.
+
+**OD-27/28 readiness update:** Owner แจ้ง iCloud Drive เปิดอยู่และทำขั้นตอนส่ง IP เสร็จ; PO พบหนึ่งโฟลเดอร์ว่างที่ส่งใน `FootTrafficSetup` บน Mac แล้ว. ตรวจ RFC1918/ความกำกวม/ไม่ตาม symlink และบันทึกด้วย atomic helper เดิมใน ignored config mode 0600; offline validation PASS. ไม่ต้องส่ง IP ซ้ำ. PO รับเฉพาะจุดที่ Owner ส่งและเก็บ output ที่ redacted ไม่อ่านไฟล์ส่วนตัวเดิมหรือเก็บ raw names ใน Git. ช่องทางนี้ไม่รับ password/account/video; Claude ไม่มีสิทธิ์อ่านค่าจริง. Check ยัง BLOCKED, route/auth/download NOT_TESTED และ camera requests 0.
+
+OD-25 Owner อนุมัติ maintenance/control แยกและ private IP-input/offline check แล้ว. PO เตรียม scope ใน PROJECT_CONTROL; Claude รับเฉพาะ `tools/ft_connect.py`, `tests/test_ft_connect.py`, `docs/MAC_CONNECTION_GUIDE.md` ตามใบงาน. ไม่แก้ launcher/policy ไม่ให้ Dev อ่าน local IP/config/runtime หรือเชื่อมกล้อง; tests ใช้ temporary synthetic config เท่านั้น. สิทธิ์ติดตั้ง OD-24 เป็นของ PO และเสร็จใน ignored runtime แล้ว ไม่ขยายสิทธิ์ shell/เครือข่ายของ Dev.
 
 | ผู้ทำ | หน้าที่ |
 | --- | --- |
@@ -22,6 +34,20 @@ Owner decision 2026-10-07: ใช้ **local folder เดียวและ bra
 Lock นี้เป็นกติกาความร่วมมือ ไม่บล็อก editor หรือ CLI ที่เรียกเอง. เมื่อ timeout/interrupt/launch-cleanup error ตัวเรียกหยุด process group แต่ **เก็บ lock ไว้** ให้ PO ตรวจ process ที่อาจแยก session แล้วก่อนปล่อย ownership; ไม่อ้างว่า process group ครอบคลุมทุก detached process. ถ้าพบ lock ค้าง หยุด ตรวจว่ากระบวนการเก่าจบจริง และให้ PO ปล่อย ownership ก่อนเริ่ม; ตัวเรียกไม่แย่งหรือลบ stale lock เอง.
 
 ## รอบส่งงาน
+
+OD-40 current handoff: cloud-auth probe มีโค้ดจริงและ PO ทดสอบ public TLS ผ่านแล้ว. อ่าน CLOUD_PROBE_GUIDE/STATUS; อย่าเริ่มใหม่จาก OD-37 research-only. Native private input ต้องมี Owner ที่ Mac (PO รันให้); ไม่มี phone-video transfer. ภูมิภาคที่ยังไม่ audit ให้หยุดโดยไม่ส่ง credentials ต่อ. Developer permissions ยัง offline/synthetic; PO ไม่รัน login-check จนมีผู้กรอกส่วนตัวได้จริง
+
+OD-39: อ่าน [PO_OPERATING_BRIEF](PO_OPERATING_BRIEF.md) ทุกครั้ง. PO เป็นผู้เดินงานให้สำเร็จโดยไม่รอ Owner สั่งต่อซ้ำ; จัดการ research/ใบงาน Claude/review/แก้/ทดสอบใน scope ที่อนุญาตเอง. ไม่จบเพียงรายงาน next action ที่ยังทำต่อได้ และไม่ส่ง routine updates ให้ Owner. ถามเฉพาะสิ่งที่ทีมทำแทนไม่ได้หรือการตัดสินใจที่ยังขาดจริง โดยตรวจสิทธิ์จากคำสั่ง Owner ล่าสุดก่อน
+
+**OD-37 ปัจจุบัน:** พบ [OnTapo SD relay และ C545D developer research](REMOTE_SD_RESEARCH.md). เลือกตรวจ/ออกแบบ adaptation ของ SD relay ก่อน Tapo Care; คงต้นฉบับ SD และ Mac บ้าน. มี author-reported TC65 download กับ PO static source review แต่ยังไม่มีผล C545D ของเรา จึง CONDITIONAL research ไม่ใช่ live/production PASS. ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้; auth/input/region/Fixed/quota ยังต้องพิสูจน์
+
+**OD-36 ประวัติ — ลำดับ candidate ถูกแทนที่ด้วย OD-37:** ปรึกษา Claude และตรวจ primary sources แล้ว: automatic SD จาก Mac บ้านภายใต้ข้อจำกัดเดิมเป็น NO-GO สำหรับ implementation ตอนนี้ (ไม่ใช่พิสูจน์ว่าเป็นไปไม่ได้ถาวร). พัก acquisition scaffolding เพิ่มและไม่รอ Owner router UI เป็นเกตบังคับของคำตัดสิน. [FEASIBILITY_REVIEW](FEASIBILITY_REVIEW.md) แยก manual SD/local import หนึ่งคลิปกับ Tapo Care cloud-source เป็น CONDITIONAL proposals; cloud ต้องยอมรับ source/privacy/งบและพิสูจน์ auth/Fixed/completeness ใหม่ก่อน. ไม่เปลี่ยน SD spec หรือเปิดเกตวิดีโอ/นับ/ซื้อในงานนี้
+
+ข้อความ OD-34/35/36 ด้านล่างเป็นประวัติ; ไม่ใช่ขั้น Owner ที่ต้องทำตอนนี้. PO ตรวจ SD relay ตาม OD-37 ก่อน; ไม่ผลักงานค้นหาให้ Owner
+
+OD-35 supersedes การนำ Mac ไปที่ร้านเป็น next action: PO รับผิดชอบแก้ home-to-shop ผ่าน gateway ที่ตรวจแล้ว; Owner ช่วยเฉพาะเข้าหน้า router ร้านบน iPhone ที่ PO ยังเข้าถึงไม่ได้. HOME_CONNECTION_PLAN ระบุ capability branches/route/rollback; ไม่ขอสิทธิ์ทดลองทั่วไปซ้ำ และไม่ขยายสิทธิ์ Dev/ติดตั้งโดยเดา
+
+OD-34 เป็น PO private/network diagnostic ตามคำสั่งเชื่อมจริงของ Owner: อ่าน current OS route สำเร็จ พบ IP ร้านทับ LAN บ้าน จึงไม่ส่ง TCP ผิดปลายทาง. ไม่ให้ Claude อ่าน endpoint/credentials หรือเพิ่ม network tools. ขั้นที่ Owner ช่วยคือให้ Mac เดิมต่อ Wi-Fi ร้าน; PO รับผิดชอบคำสั่งทดสอบต่อ. Scope/bounds/ผลดู PROJECT_CONTROL และ STATUS; ไม่วนถามอนุญาตทั่วไปใหม่.
 
 1. Owner บอกเป้าหมายกับ Codex เช่น “ให้ Claude ทำงาน X ตามแผน ตรวจและแก้จนพร้อม review”. ไม่ต้องคัดลอก prompt เอง.
 2. PO ตรวจ local root/branch/full HEAD, dirty files, phase และสิทธิ์; เขียนใบงาน local ที่ไม่มีข้อมูลลับ.
