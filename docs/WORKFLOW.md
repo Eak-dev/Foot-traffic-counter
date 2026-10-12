@@ -35,7 +35,7 @@ Lock นี้เป็นกติกาความร่วมมือ ไ�
 
 ## รอบส่งงาน
 
-OD-40 current handoff: cloud-auth probe มีโค้ดจริงและ PO ทดสอบ public TLS ผ่านแล้ว. อ่าน CLOUD_PROBE_GUIDE/STATUS; อย่าเริ่มใหม่จาก OD-37 research-only. Native private input ต้องมี Owner ที่ Mac (PO รันให้); ไม่มี phone-video transfer. ภูมิภาคที่ยังไม่ audit ให้หยุดโดยไม่ส่ง credentials ต่อ. Developer permissions ยัง offline/synthetic; PO ไม่รัน login-check จนมีผู้กรอกส่วนตัวได้จริง
+OD-40 current handoff: cloud-auth probe มีโค้ดจริงและ PO ทดสอบ public TLS ผ่านแล้ว. อ่าน CLOUD_PROBE_GUIDE/STATUS; อย่าเริ่มใหม่จาก OD-37 research-only. Native private input ให้ Owner ตอบหน้า Mac หรือผ่าน iPhone remote ที่ยืนยันแล้ว (PO รันให้); ไม่มี phone-video transfer. ภูมิภาคที่ยังไม่ audit ให้หยุดโดยไม่ส่ง credentials ต่อ. Developer permissions ยัง offline/synthetic; PO ไม่รัน login-check จนมีผู้กรอกส่วนตัวได้จริง
 
 OD-39: อ่าน [PO_OPERATING_BRIEF](PO_OPERATING_BRIEF.md) ทุกครั้ง. PO เป็นผู้เดินงานให้สำเร็จโดยไม่รอ Owner สั่งต่อซ้ำ; จัดการ research/ใบงาน Claude/review/แก้/ทดสอบใน scope ที่อนุญาตเอง. ไม่จบเพียงรายงาน next action ที่ยังทำต่อได้ และไม่ส่ง routine updates ให้ Owner. ถามเฉพาะสิ่งที่ทีมทำแทนไม่ได้หรือการตัดสินใจที่ยังขาดจริง โดยตรวจสิทธิ์จากคำสั่ง Owner ล่าสุดก่อน
 

@@ -1,5 +1,25 @@
 # Owner Decisions — Foot-traffic-counter
 
+### OD-42 — Owner เลือกชื่อกล้องและยืนยัน Fixed Lens (2026-10-12)
+
+Owner ระบุชื่อกล้องในภาพและให้ใช้ Fixed Lens. PO เก็บเฉพาะ normalized SHA256 name selector กับ lens FIXED ใน ignored local configuration mode0600; ไม่ใส่ชื่อจริง/ภาพ/ID ใน repo. ภาพรอบนี้ Fixed อยู่ด้านล่าง ส่วน PT อยู่บน; ไม่อนุมาน protocol channel จากลำดับภาพ. Cloud inventory เลือกได้เมื่อชื่อที่ normalize ตรงเพียงหนึ่งรายการ; ชื่อซ้ำ/ไม่พบต้องหยุด ไม่เลือกจากรุ่นแทน. ผลเลือกเป็น cloud target เท่านั้น ไม่เปิด SD/media/Fixed mapping PASS.
+
+Claude implementation TIMEOUT 240.8s; PO audit process และคืน empty lock แล้วแก้ review เอง. Final PO cloud 121/121 PASS (0.367s), full 451/451 PASS (32.487s); NOT_RUN_BY_DEVELOPER. Live named selection SUCCESS / exit0: ตรงหนึ่งชื่อจาก13 cameras, selected_model_kindVARIANT; เป็น CLOUD_INVENTORY_ONLY. ไม่มี camera/SD/Fixed channel PASS. เตรียม next operation/diagnostics ให้ครบก่อนเปิด auth รอบใหม่เพื่อลดการกรอกซ้ำ.
+
+### OD-40 trial result — 2026-10-12
+
+ยืนยัน cloud login/MFA/inventory จริงแล้ว: 13 cameras, exact C545D 0. รักษา TARGET_NOT_FOUND เป็น blocker การเลือกเป้าหมาย ไม่ตีความเป็นเชื่อมกล้อง/SD ผ่านหรือสรุปบัญชีผิด. Endpoint/body ของ email และ exact APS1 metadata แก้ตามหลักฐานใน CLOUD_PROBE_GUIDE. ไม่มี password/token persistence, ไม่มีสิทธิ์กล้อง/ค่า OS ใหม่; next action เป็น model diagnostics แบบ redacted ไม่ขอรุ่น/IP เดิมซ้ำ. Owner input เป็นช่องส่วนตัวเดิม.
+
+### OD-40/41 evidence follow-up — 2026-10-10
+
+Owner ยืนยัน Chrome Remote Desktop ใช้งานจาก iPhone ได้แล้ว; ช่องกรอกส่วนตัวเป็น native Mac dialog ผ่าน remote และไม่ต้องส่ง secret ในแชต. Actual cloud login หลังแก้ decimal-string code ถึง MFA challenge แต่ติด MFA_SEND/MFA_FAILED; Owner ยังไม่เห็นอีเมล. ไม่ถือ auth/email delivery ผ่าน. PO แก้ parser ตาม primary source ให้ HTTP200/no-code เป็น send acknowledgment เท่านั้น; explicit errors ยังหยุดและการจบ MFA ต้อง explicit success พร้อม token. เป็น correction ใน scope เดิม ไม่เปิด camera/SD gate ไม่ปิด MFA หรือเปลี่ยนการตั้งค่าบัญชี. PO 434/434 tests PASS; NOT_RUN_BY_DEVELOPER และ LOCAL_ONLY. ผล live ใหม่ดู STATUS
+
+**OD-41 clarification / 2026-10-10:** Owner ย้ำให้ติดตั้งจริงตามสิทธิ์เดิม. PO รับผิดชอบที่หยุดก่อนทดลอง CLI และทำต่อ: official DMG/signature/notarization PASS; actual sudo installer blocked by administrator password requirement, exit 1. ไม่ขออนุญาตติดตั้งซ้ำ. Current blocker เป็น OS authentication ซึ่งการอนุญาตในบทสนทนาไม่ได้สร้าง credential ให้ระบบ; ไม่มีการหลบกลไกยืนยันสิทธิ์. รายละเอียด STATUS
+
+**OD-41 / 2026-10-10 — OWNER_MAC_SETUP_DELEGATION:** Owner ต้องการให้ PO จัดการ Mac และให้ตนทำเฉพาะมือถือ. เลือกเตรียม Chrome Remote Desktop ตามข้อเสนอเดิม; ไม่ถามสิทธิ์ติดตั้งทั่วไปซ้ำ. การขยายสิทธิ์ผ่าน UI และ credential creation ยังต้องตามกติกาเครื่องมือและ Owner ยืนยันเองเมื่อจำเป็น. ตรวจจริงพบ browser extension gallery ถูกจำกัดและ native control unavailable; command-based setup ที่ตรวจไม่มี Mac. ยังไม่ติดตั้งหรือเปิด remote access จึงยังให้มือถือเชื่อมไม่ได้. รายละเอียด STATUS; ไม่เปลี่ยนคำสั่ง SD/Fixed และไม่สร้างวิธีส่งรหัสผ่านในแชต
+
+**OD-40 follow-up / 2026-10-09 — PO trial evidence:** Owner แจ้งอยู่ที่ Mac; private native input ใช้งานใน live trial แล้ว. ครั้งแรก MALFORMED_RESPONSE ไม่ทราบ stage; ไม่ตีความเป็น password error หรือ auth PASS. PO ส่ง Claude เพิ่ม fixed stage/detail diagnostics ภายใน scope เดิม, ตรวจอิสระ 427/427 PASS. ครั้งที่สอง native input TIMEOUT; หยุด ไม่มี retry loop และไม่เก็บบัญชี/token. ต้องรอ Owner ตอบหน้าต่างใหม่เพื่อวินิจฉัยต่อ ไม่ใช่รออนุมัติทั่วไป. LOCAL_ONLY; ไม่เปลี่ยน media/settings/purchase gates. รายละเอียดหลักฐานใน STATUS
+
 **OD-40 — OWNER_CONTINUE / PO_SCOPE 2026-10-09:** Owner สั่งเดินงานค้างต่อ. PO เลือกทำ cloud auth/inventory probe แบบ stdlib ตาม source ที่ pin เป็นขั้นพิสูจน์ route/account ก่อน media. เพิ่ม CA สาธารณะเฉพาะ process (fingerprint ตรงอีกโครงการ), ไม่แก้ OS trust/ติดตั้งแพ็กเกจ. TLS 3/3 ผ่านจริง; ไม่มี auth/device/video request. Claude draft/revision มี permission denials/timeout; PO รับกลับแก้และทดสอบ ไม่ลด sandbox. ยังต้องมี Owner กรอกบัญชีส่วนตัวบน Mac; iPhone-only input ยังไม่แก้. ไม่ต้องดาวน์โหลดคลิปด้วยมือถือ ไม่สร้าง scheduler หรือขอสิทธิ์ทั่วไปซ้ำ
 
 **OD-39 — OWNER_DIRECTION 2026-10-09:** Owner ย้ำให้ Codex ทำหน้าที่ PO จัดการงานเอง ไม่ส่งแผน/รายงานกลับเพื่อรอคำสั่งต่อ และให้บันทึกหน้าที่กับเป้าหมายในไฟล์ที่อ่านทุกครั้ง. เพิ่ม PO_OPERATING_BRIEF และ required read ใน AGENTS; PO รับผิดชอบค้นข้อมูล สั่ง Claude ตรวจและแก้จนได้ผลภายในสิทธิ์จริง. แจ้งเฉพาะอุปสรรคที่ Owner ต้องช่วยหรือการตัดสินใจที่ยังขาด; ไม่ขอสิทธิ์เดิมซ้ำ ไม่สร้าง worker หรือถือว่ากล้องเชื่อมแล้ว

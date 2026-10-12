@@ -518,12 +518,122 @@ class NativePromptTests(unittest.TestCase):
 
 
 class LoginCheckFlowTests(unittest.TestCase):
-    def _run_with(self, dialog_answers, network_script, platform="darwin", exists=True):
+    def test_model_variants_are_diagnostic_not_automatic_target_selection(self):
+        for model in ("C545D(UN)", "C545D 1.0", "Tapo C545D", "C545D(EU)1.0"):
+            self.assertEqual(probe._c545d_model_kind(model), "VARIANT")
+        for model in ("C545D-other", "C545D2", "private nickname C545D", "C545D/secret"):
+            self.assertEqual(probe._c545d_model_kind(model), "OTHER")
+        devices = [{"deviceType": "SMART.IPCAMERA", "thingName": "private-id",
+                    "model": "C545D(UN)"}]
+        report = self._run_with([(0, "owner@example.com\n"), (0, "password\n")],
+                                [(200, LOGIN_OK_BODY), (200, discovery_body(devices))])
+        self.assertEqual(report["c545d_model_variants"], 1)
+        self.assertEqual(report["c545d_candidates"], 0)
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertNotIn("private-id", json.dumps(report))
+
+    def test_email_mfa_uses_single_email_endpoint_and_limits_password_scope(self):
+        connections = []
+        script = [(200, MFA_REQUIRED_BODY), (200, SEND_MFA_OK_BODY),
+                  (200, SUBMIT_MFA_OK_BODY), (200, discovery_body(ONE_C545D))]
+        with mock.patch.object(probe.sys, "platform", "darwin"), \
+                mock.patch.object(probe.os.path, "exists", return_value=True), \
+                patch_dialog([(0, "synthetic@example.invalid\n"),
+                              (0, "unique-password-sentinel\n"), (0, "123456\n")]), \
+                patch_connection(script, connections):
+            report = probe.login_check_command()
+        self.assertEqual(report["status"], "SUCCESS")
+        self.assertEqual(len(connections), 4)
+        send = connections[1].sent[0]
+        self.assertEqual(connections[1].host, probe.ACCOUNT_HOST)
+        self.assertEqual(send[1], "/api/v2/account/getEmailVC4TerminalMFA")
+        payload = json.loads(send[2])
+        self.assertEqual(set(payload), {"appType", "cloudUserName", "cloudPassword", "terminalUUID"})
+        self.assertEqual(payload["cloudPassword"], "unique-password-sentinel")
+        for connection in connections[2:]:
+            self.assertNotIn("unique-password-sentinel", str(connection.sent))
+        self.assertNotIn("unique-password-sentinel", json.dumps(report))
+        with mock.patch.object(probe, "_open_connection") as connect:
+            with self.assertRaises(probe.ProbeError):
+                probe._request(probe._Budget(), probe.ACCOUNT_HOST, "POST",
+                               "/api/v2/account/getPushVC4TerminalMFA", {}, b"{}")
+            connect.assert_not_called()
+
+    def test_input_timeout_reports_stage_without_advancing_auth(self):
+        for answers, network, stage in [
+            ([(None, "TIMEOUT")], [], "EMAIL_INPUT"),
+            ([("synthetic@example.invalid", None), (None, "TIMEOUT")], [], "PASSWORD_INPUT"),
+            ([("synthetic@example.invalid", None), ("password", None), (None, "TIMEOUT")],
+             [(200, MFA_REQUIRED_BODY), (200, SEND_MFA_OK_BODY)], "OTP_INPUT"),
+        ]:
+            connections = []
+            with self.subTest(stage=stage), \
+                    mock.patch.object(probe.sys, "platform", "darwin"), \
+                    mock.patch.object(probe.os.path, "exists", return_value=True), \
+                    mock.patch.object(probe, "_native_prompt", side_effect=answers), \
+                    patch_connection(network, connections):
+                report = probe.login_check_command()
+            self.assertEqual(report["stage"], stage)
+            self.assertEqual(report["reason"], "TIMEOUT")
+            self.assertEqual(len(connections), 2 if stage == "OTP_INPUT" else 0)
+
+    def test_decimal_string_success_code_reaches_inventory(self):
+        body = json.dumps({"errorCode": "0", "result": {"token": "private-token"}}).encode()
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "private-password\n")],
+            [(200, body), (200, discovery_body(ONE_C545D))],
+        )
+        self.assertEqual(report["inventory_status"], "CLOUD_INVENTORY_ONLY")
+        self.assertNotIn("private-token", json.dumps(report))
+        self.assertNotIn("private-password", json.dumps(report))
+
+    def test_decimal_string_error_never_accepts_a_token(self):
+        body = json.dumps({"errorCode": "-20601", "result": {"token": "private-token"}}).encode()
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "password\n")], [(200, body)]
+        )
+        self.assertEqual(report["reason"], "AUTH_FAILED")
+        self.assertEqual(report["stage"], "LOGIN")
+
+    def test_decimal_string_mfa_flow(self):
+        bodies = []
+        for raw in (MFA_REQUIRED_BODY, SEND_MFA_OK_BODY, SUBMIT_MFA_OK_BODY):
+            body = json.loads(raw)
+            for key in ("errorCode", "error_code", "code"):
+                if key in body:
+                    body[key] = str(body[key])
+            bodies.append((200, json.dumps(body).encode()))
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "password\n"), (0, "123456\n")],
+            bodies + [(200, discovery_body(ONE_C545D))],
+        )
+        self.assertEqual(report["inventory_status"], "CLOUD_INVENTORY_ONLY")
+
+    def test_normalized_codes_still_detect_conflicts_and_inner_failure(self):
+        self.assertEqual(probe._account_error_code({"errorCode": "0", "code": 0}), (0, True))
+        self.assertEqual(probe._account_error_code(
+            {"errorCode": "0", "result": {"errorCode": "-20601"}}
+        ), (-20601, True))
+        for body in ({"errorCode": "0", "code": -1},
+                     {"errorCode": "-1", "result": {"errorCode": "-2"}}):
+            with self.subTest(body=body), self.assertRaises(probe.ProbeError) as caught:
+                probe._account_error_code(body)
+            self.assertEqual(caught.exception.detail, "CONFLICTING_CODES")
+
+    def test_noncanonical_status_codes_remain_rejected(self):
+        for value in (True, False, None, 0.0, [], {}, "", " 0", "0\n", "+0", "-0",
+                      "00", "01", "-01", "0.0", "0e0", "٠", "０", "9" * 100):
+            with self.subTest(value=value), self.assertRaises(probe.ProbeError) as caught:
+                probe._extract_error_code({"errorCode": value})
+            self.assertEqual(caught.exception.detail, "INVALID_CODE_TYPE")
+
+    def _run_with(self, dialog_answers, network_script, platform="darwin", exists=True,
+                  target_name_sha256=None):
         with mock.patch.object(probe.sys, "platform", platform), \
                 mock.patch.object(probe.os.path, "exists", return_value=exists), \
                 patch_dialog(dialog_answers), \
                 patch_connection(network_script):
-            return probe.login_check_command()
+            return probe.login_check_command(target_name_sha256=target_name_sha256)
 
     def test_direct_login_no_mfa_single_c545d(self):
         script = [
@@ -649,13 +759,33 @@ class LoginCheckFlowTests(unittest.TestCase):
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(report["reason"], "MFA_FAILED")
 
-    def test_send_mfa_empty_body_is_not_success(self):
-        script = [(200, MFA_REQUIRED_BODY), (200, b"")]
+    def test_send_mfa_empty_ack_still_requires_successful_code_submission(self):
+        for ack in (b"", b"{}"):
+            with self.subTest(ack=ack):
+                script = [(200, MFA_REQUIRED_BODY), (200, ack), (200, b"{}")]
+                report = self._run_with(
+                    [(0, "owner@example.com\n"), (0, "hunter2\n"), (0, "123456\n")], script
+                )
+                self.assertEqual(report["status"], "BLOCKED")
+                self.assertEqual(report["reason"], "MFA_FAILED")
+                self.assertEqual(report["stage"], "MFA_SUBMIT")
+
+    def test_send_mfa_empty_object_ack_then_verified_submission(self):
+        script = [(200, MFA_REQUIRED_BODY), (200, b"{}"),
+                  (200, SUBMIT_MFA_OK_BODY), (200, discovery_body(ONE_C545D))]
         report = self._run_with(
-            [(0, "owner@example.com\n"), (0, "hunter2\n")], script
+            [(0, "owner@example.com\n"), (0, "hunter2\n"), (0, "123456\n")], script
         )
-        self.assertEqual(report["status"], "BLOCKED")
-        self.assertEqual(report["reason"], "MFA_FAILED")
+        self.assertEqual(report["inventory_status"], "CLOUD_INVENTORY_ONLY")
+
+    def test_send_mfa_non_200_ack_stops_before_code_prompt(self):
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")],
+            [(200, MFA_REQUIRED_BODY), (503, b"private-response")],
+        )
+        self.assertEqual(report["detail"], "MFA_SEND_HTTP_ERROR")
+        self.assertEqual(report["stage"], "MFA_SEND")
+        self.assertNotIn("private-response", json.dumps(report))
 
     def test_submit_mfa_negative_code_with_token_fails(self):
         script = [
@@ -690,6 +820,8 @@ class LoginCheckFlowTests(unittest.TestCase):
         report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], script)
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(report["reason"], "MALFORMED_RESPONSE")
+        self.assertEqual(report["stage"], "DISCOVERY")
+        self.assertEqual(report["detail"], "INVALID_DISCOVERY_RECORD")
 
     def test_malformed_camera_missing_thing_name_is_rejected_not_zero(self):
         bad_cameras = [{"deviceType": "SMART.IPCAMERA", "model": "C545D"}]
@@ -697,6 +829,14 @@ class LoginCheckFlowTests(unittest.TestCase):
         report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], script)
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(report["reason"], "MALFORMED_RESPONSE")
+        self.assertEqual(report["stage"], "DISCOVERY")
+        self.assertEqual(report["detail"], "INVALID_DISCOVERY_RECORD")
+
+    def test_discovery_non_list_data_detail(self):
+        script = [(200, LOGIN_OK_BODY), (200, json.dumps({"data": "not-a-list"}).encode())]
+        report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], script)
+        self.assertEqual(report["stage"], "DISCOVERY")
+        self.assertEqual(report["detail"], "INVALID_DISCOVERY_LIST")
 
     def test_duplicate_json_keys_in_login_response_are_malformed(self):
         raw = (
@@ -705,18 +845,96 @@ class LoginCheckFlowTests(unittest.TestCase):
         report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, raw)])
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(report["reason"], "MALFORMED_RESPONSE")
+        self.assertEqual(report["stage"], "LOGIN")
+        # Duplicate top-level keys are rejected by the JSON parse step itself
+        # (object_pairs_hook), before error-code extraction ever runs.
+        self.assertEqual(report["detail"], "INVALID_JSON")
 
     def test_conflicting_error_code_field_names_are_malformed(self):
         raw = json.dumps({"errorCode": 0, "error_code": -1, "result": {"token": "tok-1"}}).encode()
         report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, raw)])
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(report["reason"], "MALFORMED_RESPONSE")
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "CONFLICTING_CODES")
 
     def test_boolean_error_code_is_malformed_not_success(self):
         raw = json.dumps({"errorCode": False, "result": {"token": "tok-1"}}).encode()
         report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, raw)])
         self.assertEqual(report["status"], "BLOCKED")
         self.assertEqual(report["reason"], "MALFORMED_RESPONSE")
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "INVALID_CODE_TYPE")
+
+    def test_invalid_json_body_detail(self):
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, b"not json at all")]
+        )
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "INVALID_JSON")
+
+    def test_nonobject_json_body_detail(self):
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, b"[1,2,3]")]
+        )
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "NONOBJECT_JSON")
+
+    def test_missing_auth_code_detail(self):
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")],
+            [(200, json.dumps({"result": {"token": "tok"}}).encode())],
+        )
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "MISSING_AUTH_CODE")
+
+    def test_invalid_auth_result_detail(self):
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")],
+            [(200, json.dumps({"errorCode": 0, "result": "not-an-object"}).encode())],
+        )
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "INVALID_AUTH_RESULT")
+
+    def test_conflicting_auth_fields_detail(self):
+        raw = json.dumps(
+            {"errorCode": 0, "result": {"token": "tok", "MFAProcessId": "proc"}}
+        ).encode()
+        report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, raw)])
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "CONFLICTING_AUTH_FIELDS")
+
+    def test_missing_auth_fields_detail(self):
+        raw = json.dumps({"errorCode": 0, "result": {}}).encode()
+        report = self._run_with([(0, "owner@example.com\n"), (0, "hunter2\n")], [(200, raw)])
+        self.assertEqual(report["stage"], "LOGIN")
+        self.assertEqual(report["detail"], "MISSING_AUTH_FIELDS")
+
+    def test_mfa_send_malformed_detail(self):
+        script = [(200, MFA_REQUIRED_BODY), (200, b"not json")]
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")], script
+        )
+        self.assertEqual(report["reason"], "MALFORMED_RESPONSE")
+        self.assertEqual(report["stage"], "MFA_SEND")
+        self.assertEqual(report["detail"], "INVALID_JSON")
+
+    def test_mfa_send_negative_code_has_fixed_detail(self):
+        script = [(200, MFA_REQUIRED_BODY), (200, json.dumps({"errorCode": -1}).encode())]
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2\n")], script
+        )
+        self.assertEqual(report["reason"], "MFA_FAILED")
+        self.assertEqual(report["stage"], "MFA_SEND")
+        self.assertEqual(report["detail"], "MFA_SEND_REJECTED")
+
+    def test_secret_sentinels_absent_from_malformed_detail_report(self):
+        raw = json.dumps({"errorCode": 0, "result": {"token": "tok", "MFAProcessId": "proc"}}).encode()
+        report = self._run_with(
+            [(0, "owner@example.com\n"), (0, "hunter2-secret-sentinel\n")], [(200, raw)]
+        )
+        self.assertNotIn("hunter2-secret-sentinel", json.dumps(report))
+        self.assertNotIn("owner@example.com", json.dumps(report))
 
     def test_target_not_found_is_blocked_not_success(self):
         script = [(200, LOGIN_OK_BODY), (200, discovery_body(ZERO_C545D))]
@@ -827,6 +1045,31 @@ class ProbeErrorRedactionTests(unittest.TestCase):
             self.assertIsInstance(code, str)
             self.assertEqual(code, code.upper())
 
+    def test_unknown_detail_is_sanitized_to_none(self):
+        exc = probe.ProbeError("MALFORMED_RESPONSE", "NOT_A_REAL_DETAIL")
+        self.assertIsNone(exc.detail)
+
+    def test_known_detail_is_preserved(self):
+        exc = probe.ProbeError("MALFORMED_RESPONSE", "INVALID_JSON")
+        self.assertEqual(exc.detail, "INVALID_JSON")
+
+    def test_report_omits_stage_and_detail_by_default(self):
+        report = probe._report("x", "BLOCKED", "AUTH_FAILED")
+        self.assertNotIn("stage", report)
+        self.assertNotIn("detail", report)
+
+    def test_report_sanitizes_unknown_stage_and_detail(self):
+        report = probe._report(
+            "x", "BLOCKED", "MALFORMED_RESPONSE", stage="NOT_A_STAGE", detail="NOT_A_DETAIL"
+        )
+        self.assertNotIn("stage", report)
+        self.assertNotIn("detail", report)
+
+    def test_all_detail_codes_are_uppercase_strings(self):
+        for code in probe.DETAIL_CODES:
+            self.assertIsInstance(code, str)
+            self.assertEqual(code, code.upper())
+
 
 class CliTests(unittest.TestCase):
     def test_unknown_command_does_not_echo_argument(self):
@@ -873,6 +1116,37 @@ class AppleScriptLiteralTests(unittest.TestCase):
 
 
 class PoIndependentReviewTests(unittest.TestCase):
+    def test_audited_aps1_metadata_allows_token_but_not_new_http_target(self):
+        host = "n-aps1-wap.i.tplinkcloud.com"
+        url = "https://" + host
+        self.assertEqual(probe._validate_region_origin(url), host)
+        body = json.dumps({"errorCode": "0", "result": {
+            "token": "synthetic-token", "appServerUrlV2": url}}).encode()
+        with mock.patch.object(probe, "_request", return_value=(200, body)):
+            token = probe._submit_mfa(probe._Budget(), probe.ACCOUNT_HOST,
+                                      "email", "term", "id", "code")
+        self.assertEqual(token, "synthetic-token")
+        with mock.patch.object(probe, "_open_connection") as connect:
+            with self.assertRaises(probe.ProbeError):
+                probe._request(probe._Budget(), host, "POST", "/api/v2/account/login", {}, b"{}")
+            connect.assert_not_called()
+
+    def test_region_diagnostic_does_not_trust_or_leak_origins(self):
+        for region in ("euw1", "use1"):
+            url = "https://n-" + region + "-wap.i.tplinkcloud.com"
+            self.assertEqual(probe._region_detail(url), "REGION_" + region.upper() + "_ACCOUNT")
+            self.assertIsNone(probe._validate_region_origin(url))
+            body = json.dumps({"errorCode": 0, "result": {
+                "token": "private-token", "appServerUrlV2": url}}).encode()
+            with mock.patch.object(probe, "_request", return_value=(200, body)) as send:
+                with self.assertRaises(probe.ProbeError) as caught:
+                    probe._submit_mfa(probe._Budget(), probe.ACCOUNT_HOST, "email", "term", "id", "code")
+            self.assertEqual(caught.exception.code, "UNSUPPORTED_REGION")
+            self.assertEqual(caught.exception.detail, "REGION_" + region.upper() + "_ACCOUNT")
+            self.assertEqual(send.call_count, 1)
+        for value in (None, {}, "https://secret.example", "https://n-aps1-wap.i.tplinkcloud.com?token=secret"):
+            self.assertEqual(probe._region_detail(value), "REGION_OTHER_OR_INVALID")
+
     def test_nested_account_error_cannot_hide_behind_outer_success(self):
         payload = {"errorCode": 0, "result": {"errorCode": -1, "token": "synthetic-token"}}
         body = json.dumps(payload).encode()
@@ -926,6 +1200,122 @@ class PoIndependentReviewTests(unittest.TestCase):
             with self.assertRaises(probe.ProbeError) as cm:
                 probe._submit_mfa(probe._Budget(), probe.ACCOUNT_HOST, "email", "terminal", "process", "123456")
         self.assertEqual(cm.exception.code, "UNSUPPORTED_REGION")
+
+
+def _name_digest(name):
+    return hashlib.sha256(name.strip().casefold().encode("utf-8")).hexdigest()
+
+
+EXAMPLE_NAME = "Example Test Camera"
+EXAMPLE_DIGEST = _name_digest(EXAMPLE_NAME)
+
+
+def camera(nickname=None, device_name=None, model="C210", thing_name="cam"):
+    item = {"deviceType": "SMART.IPCAMERA", "model": model, "thingName": thing_name}
+    if nickname is not None:
+        item["nickname"] = nickname
+    if device_name is not None:
+        item["deviceName"] = device_name
+    return item
+
+
+class OwnerNameSelectorTests(unittest.TestCase):
+    """OD-42: digest comparisons only; never assert on names/models/ids directly."""
+
+    def _run(self, devices, digest=EXAMPLE_DIGEST, login_body=LOGIN_OK_BODY):
+        script = [(200, login_body), (200, discovery_body(devices))]
+        with mock.patch.object(probe.sys, "platform", "darwin"), \
+                mock.patch.object(probe.os.path, "exists", return_value=True), \
+                patch_dialog([(0, "owner@example.com\n"), (0, "hunter2\n")]), \
+                patch_connection(script):
+            return probe.login_check_command(target_name_sha256=digest)
+
+    def test_none_digest_keeps_model_only_behavior(self):
+        report = self._run([camera(nickname=EXAMPLE_NAME, model="C210")], digest=None)
+        self.assertNotIn("target_name_matches", report)
+        self.assertNotIn("selection_basis", report)
+        self.assertNotIn("selected_model_kind", report)
+        self.assertEqual(report["inventory_status"], "TARGET_NOT_FOUND")
+
+    def test_invalid_digest_rejected_before_dialog_or_network(self):
+        for bad in ("short", "g" * 64, "A" * 64, "", 123, EXAMPLE_DIGEST + "0"):
+            with self.subTest(bad=bad), \
+                    mock.patch.object(subprocess, "run", TripwireSubprocessRun()), \
+                    mock.patch.object(http.client, "HTTPSConnection", TripwireHTTPSConnection):
+                report = probe.login_check_command(target_name_sha256=bad)
+            self.assertEqual(report["status"], "BLOCKED")
+            self.assertEqual(report["reason"], "INVALID_INPUT")
+
+    def test_plain_nickname_unique_other_model_is_cloud_inventory_only(self):
+        report = self._run([camera(nickname=EXAMPLE_NAME, model="C210")])
+        self.assertEqual(report["status"], "SUCCESS")
+        self.assertEqual(report["inventory_status"], "CLOUD_INVENTORY_ONLY")
+        self.assertEqual(report["target_name_matches"], 1)
+        self.assertEqual(report["selection_basis"], "OWNER_NAME_EXACT")
+        self.assertEqual(report["selected_model_kind"], "OTHER")
+
+    def test_base64_nickname_is_decoded_and_matched(self):
+        encoded = base64.b64encode(EXAMPLE_NAME.encode("utf-8")).decode("ascii")
+        report = self._run([camera(nickname=encoded, model="C545D")])
+        self.assertEqual(report["target_name_matches"], 1)
+        self.assertEqual(report["selected_model_kind"], "EXACT")
+
+    def test_missing_empty_nickname_falls_back_to_device_name(self):
+        for nickname in (None, ""):
+            with self.subTest(nickname=nickname):
+                report = self._run([camera(nickname=nickname, device_name=EXAMPLE_NAME)])
+            self.assertEqual(report["target_name_matches"], 1)
+
+    def test_malformed_nickname_does_not_select_fallback_name(self):
+        for nickname in (123, [], {}):
+            with self.subTest(nickname=nickname):
+                report = self._run([camera(nickname=nickname, device_name=EXAMPLE_NAME)])
+                self.assertEqual(report["target_name_matches"], 0)
+
+    def test_direct_discover_invalid_digest_stops_before_network(self):
+        with mock.patch.object(probe, "_request") as request:
+            with self.assertRaises(probe.ProbeError):
+                probe._discover(probe._Budget(), "token", "terminal", "bad")
+            request.assert_not_called()
+
+    def test_mismatched_nickname_never_falls_back_to_device_name(self):
+        report = self._run([camera(nickname="Totally Different Name", device_name=EXAMPLE_NAME)])
+        self.assertEqual(report["target_name_matches"], 0)
+        self.assertEqual(report["inventory_status"], "TARGET_NOT_FOUND")
+        self.assertEqual(report["selected_model_kind"], "UNKNOWN")
+
+    def test_duplicate_matching_names_are_ambiguous_not_first_selected(self):
+        report = self._run([
+            camera(nickname=EXAMPLE_NAME, model="C210", thing_name="cam-1"),
+            camera(nickname=EXAMPLE_NAME, model="C545D", thing_name="cam-2"),
+        ])
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["inventory_status"], "TARGET_AMBIGUOUS")
+        self.assertEqual(report["target_name_matches"], 2)
+        self.assertEqual(report["selected_model_kind"], "UNKNOWN")
+
+    def test_zero_matches_is_target_not_found_regardless_of_model(self):
+        report = self._run([camera(nickname="Other Camera", model="C545D")])
+        self.assertEqual(report["inventory_status"], "TARGET_NOT_FOUND")
+        self.assertEqual(report["target_name_matches"], 0)
+
+    def test_report_never_contains_name_model_id_or_digest(self):
+        report = self._run([camera(nickname=EXAMPLE_NAME, model="C210", thing_name="private-thing-id")])
+        dumped = json.dumps(report)
+        self.assertNotIn(EXAMPLE_NAME, dumped)
+        self.assertNotIn("C210", dumped)
+        self.assertNotIn("private-thing-id", dumped)
+        self.assertNotIn(EXAMPLE_DIGEST, dumped)
+
+    def test_existing_c545d_counts_preserved_alongside_name_selection(self):
+        devices = [
+            camera(nickname=EXAMPLE_NAME, model="C545D", thing_name="cam-1"),
+            camera(nickname="Another Camera", model="C545D(UN)", thing_name="cam-2"),
+        ]
+        report = self._run(devices)
+        self.assertEqual(report["c545d_candidates"], 1)
+        self.assertEqual(report["c545d_model_variants"], 1)
+        self.assertEqual(report["target_name_matches"], 1)
 
 
 if __name__ == "__main__":

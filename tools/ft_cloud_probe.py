@@ -67,7 +67,7 @@ READ_CHUNK = 65536
 
 OSASCRIPT_PATH = "/usr/bin/osascript"
 DIALOG_TITLE = "Foot Traffic / Tapo login"
-DIALOG_TIMEOUT_S = 120
+DIALOG_TIMEOUT_S = 300
 MAX_SECRET_LEN = 256
 
 APP_TYPE = "TP-Link_Tapo_Android"
@@ -107,13 +107,42 @@ ERROR_CODES = frozenset(
 )
 
 
-class ProbeError(Exception):
-    """Carries only a fixed, pre-redacted code; never SDK/HTTP/exception text."""
+DETAIL_CODES = frozenset(
+    {
+        "INVALID_JSON",
+        "NONOBJECT_JSON",
+        "INVALID_CODE_TYPE",
+        "CONFLICTING_CODES",
+        "MISSING_AUTH_CODE",
+        "INVALID_AUTH_RESULT",
+        "CONFLICTING_AUTH_FIELDS",
+        "MISSING_AUTH_FIELDS",
+        "INVALID_DISCOVERY_LIST",
+        "INVALID_DISCOVERY_RECORD",
+        "MFA_SEND_HTTP_ERROR",
+        "MFA_SEND_REJECTED",
+        "REGION_APS1_ACCOUNT",
+        "REGION_EUW1_ACCOUNT",
+        "REGION_USE1_ACCOUNT",
+        "REGION_OTHER_OR_INVALID",
+    }
+)
 
-    def __init__(self, code):
+STAGES = frozenset({"EMAIL_INPUT", "PASSWORD_INPUT", "OTP_INPUT", "LOGIN", "MFA_SEND", "MFA_SUBMIT", "DISCOVERY"})
+
+
+class ProbeError(Exception):
+    """Carries only a fixed, pre-redacted code (+ optional fixed detail);
+    never SDK/HTTP/exception text, raw keys, values, or body contents.
+    """
+
+    def __init__(self, code, detail=None):
         code = code if code in ERROR_CODES else "UNKNOWN_ERROR"
+        if detail is not None and detail not in DETAIL_CODES:
+            detail = None
         super().__init__(code)
         self.code = code
+        self.detail = detail
 
 
 # -- CA pin + TLS context ---------------------------------------------------
@@ -227,7 +256,7 @@ def _bounded_read(budget, resp):
 _ACCOUNT_PATHS = frozenset(
     {
         "/api/v2/account/login",
-        "/api/v2/account/getPushVC4TerminalMFA",
+        "/api/v2/account/getEmailVC4TerminalMFA",
         "/api/v2/account/checkMFACodeAndLogin",
     }
 )
@@ -324,9 +353,9 @@ def _parse_json_object(data):
     try:
         obj = json.loads(data.decode("utf-8"), object_pairs_hook=_no_duplicate_keys)
     except (ValueError, UnicodeDecodeError):
-        raise ProbeError("MALFORMED_RESPONSE") from None
+        raise ProbeError("MALFORMED_RESPONSE", "INVALID_JSON") from None
     if not isinstance(obj, dict):
-        raise ProbeError("MALFORMED_RESPONSE")
+        raise ProbeError("MALFORMED_RESPONSE", "NONOBJECT_JSON")
     return obj
 
 
@@ -336,6 +365,8 @@ _ERROR_CODE_KEYS = ("errorCode", "error_code", "code")
 def _extract_error_code(obj):
     """Read a numeric error/status code from the known field names.
 
+    Accept canonical ASCII decimal strings as well as JSON integers: account
+    gateways serialize errorCode as a string (also documented by dimme/tapo-cli).
     Returns ``(code, present)``. Booleans are rejected (bools are not valid
     integer success/error codes even though ``bool`` subclasses ``int`` in
     Python), and if more than one of the known field names is present they
@@ -347,10 +378,14 @@ def _extract_error_code(obj):
         if key not in obj:
             continue
         value = obj[key]
+        if isinstance(value, str):
+            if len(value) > 11 or re.fullmatch(r"(?:0|-?[1-9][0-9]{0,9})", value) is None:
+                raise ProbeError("MALFORMED_RESPONSE", "INVALID_CODE_TYPE")
+            value = int(value)
         if isinstance(value, bool) or not isinstance(value, int):
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "INVALID_CODE_TYPE")
         if present and value != found:
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "CONFLICTING_CODES")
         found = value
         present = True
     return (found if present else 0), present
@@ -367,7 +402,7 @@ def _account_error_code(obj):
     inner, has_inner = _extract_error_code(result) if isinstance(result, dict) else (0, False)
     if has_outer and outer != 0:
         if has_inner and inner not in (0, outer):
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "CONFLICTING_CODES")
         return outer, True
     if has_inner:
         return inner, True
@@ -417,8 +452,18 @@ def _cloud_headers(token, terminal_uuid):
     }
 
 
+def _region_detail(url):
+    """Fixed diagnostic labels only; never trust/connect to a returned origin."""
+    if isinstance(url, str):
+        for region in ("aps1", "euw1", "use1"):
+            for suffix in ("", "/", ":443", ":443/"):
+                if url == "https://n-" + region + "-wap.i.tplinkcloud.com" + suffix:
+                    return "REGION_" + region.upper() + "_ACCOUNT"
+    return "REGION_OTHER_OR_INVALID"
+
+
 def _validate_region_origin(url):
-    """A strict exact https://<one-of-HOSTS> origin, or None (never guessed)."""
+    """Exact audited metadata origins; this does not grant transport permission."""
     if not isinstance(url, str) or not url:
         return None
     if any(ch.isspace() or ord(ch) < 0x20 or ord(ch) == 0x7F for ch in url):
@@ -438,7 +483,8 @@ def _validate_region_origin(url):
     if port is not None and port != 443:
         return None
     host = parsed.hostname
-    allowed = {"https://" + h + port + slash for h in HOSTS
+    metadata_hosts = HOSTS + ("n-aps1-wap.i.tplinkcloud.com",)
+    allowed = {"https://" + h + port + slash for h in metadata_hosts
                for port in ("", ":443") for slash in ("", "/")}
     return host if url in allowed else None
 
@@ -488,7 +534,7 @@ def _login(budget, email, password):
         # before any MFA send or discovery can proceed.
         if isinstance(result, dict) and "appServerUrlV2" in result:
             if _validate_region_origin(result.get("appServerUrlV2")) is None:
-                raise ProbeError("UNSUPPORTED_REGION")
+                raise ProbeError("UNSUPPORTED_REGION", _region_detail(result.get("appServerUrlV2")))
         return code, code_present, result
 
     code, code_present, result = attempt(account_host)
@@ -515,13 +561,13 @@ def _login(budget, email, password):
     if code == 0:
         if not code_present:
             # Absent code is never treated as an implicit success.
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "MISSING_AUTH_CODE")
         if not isinstance(result, dict):
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "INVALID_AUTH_RESULT")
         token = result.get("token")
         mfa_id = result.get("MFAProcessId")
         if token is not None and mfa_id is not None:
-            raise ProbeError("MALFORMED_RESPONSE")  # conflicting fields
+            raise ProbeError("MALFORMED_RESPONSE", "CONFLICTING_AUTH_FIELDS")
         if isinstance(token, str) and token:
             return {
                 "token": token,
@@ -537,7 +583,7 @@ def _login(budget, email, password):
                 "terminal_uuid": terminal_uuid,
                 "mfa": {"process_id": mfa_id, "types": types_},
             }
-        raise ProbeError("MALFORMED_RESPONSE")
+        raise ProbeError("MALFORMED_RESPONSE", "MISSING_AUTH_FIELDS")
 
     # Any other explicit code (wrong password, unknown negative error, ...)
     # is a plain auth failure: never retried, never treated as a region
@@ -546,25 +592,31 @@ def _login(budget, email, password):
     raise ProbeError("AUTH_FAILED")
 
 
-def _send_mfa(budget, account_host, email, terminal_uuid, mfa_id):
-    path = "/api/v2/account/getPushVC4TerminalMFA"
+def _send_mfa(budget, account_host, email, terminal_uuid, password):
+    """Accept an HTTP 200 send acknowledgment, never as authenticated login.
+
+    Email endpoint/body follow pinned tapo-tools and ioBroker.tapo sources.
+    Pinned OnTapo uses HTTP 200 send acknowledgment with an empty-object fixture.
+    If JSON is provided we additionally reject explicit outer/inner errors.
+    A separate code submission with explicit success and token is mandatory.
+    """
+    path = "/api/v2/account/getEmailVC4TerminalMFA"
     body_obj = {
         "appType": APP_TYPE,
         "cloudUserName": email,
-        "MFAProcessId": mfa_id,
-        "MFAType": MFA_EMAIL,
+        "cloudPassword": password,
         "terminalUUID": terminal_uuid,
     }
     body = json.dumps(body_obj).encode("utf-8")
     status, data = _request(budget, account_host, "POST", path, _signed_headers(path, body), body)
     if status != 200:
-        raise ProbeError("MFA_FAILED")
+        raise ProbeError("MFA_FAILED", "MFA_SEND_HTTP_ERROR")
     if not data:
-        raise ProbeError("MFA_FAILED")  # empty body is never treated as success
+        return  # send acknowledgment only; no token or auth success
     obj = _parse_json_object(data)
     code, code_present = _account_error_code(obj)
-    if not code_present or code != 0:
-        raise ProbeError("MFA_FAILED")
+    if code_present and code != 0:
+        raise ProbeError("MFA_FAILED", "MFA_SEND_REJECTED")
 
 
 def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code):
@@ -592,14 +644,78 @@ def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code):
     if not isinstance(result, dict):
         raise ProbeError("MFA_FAILED")
     if "appServerUrlV2" in result and _validate_region_origin(result["appServerUrlV2"]) is None:
-        raise ProbeError("UNSUPPORTED_REGION")
+        raise ProbeError("UNSUPPORTED_REGION", _region_detail(result["appServerUrlV2"]))
     token = result.get("token")
     if not isinstance(token, str) or not token:
         raise ProbeError("MFA_FAILED")
     return token
 
 
-def _discover(budget, token, terminal_uuid):
+_TARGET_NAME_DIGEST_RE = re.compile(r"[0-9a-f]{64}")
+
+
+def _validate_target_name_digest(target_name_sha256):
+    """None keeps current model-only behavior; anything else must be an
+    exact 64-char lowercase hex SHA-256, checked before any dialog/network."""
+    if target_name_sha256 is None:
+        return None
+    if not isinstance(target_name_sha256, str) or not _TARGET_NAME_DIGEST_RE.fullmatch(target_name_sha256):
+        raise ProbeError("INVALID_INPUT")
+    return target_name_sha256
+
+
+def _decode_nickname_text(nickname):
+    """Prefer a valid, nonempty base64-decoded UTF-8 nickname; else the raw text.
+
+    ``nickname`` must already be a non-empty ``str`` (non-string/empty values
+    are handled by the caller, never coerced here).
+    """
+    try:
+        raw = base64.b64decode(nickname, validate=True)
+    except ValueError:
+        return nickname
+    try:
+        decoded = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return nickname
+    return decoded if decoded else nickname
+
+
+def _owner_name_matches(item, target_name_sha256):
+    """True iff item's resolved display name hashes to the owner-supplied digest.
+
+    Resolution order: a non-empty string ``nickname`` (decoded from base64
+    when that decodes to nonempty UTF-8, else used as plain text) always
+    wins, even on a mismatch; ``deviceName`` is only consulted when
+    ``nickname`` is missing/empty. A non-string nickname rejects that match.
+    """
+    nickname = item.get("nickname")
+    if nickname is not None and not isinstance(nickname, str):
+        return False
+    if isinstance(nickname, str) and nickname:
+        name = _decode_nickname_text(nickname)
+    else:
+        device_name = item.get("deviceName")
+        if not isinstance(device_name, str) or not device_name:
+            return False
+        name = device_name
+    digest = hashlib.sha256(name.strip().casefold().encode("utf-8")).hexdigest()
+    return digest == target_name_sha256
+
+
+def _c545d_model_kind(model):
+    """Recognize only a bounded model family spelling; never identify a device."""
+    value = model.strip().upper()
+    if value == "C545D":
+        return "EXACT"
+    if len(value) <= 40 and re.fullmatch(
+        r"(?:TAPO +)?C545D(?:\([A-Z]{2}\)(?: *V?[0-9]+(?:\.[0-9]+){0,2})?| +V?[0-9]+(?:\.[0-9]+){0,2})?", value
+    ):
+        return "VARIANT"
+    return "OTHER"
+
+
+def _discover(budget, token, terminal_uuid, target_name_sha256=None):
     """GET /v2/things on the fixed discovery host; cloud listing only, never camera API.
 
     A nonzero code alongside data is always a failure. A successful
@@ -607,7 +723,14 @@ def _discover(budget, token, terminal_uuid):
     but the device-list schema is still fully validated: a camera record
     missing a valid, non-empty model or thingName is MALFORMED_RESPONSE,
     never silently dropped into a valid zero-count result.
+
+    ``target_name_sha256`` of ``None`` keeps the existing model-only
+    counts untouched. When given, every validated camera record is also
+    checked against it (duplicates counted, never short-circuited on the
+    first hit); the model kind of the single matched record is returned
+    only when exactly one record matches.
     """
+    target_name_sha256 = _validate_target_name_digest(target_name_sha256)
     status, data = _request(
         budget, DISCOVERY_HOST, "GET", "/v2/things", _cloud_headers(token, terminal_uuid), None
     )
@@ -621,26 +744,37 @@ def _discover(budget, token, terminal_uuid):
         raise ProbeError("DISCOVERY_FAILED")
     items = obj.get("data")
     if not isinstance(items, list):
-        raise ProbeError("MALFORMED_RESPONSE")
+        raise ProbeError("MALFORMED_RESPONSE", "INVALID_DISCOVERY_LIST")
     total = 0
     c545d = 0
+    variants = 0
+    name_matches = 0
+    matched_model_kind = None
     for item in items:
         if not isinstance(item, dict):
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "INVALID_DISCOVERY_RECORD")
         if not isinstance(item.get("deviceType"), str) or not item["deviceType"].strip():
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "INVALID_DISCOVERY_RECORD")
         if item.get("deviceType") != "SMART.IPCAMERA":
             continue
         thing_name = item.get("thingName")
         model = item.get("model")
         if not isinstance(thing_name, str) or not thing_name.strip():
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "INVALID_DISCOVERY_RECORD")
         if not isinstance(model, str) or not model.strip():
-            raise ProbeError("MALFORMED_RESPONSE")
+            raise ProbeError("MALFORMED_RESPONSE", "INVALID_DISCOVERY_RECORD")
         total += 1
-        if model.strip().upper() == "C545D":
+        kind = _c545d_model_kind(model)
+        if kind == "EXACT":
             c545d += 1
-    return total, c545d
+        elif kind == "VARIANT":
+            variants += 1
+        if target_name_sha256 is not None and _owner_name_matches(item, target_name_sha256):
+            name_matches += 1
+            matched_model_kind = kind
+    if target_name_sha256 is not None and name_matches != 1:
+        matched_model_kind = None
+    return total, c545d, variants, name_matches, matched_model_kind
 
 
 # -- native macOS dialog input ----------------------------------------------
@@ -650,7 +784,7 @@ def _as_applescript_literal(text):
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-def _native_prompt(prompt_text):
+def _native_prompt(prompt_text, timeout_s=DIALOG_TIMEOUT_S):
     """One hidden-answer osascript dialog; the script text is always this constant.
 
     Returns (text, None) on an OK with non-empty, length-bounded input, or
@@ -669,7 +803,7 @@ def _native_prompt(prompt_text):
     for line in script_lines:
         args += ["-e", line]
     try:
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=DIALOG_TIMEOUT_S)
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=timeout_s)
     except subprocess.TimeoutExpired:
         return None, "TIMEOUT"
     except KeyboardInterrupt:
@@ -687,10 +821,18 @@ def _native_prompt(prompt_text):
 # -- command implementations -------------------------------------------------
 
 
-def _report(command, status, reason=None, extra=None):
+def _report(command, status, reason=None, extra=None, stage=None, detail=None):
     if reason is not None and reason not in ERROR_CODES:
         reason = "UNKNOWN_ERROR"
+    if stage is not None and stage not in STAGES:
+        stage = None
+    if detail is not None and detail not in DETAIL_CODES:
+        detail = None
     report = {"tool": TOOL_NAME, "command": command, "status": status, "reason": reason}
+    if stage is not None:
+        report["stage"] = stage
+    if detail is not None:
+        report["detail"] = detail
     if extra:
         report.update(extra)
     return report
@@ -746,8 +888,19 @@ def tls_check_command():
     )
 
 
-def login_check_command():
-    """Native-dialog login + optional email MFA, then cloud camera-inventory counts only."""
+def login_check_command(target_name_sha256=None):
+    """Native-dialog login + optional email MFA, then cloud camera-inventory counts only.
+
+    ``target_name_sha256`` of ``None`` keeps current model-only behavior. A
+    supplied digest is validated (exact 64-char lowercase hex) before any
+    dialog or network call; an owner-name match is then used in place of
+    the model-count inventory decision below.
+    """
+    try:
+        target_name_sha256 = _validate_target_name_digest(target_name_sha256)
+    except ProbeError as exc:
+        return _report("login-check", "BLOCKED", exc.code)
+
     if sys.platform != "darwin" or not os.path.exists(OSASCRIPT_PATH):
         return _report("login-check", "BLOCKED", "NATIVE_DIALOG_UNAVAILABLE")
 
@@ -758,18 +911,17 @@ def login_check_command():
 
     email, reason = _native_prompt("Tapo account email:")
     if email is None:
-        return _report("login-check", "BLOCKED", reason)
+        return _report("login-check", "BLOCKED", reason, stage="EMAIL_INPUT")
     password, reason = _native_prompt("Tapo account password:")
     if password is None:
-        return _report("login-check", "BLOCKED", reason)
+        return _report("login-check", "BLOCKED", reason, stage="PASSWORD_INPUT")
 
     budget = _Budget()
     try:
         login_result = _login(budget, email, password)
     except ProbeError as exc:
-        return _report("login-check", "BLOCKED", exc.code)
-    finally:
-        password = None  # noqa: F841 - best-effort drop; Python strings are immutable
+        password = None  # best-effort drop; Python strings are immutable
+        return _report("login-check", "BLOCKED", exc.code, stage="LOGIN", detail=exc.detail)
 
     token = login_result["token"]
     account_host = login_result["account_host"]
@@ -778,36 +930,54 @@ def login_check_command():
     if token is None:
         mfa = login_result["mfa"]
         if MFA_EMAIL not in mfa["types"]:
+            password = None
             return _report("login-check", "BLOCKED", "MFA_TYPE_UNSUPPORTED")
         try:
-            _send_mfa(budget, account_host, email, terminal_uuid, mfa["process_id"])
+            _send_mfa(budget, account_host, email, terminal_uuid, password)
         except ProbeError as exc:
-            return _report("login-check", "BLOCKED", exc.code)
-        code, reason = _native_prompt("Tapo email verification code:")
+            return _report("login-check", "BLOCKED", exc.code, stage="MFA_SEND", detail=exc.detail)
+        finally:
+            password = None  # dropped before OTP input, also on send failure
+        code, reason = _native_prompt("Tapo email verification code:", timeout_s=TOTAL_BUDGET_S)
         if code is None:
-            return _report("login-check", "BLOCKED", reason)
+            return _report("login-check", "BLOCKED", reason, stage="OTP_INPUT")
         try:
             token = _submit_mfa(budget, account_host, email, terminal_uuid, mfa["process_id"], code)
         except ProbeError as exc:
-            return _report("login-check", "BLOCKED", exc.code)
+            return _report("login-check", "BLOCKED", exc.code, stage="MFA_SUBMIT", detail=exc.detail)
 
+    password = None  # direct-login path also drops the password before discovery
     try:
-        total, c545d = _discover(budget, token, terminal_uuid)
+        total, c545d, variants, name_matches, matched_model_kind = _discover(
+            budget, token, terminal_uuid, target_name_sha256
+        )
     except ProbeError as exc:
-        return _report("login-check", "BLOCKED", exc.code)
+        return _report("login-check", "BLOCKED", exc.code, stage="DISCOVERY", detail=exc.detail)
 
-    if c545d == 0:
-        inventory_status = "TARGET_NOT_FOUND"
-    elif c545d == 1:
-        inventory_status = "CLOUD_INVENTORY_ONLY"
-    else:
-        inventory_status = "TARGET_AMBIGUOUS"
     extra = {
         "cameras_total": total,
         "c545d_candidates": c545d,
-        "inventory_status": inventory_status,
+        "c545d_model_variants": variants,
         "note": "cloud account listing only; not camera auth, SD access, or a Fixed-lens PASS",
     }
+    if target_name_sha256 is not None:
+        if name_matches == 0:
+            inventory_status = "TARGET_NOT_FOUND"
+        elif name_matches == 1:
+            inventory_status = "CLOUD_INVENTORY_ONLY"
+        else:
+            inventory_status = "TARGET_AMBIGUOUS"
+        extra["target_name_matches"] = name_matches
+        extra["selection_basis"] = "OWNER_NAME_EXACT"
+        extra["selected_model_kind"] = matched_model_kind if name_matches == 1 else "UNKNOWN"
+    else:
+        if c545d == 0:
+            inventory_status = "TARGET_NOT_FOUND"
+        elif c545d == 1:
+            inventory_status = "CLOUD_INVENTORY_ONLY"
+        else:
+            inventory_status = "TARGET_AMBIGUOUS"
+    extra["inventory_status"] = inventory_status
     # Only a single cloud-listed candidate is CLOUD_INVENTORY_ONLY (never a
     # camera PASS); zero or multiple candidates must not report CLI
     # success/status SUCCESS.

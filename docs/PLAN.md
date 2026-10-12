@@ -8,7 +8,7 @@ OD-38 (Owner, 2026-10-09): The home Mac must connect and retrieve shop-camera SD
 
 ## สถานะการเปลี่ยนแผน
 
-**OD-40 ปัจจุบัน:** พัฒนา [cloud probe](CLOUD_PROBE_GUIDE.md) ตามโปรโตคอล OnTapo ด้วย stdlib โดยไม่ติดตั้ง/รัน SDK. Vendor TLS จาก Mac ผ่านจริง 3/3; login/MFA/inventory มี implementation แต่ยังไม่รันบัญชีจริงเพราะไม่มี private input. ใช้ native Mac dialog โดย PO รันให้เมื่อ Owner เข้าถึงเครื่อง; ช่องกรอกจาก iPhone ยังไม่พร้อม. เป้าหมาย Mac รับ SD เองตาม OD-38 ไม่เปลี่ยน; ยังไม่มี SD/media downloader และไม่ใช้ phone import ทดแทน
+**OD-40/41/42 ปัจจุบัน (2026-10-12):** Actual cloud login/MFA/inventory ผ่าน 13 กล้อง และจับคู่ชื่อที่ Owner เลือกได้หนึ่งรายการ C545D variant / CLOUD_INVENTORY_ONLY. Fixed เป็นเลนส์เป้าหมายตามภาพ Owner; protocol channel ยังไม่ยืนยัน. Native input ผ่าน iPhone remote ใช้ได้. เตรียม bounded named-target SD metadata/listing และ Fixed mapping ก่อนรอบ auth ถัดไป; ยังไม่มี SD/media downloader หรือ camera/Fixed PASS. Mac รับ SD เองเป็นเป้าหมายเดิม
 
 **OD-37 ปัจจุบัน:** พบ [OnTapo SD relay และ C545D developer research](REMOTE_SD_RESEARCH.md). เลือกตรวจ/ออกแบบ adaptation ของ SD relay ก่อน Tapo Care; คงต้นฉบับ SD และ Mac บ้าน. มี author-reported TC65 download กับ PO static source review แต่ยังไม่มีผล C545D ของเรา จึง CONDITIONAL research ไม่ใช่ live/production PASS. ไม่ต้องเลือกหรือซื้อ Tapo Care ตอนนี้; auth/input/region/Fixed/quota ยังต้องพิสูจน์
 
