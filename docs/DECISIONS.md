@@ -1,5 +1,7 @@
 # Owner Decisions — Foot-traffic-counter
 
+OD-43 follow-up: ready-input trial authenticated and selected the target, then device metadata returned HTTP_ERROR (1request). PO fixed source-confirmed missing JSON Content-Type and added redacted HTTP diagnostics within the same scope; full505 tests passed. Corrected live trial timed out at EMAIL_INPUT before network; fix not live verified. Current blocker/evidence is in STATUS; no new permission request or credential storage.
+
 OD-43 actual trial: exit2 TIMEOUT/EMAIL_INPUT after300s, before any auth/device request. No camera/SD rejection inferred. Fresh private input is required for the next attempt; standing Owner test authorization remains.
 
 ### OD-43 — Owner สั่งทดสอบ SD ผ่าน named cloud target (2026-10-12)

@@ -71,7 +71,9 @@ _SD_STATUS_VALUES = frozenset({"normal", "unformatted", "offline", "abnormal"})
 class SdError(Exception):
     """Carries only a fixed, pre-redacted code; never raw exception/body text."""
 
-    def __init__(self, code):
+    def __init__(self, code, http_status=None, gateway_reason=None):
+        self.http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+        self.gateway_reason = gateway_reason if gateway_reason in ("MODEL_SCHEMA_CHECK_FAILED", "HTTP_REDIRECT", "UNCLASSIFIED") else None
         code = code if code in ERROR_CODES else "UNKNOWN_ERROR"
         super().__init__(code)
         self.code = code
@@ -223,7 +225,9 @@ def _device_request(budget, token, terminal_uuid, device_id, requests, batch, da
     conn = _open_device_connection(budget)
     try:
         try:
-            conn.request("POST", path, body=body, headers=cloud._cloud_headers(token, terminal_uuid))
+            headers = cloud._cloud_headers(token, terminal_uuid)
+            headers["Content-Type"] = "application/json; charset=UTF-8"
+            conn.request("POST", path, body=body, headers=headers)
             budget.check_time()
             resp = conn.getresponse()
             budget.check_time()
@@ -234,13 +238,20 @@ def _device_request(budget, token, terminal_uuid, device_id, requests, batch, da
         except (OSError, http.client.HTTPException):
             raise SdError("CONNECT_ERROR") from None
         if resp.status in (301, 302, 303, 307, 308):
-            raise SdError("HTTP_ERROR")
+            raise SdError("HTTP_ERROR", resp.status, "HTTP_REDIRECT")
         try:
             data = cloud._bounded_read(budget, resp)
         except cloud.ProbeError as exc:
             raise SdError(exc.code) from None
         if resp.status != 200:
-            raise SdError("HTTP_ERROR")
+            classification = "UNCLASSIFIED"
+            try:
+                obj = cloud._parse_json_object(data)
+                if any(isinstance(obj.get(k), str) and "MODEL_SCHEMA_CHECK_FAILED" in obj[k] for k in ("message", "msg")):
+                    classification = "MODEL_SCHEMA_CHECK_FAILED"
+            except cloud.ProbeError:
+                pass
+            raise SdError("HTTP_ERROR", resp.status, classification)
         return data
     finally:
         conn.close()
@@ -635,6 +646,10 @@ def probe_selected_device(token, terminal_uuid, selected, date):
             count, scope = _read_clips(data["searchVideoOfDay"], facts["timezone_offset"], date)
             facts.update(clip_count=count, list_scope=scope)
     except (SdError, cloud.ProbeError) as exc:
+        if getattr(exc, "http_status", None) is not None:
+            facts["http_status"] = exc.http_status
+        if getattr(exc, "gateway_reason", None) is not None:
+            facts["gateway_reason"] = exc.gateway_reason
         return _report("BLOCKED", exc.code, dict(facts, requests_used=budget.requests), stage)
     except Exception:
         return _report("BLOCKED", "UNKNOWN_ERROR", dict(facts, requests_used=budget.requests), stage)

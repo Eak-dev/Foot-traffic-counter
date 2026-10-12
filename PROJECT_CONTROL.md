@@ -1,5 +1,9 @@
 # PROJECT_CONTROL — FT-D0
 
+OD-43 corrected trial result: PO full505/505 PASS85.316s and targeted175/175 PASS1.912s. Fresh run after Content-Type correction ended TIMEOUT/EMAIL_INPUT after300s before auth/device requests; fix remains NOT_LIVE_VERIFIED. Both trials this turn have ended. Earlier ready-input trial did authenticate/select successfully but failed at first metadata request; SD/Fixed/download remain unverified.
+
+OD-43 ready-input follow-up: actual login and named selection succeeded; first metadata POST returned HTTP_ERROR, device requests1, no media. PO review found missing JSON Content-Type compared with pinned upstream session._cloud_headers; correct the device POST header and add bounded HTTP status/fixed gateway classification only. Same target/getters/budgets and no raw response persistence; no new hosts/permissions. A fresh Owner-ready native login may test this concrete correction; no unchanged retry loop.
+
 OD-43 latest evidence: PO targeted173/173 and full503/503 synthetic tests PASS (0.318s/16.417s). Actual invocation exit2 TIMEOUT at EMAIL_INPUT after300s; no auth/device request in this attempt. Probe process ended, no active worker from this task. Next actual run needs private native input through remote access, not renewed scope approval. SD/Fixed/download remain unverified.
 
 OD-43 PO takeover: two scoped Claude runs timed out (480.5s,300.4s). PO audited no child processes from either invocation remained, released retained locks, then completed source-schema corrections, transport guards and synthetic regressions. Final validation NOT_RUN_BY_DEVELOPER; PO owns this tree. This changes no live scope or permissions.

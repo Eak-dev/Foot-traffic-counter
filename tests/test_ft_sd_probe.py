@@ -607,3 +607,24 @@ class PORegressionTests(unittest.TestCase):
             with self.assertRaises(sd.SdError):
                 sd._device_request(budget,"t","u","cam",sd._metadata_requests(),"metadata",DATE)
         self.assertTrue(fake.close.called)
+
+
+class HttpDiagnosticsTests(unittest.TestCase):
+    def test_device_post_declares_json_content_type(self):
+        report, conns = run_login_with_device([(200,METADATA_OK),(200,CAPABILITY_OK),(200,CALENDAR_OK),(200,CLIP_OK)])
+        self.assertEqual(report["status"], "SUCCESS")
+        for conn in conns[2:]:
+            self.assertEqual(conn.sent[0][3]["Content-Type"], "application/json; charset=UTF-8")
+
+    def test_http_error_has_status_and_fixed_classification_only(self):
+        cases = [(415, b'{"message":"private-body"}', "UNCLASSIFIED"),
+                 (400, b'{"message":"MODEL_SCHEMA_CHECK_FAILED private-body"}', "MODEL_SCHEMA_CHECK_FAILED"),
+                 (503, b'private-body', "UNCLASSIFIED"),
+                 (302, b'private-body', "HTTP_REDIRECT")]
+        for status, body, label in cases:
+            report, conns = run_login_with_device([(status, body)])
+            self.assertEqual(report["http_status"], status)
+            self.assertEqual(report["gateway_reason"], label)
+            self.assertEqual(report["requests_used"], 1)
+            self.assertNotIn("private-body", json.dumps(report))
+            self.assertTrue(conns[-1].closed)
