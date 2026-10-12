@@ -1,5 +1,14 @@
 # Owner Decisions — Foot-traffic-counter
 
+OD-43 actual trial: exit2 TIMEOUT/EMAIL_INPUT after300s, before any auth/device request. No camera/SD rejection inferred. Fresh private input is required for the next attempt; standing Owner test authorization remains.
+
+### OD-43 — Owner สั่งทดสอบ SD ผ่าน named cloud target (2026-10-12)
+
+Owner อนุญาตให้ทำการทดสอบต่อ. PO จำกัดหนึ่ง selected C545D, read-only metadata/calendar/รายการ20คลิปแรกของ20261012, 4device requests/90s cooperative/10s socket/1MiB ต่อ response บน pinned APS1. Channel0 เป็น listing index ไม่ใช่หลักฐาน Fixed. ไม่เปลี่ยนค่า ไม่ retry/refresh ไม่ allocate relay หรือดึงวิดีโอใน probe นี้. Login/MFA ผ่าน private native dialogs รอบเดียว รวม metadata ที่จำเป็นก่อนให้ Owner กรอก.
+
+Claudeสองรอบ TIMEOUT480.5s/300.4s; PO auditไม่เหลือchildของงานก่อนปล่อยlockและรับช่วงแก้. ตรวจ pinned upstream fixtures แล้วแก้ detect_status, top-leveluser_id, numeric row keys, family model matching, guardsก่อนnetwork และไม่รายงานUNKNOWNเป็นSUCCESS. Final NOT_RUN_BY_DEVELOPER; PO targeted173/173 PASS0.318s, full503/503 PASS16.417s. Actual trialและblockerดูSTATUS. Fixed/download/full-day completenessยังไม่ผ่านด้วยsynthetic tests.
+
+
 ### OD-42 — Owner เลือกชื่อกล้องและยืนยัน Fixed Lens (2026-10-12)
 
 Owner ระบุชื่อกล้องในภาพและให้ใช้ Fixed Lens. PO เก็บเฉพาะ normalized SHA256 name selector กับ lens FIXED ใน ignored local configuration mode0600; ไม่ใส่ชื่อจริง/ภาพ/ID ใน repo. ภาพรอบนี้ Fixed อยู่ด้านล่าง ส่วน PT อยู่บน; ไม่อนุมาน protocol channel จากลำดับภาพ. Cloud inventory เลือกได้เมื่อชื่อที่ normalize ตรงเพียงหนึ่งรายการ; ชื่อซ้ำ/ไม่พบต้องหยุด ไม่เลือกจากรุ่นแทน. ผลเลือกเป็น cloud target เท่านั้น ไม่เปิด SD/media/Fixed mapping PASS.

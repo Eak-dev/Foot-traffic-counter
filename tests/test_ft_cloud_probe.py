@@ -1318,5 +1318,147 @@ class OwnerNameSelectorTests(unittest.TestCase):
         self.assertEqual(report["target_name_matches"], 1)
 
 
+class SelectedCameraCallbackTests(unittest.TestCase):
+    """OD-43: the minimal private selected-camera callback hook."""
+
+    def _run(self, devices, digest=EXAMPLE_DIGEST, callback=None):
+        script = [(200, LOGIN_OK_BODY), (200, discovery_body(devices))]
+        with mock.patch.object(probe.sys, "platform", "darwin"), \
+                mock.patch.object(probe.os.path, "exists", return_value=True), \
+                patch_dialog([(0, "owner@example.com\n"), (0, "hunter2\n")]), \
+                patch_connection(script):
+            return probe.login_check_command(target_name_sha256=digest, on_selected_camera=callback)
+
+    def test_callback_requires_digest_before_any_dialog_or_network(self):
+        with mock.patch.object(subprocess, "run", TripwireSubprocessRun()), \
+                mock.patch.object(http.client, "HTTPSConnection", TripwireHTTPSConnection):
+            report = probe.login_check_command(target_name_sha256=None, on_selected_camera=lambda *a: {})
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["reason"], "INVALID_INPUT")
+
+    def test_non_callable_callback_is_rejected_before_any_dialog_or_network(self):
+        with mock.patch.object(subprocess, "run", TripwireSubprocessRun()), \
+                mock.patch.object(http.client, "HTTPSConnection", TripwireHTTPSConnection):
+            report = probe.login_check_command(target_name_sha256=EXAMPLE_DIGEST, on_selected_camera="not-callable")
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["reason"], "INVALID_INPUT")
+
+    def test_callback_invoked_only_for_unique_match(self):
+        calls = []
+
+        def callback(token, terminal_uuid, selected):
+            calls.append((token, terminal_uuid, selected))
+            return {"status": "SUCCESS", "probed": True}
+
+        report = self._run([camera(nickname=EXAMPLE_NAME, model="C545D")], callback=callback)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], "tok-1")
+        self.assertEqual(calls[0][2]["model_kind"], "EXACT")
+        self.assertEqual(report["sd_probe"], {"status": "SUCCESS", "probed": True})
+
+    def test_callback_not_invoked_for_zero_matches(self):
+        calls = []
+        report = self._run(
+            [camera(nickname="Different Name", model="C545D")],
+            callback=lambda *a: calls.append(a),
+        )
+        self.assertEqual(calls, [])
+        self.assertNotIn("sd_probe", report)
+        self.assertEqual(report["inventory_status"], "TARGET_NOT_FOUND")
+
+    def test_callback_not_invoked_for_ambiguous_matches(self):
+        calls = []
+        devices = [
+            camera(nickname=EXAMPLE_NAME, model="C210", thing_name="cam-1"),
+            camera(nickname=EXAMPLE_NAME, model="C545D", thing_name="cam-2"),
+        ]
+        report = self._run(devices, callback=lambda *a: calls.append(a))
+        self.assertEqual(calls, [])
+        self.assertNotIn("sd_probe", report)
+        self.assertEqual(report["inventory_status"], "TARGET_AMBIGUOUS")
+
+    def test_callback_exception_is_redacted_not_propagated(self):
+        def callback(token, terminal_uuid, selected):
+            raise RuntimeError("leaky internal detail")
+
+        report = self._run([camera(nickname=EXAMPLE_NAME, model="C545D")], callback=callback)
+        self.assertEqual(report["sd_probe"], {"status": "BLOCKED", "reason": "UNKNOWN_ERROR"})
+        self.assertNotIn("leaky internal detail", json.dumps(report))
+
+    def test_selected_never_leaks_raw_thing_name_into_report(self):
+        calls = []
+
+        def callback(token, terminal_uuid, selected):
+            calls.append(selected)
+            return {"status": "SUCCESS"}
+
+        report = self._run(
+            [camera(nickname=EXAMPLE_NAME, model="C545D", thing_name="private-thing-id")],
+            callback=callback,
+        )
+        self.assertEqual(calls[0]["thing_name"], "private-thing-id")
+        self.assertNotIn("private-thing-id", json.dumps(report))
+
+
+class CanonicalAppServerTests(unittest.TestCase):
+    def test_missing_app_server_is_accepted(self):
+        self.assertTrue(probe._validate_canonical_app_server(None))
+
+    def test_exact_canonical_origin_with_optional_slash_and_port_accepted(self):
+        for suffix in ("", "/", ":443", ":443/"):
+            self.assertTrue(probe._validate_canonical_app_server(probe.CANONICAL_APP_SERVER + suffix))
+
+    def test_other_origin_is_rejected(self):
+        self.assertFalse(probe._validate_canonical_app_server("https://evil.example.com"))
+        self.assertFalse(probe._validate_canonical_app_server(probe.CANONICAL_APP_SERVER + "/extra"))
+        self.assertFalse(probe._validate_canonical_app_server(123))
+
+    def test_mismatched_app_server_on_matched_record_blocks_before_callback(self):
+        devices = [
+            {
+                "deviceType": "SMART.IPCAMERA",
+                "model": "C545D",
+                "thingName": "cam-1",
+                "nickname": EXAMPLE_NAME,
+                "appServerUrlV2": "https://evil.example.com",
+            }
+        ]
+        calls = []
+        script = [(200, LOGIN_OK_BODY), (200, discovery_body(devices))]
+        with mock.patch.object(probe.sys, "platform", "darwin"), \
+                mock.patch.object(probe.os.path, "exists", return_value=True), \
+                patch_dialog([(0, "owner@example.com\n"), (0, "hunter2\n")]), \
+                patch_connection(script):
+            report = probe.login_check_command(
+                target_name_sha256=EXAMPLE_DIGEST, on_selected_camera=lambda *a: calls.append(a)
+            )
+        self.assertEqual(calls, [])
+        self.assertEqual(report["status"], "BLOCKED")
+        self.assertEqual(report["reason"], "TARGET_SERVER_MISMATCH")
+
+    def test_canonical_app_server_on_matched_record_is_accepted(self):
+        devices = [
+            {
+                "deviceType": "SMART.IPCAMERA",
+                "model": "C545D",
+                "thingName": "cam-1",
+                "nickname": EXAMPLE_NAME,
+                "appServerUrlV2": probe.CANONICAL_APP_SERVER,
+            }
+        ]
+        calls = []
+        script = [(200, LOGIN_OK_BODY), (200, discovery_body(devices))]
+        with mock.patch.object(probe.sys, "platform", "darwin"), \
+                mock.patch.object(probe.os.path, "exists", return_value=True), \
+                patch_dialog([(0, "owner@example.com\n"), (0, "hunter2\n")]), \
+                patch_connection(script):
+            report = probe.login_check_command(
+                target_name_sha256=EXAMPLE_DIGEST,
+                on_selected_camera=lambda *a: calls.append(a) or {"status": "SUCCESS"},
+            )
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(report["sd_probe"], {"status": "SUCCESS"})
+
+
 if __name__ == "__main__":
     unittest.main()

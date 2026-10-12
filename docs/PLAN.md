@@ -1,5 +1,7 @@
 # แผนงาน: ดึงคลิปจากกล้องเป็นชุด แล้วนับคนเดินผ่านภายหลัง
 
+**OD-43 / 2026-10-12:** Owner อนุญาต bounded read-only SD metadata/listing จริงผ่าน named target. Implementation และข้อจำกัดอยู่ [SD_PROBE_GUIDE](SD_PROBE_GUIDE.md); ผล actual ล่าสุดดู [STATUS](STATUS.md). PO full503/503 tests PASS; synthetic ไม่แทนผลกล้อง/Fixed/download. เก็บคลิป SD บน Mac ที่บ้านเป็นเป้าหมายเดิม.
+
 OD-38 (Owner, 2026-10-09): The home Mac must connect and retrieve shop-camera SD recordings itself. An iPhone video download/export/transfer step does not satisfy this requirement and must not be a prerequisite. iPhone may support instructions or authentication, but is not the video intermediary. Evaluate camera SD -> Tapo vendor relay -> home Mac -> Fixed Lens processing; this is not a claim of direct IP/P2P connectivity or tested C545D compatibility. Secure account input and audited transport remain unresolved. No device trial occurred in this clarification.
 
 > สเปกกลางฉบับปัจจุบัน ทั้ง ChatGPT และ Claude อ่านไฟล์นี้ก่อนทำงาน

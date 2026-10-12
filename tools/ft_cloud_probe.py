@@ -56,6 +56,8 @@ ACCOUNT_HOST = HOSTS[0]
 DISCOVERY_HOST = HOSTS[1]
 PORT = 443
 
+CANONICAL_APP_SERVER = "https://" + DISCOVERY_HOST
+
 CA_PATH = Path(__file__).resolve().parent / "certs" / "tplink-cloud-root.pem"
 CA_DER_SHA256 = "8d27224dac20c2db8a380e3103b4e383c481ee41b681908579aee416761da289"
 
@@ -103,6 +105,7 @@ ERROR_CODES = frozenset(
         "MISSING_ARGUMENT",
         "TARGET_NOT_FOUND",
         "TARGET_AMBIGUOUS",
+        "TARGET_SERVER_MISMATCH",
     }
 )
 
@@ -651,6 +654,23 @@ def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code):
     return token
 
 
+def _validate_canonical_app_server(url):
+    """True iff ``url`` is missing/None or exactly the canonical discovery
+    origin (optional trailing slash and/or explicit ``:443``).
+
+    This never grants transport permission by itself; it only decides
+    whether a selected device record's own ``appServerUrlV2`` may be kept
+    alongside the private selected-camera fields. Any other value (including
+    a different pinned host) is rejected outright.
+    """
+    if url is None:
+        return True
+    if not isinstance(url, str):
+        return False
+    allowed = {CANONICAL_APP_SERVER + suffix for suffix in ("", "/", ":443", ":443/")}
+    return url in allowed
+
+
 _TARGET_NAME_DIGEST_RE = re.compile(r"[0-9a-f]{64}")
 
 
@@ -729,6 +749,13 @@ def _discover(budget, token, terminal_uuid, target_name_sha256=None):
     checked against it (duplicates counted, never short-circuited on the
     first hit); the model kind of the single matched record is returned
     only when exactly one record matches.
+
+    The returned ``selected`` dict (private, never part of the public
+    report) is populated only when exactly one record matches, with
+    ``thing_name``, ``model_kind`` and ``app_server``. A matched record's
+    own ``appServerUrlV2`` must be missing or exactly the canonical
+    discovery origin; any other value stops discovery outright rather
+    than being silently dropped or forwarded as a transport target.
     """
     target_name_sha256 = _validate_target_name_digest(target_name_sha256)
     status, data = _request(
@@ -750,6 +777,7 @@ def _discover(budget, token, terminal_uuid, target_name_sha256=None):
     variants = 0
     name_matches = 0
     matched_model_kind = None
+    matched_item = None
     for item in items:
         if not isinstance(item, dict):
             raise ProbeError("MALFORMED_RESPONSE", "INVALID_DISCOVERY_RECORD")
@@ -772,9 +800,20 @@ def _discover(budget, token, terminal_uuid, target_name_sha256=None):
         if target_name_sha256 is not None and _owner_name_matches(item, target_name_sha256):
             name_matches += 1
             matched_model_kind = kind
+            matched_item = item
+    selected = None
     if target_name_sha256 is not None and name_matches != 1:
         matched_model_kind = None
-    return total, c545d, variants, name_matches, matched_model_kind
+    elif target_name_sha256 is not None and name_matches == 1:
+        app_server = matched_item.get("appServerUrlV2")
+        if not _validate_canonical_app_server(app_server):
+            raise ProbeError("TARGET_SERVER_MISMATCH")
+        selected = {
+            "thing_name": matched_item.get("thingName"),
+            "model_kind": matched_model_kind,
+            "app_server": app_server if isinstance(app_server, str) else None,
+        }
+    return total, c545d, variants, name_matches, matched_model_kind, selected
 
 
 # -- native macOS dialog input ----------------------------------------------
@@ -888,14 +927,22 @@ def tls_check_command():
     )
 
 
-def login_check_command(target_name_sha256=None):
+def login_check_command(target_name_sha256=None, on_selected_camera=None):
     """Native-dialog login + optional email MFA, then cloud camera-inventory counts only.
 
     ``target_name_sha256`` of ``None`` keeps current model-only behavior. A
     supplied digest is validated (exact 64-char lowercase hex) before any
     dialog or network call; an owner-name match is then used in place of
     the model-count inventory decision below.
+
+    ``on_selected_camera`` is an optional private callback invoked with
+    ``(token, terminal_uuid, selected)`` only when ``target_name_sha256`` is
+    supplied and resolves to exactly one matched camera; it is never called
+    for zero or ambiguous matches. Supplying it without a digest, or a
+    non-callable value, is rejected before any dialog or network call.
     """
+    if on_selected_camera is not None and (target_name_sha256 is None or not callable(on_selected_camera)):
+        return _report("login-check", "BLOCKED", "INVALID_INPUT")
     try:
         target_name_sha256 = _validate_target_name_digest(target_name_sha256)
     except ProbeError as exc:
@@ -948,7 +995,7 @@ def login_check_command(target_name_sha256=None):
 
     password = None  # direct-login path also drops the password before discovery
     try:
-        total, c545d, variants, name_matches, matched_model_kind = _discover(
+        total, c545d, variants, name_matches, matched_model_kind, selected = _discover(
             budget, token, terminal_uuid, target_name_sha256
         )
     except ProbeError as exc:
@@ -978,6 +1025,13 @@ def login_check_command(target_name_sha256=None):
         else:
             inventory_status = "TARGET_AMBIGUOUS"
     extra["inventory_status"] = inventory_status
+    if on_selected_camera is not None and target_name_sha256 is not None and name_matches == 1:
+        try:
+            callback_report = on_selected_camera(token, terminal_uuid, selected)
+        except Exception:
+            callback_report = {"status": "BLOCKED", "reason": "UNKNOWN_ERROR"}
+        if isinstance(callback_report, dict):
+            extra["sd_probe"] = callback_report
     # Only a single cloud-listed candidate is CLOUD_INVENTORY_ONLY (never a
     # camera PASS); zero or multiple candidates must not report CLI
     # success/status SUCCESS.

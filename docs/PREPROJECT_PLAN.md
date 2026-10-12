@@ -1,5 +1,7 @@
 # แผนก่อนโครงการ FT-D0: เตรียมดึงข้อมูลคลิปจากกล้องก่อนนับคน
 
+**OD-43 / 2026-10-12:** Owner อนุญาต bounded read-only SD metadata/listing จริงผ่าน named target. Implementation และข้อจำกัดอยู่ [SD_PROBE_GUIDE](SD_PROBE_GUIDE.md); ผล actual ล่าสุดดู [STATUS](STATUS.md). PO full503/503 tests PASS; synthetic ไม่แทนผลกล้อง/Fixed/download. เก็บคลิป SD บน Mac ที่บ้านเป็นเป้าหมายเดิม.
+
 > Issue #1 · branch `claude/ft-d0-preflight` · baseline `73249aabf9d413325c4a772cd68a3ebc5890415e`
 > สถานะเอกสาร: **D0 review/merge เสร็จตามคำสั่ง Owner 2026-10-07**; PR #2 merged ที่ `b05b8fb`, เวอร์ชันแรก `v0.1.0`. ไม่มีการอนุมัติข้ามเกตอุปกรณ์ของเฟสถัดไป; หลักฐานเดิมด้านล่างเป็นประวัติ
 > คำสั่งควบคุมงานอยู่ที่ [PROJECT_CONTROL.md](../PROJECT_CONTROL.md) ซึ่งมีผลเหนือแผนเก่า
