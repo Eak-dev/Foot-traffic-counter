@@ -560,7 +560,7 @@ class PORegressionTests(unittest.TestCase):
 
     def test_real_index_schema_duplicate_and_outside_date(self):
         self.assertTrue(sd._read_calendar({"playback":{"search_results":[{"0":{"date":DATE}}]}},DATE))
-        for rows in ([{"index":{"date":DATE}}], [{"0":{"date":DATE}},{"0":{"date":DATE}}], [{"0":{"date":"20261011"}}], [{"0":{"date":DATE},"1":{"date":DATE}}]):
+        for rows in ([{"":{"date":DATE}}], [{"0":{"date":DATE}},{"0":{"date":DATE}}], [{"0":{"date":DATE},"1":{"date":DATE}}]):
             with self.assertRaises(sd.SdError):
                 sd._read_calendar({"playback":{"search_results":rows}},DATE)
         entry=clip_entries(1,_day_start_utc())[0]
@@ -628,3 +628,46 @@ class HttpDiagnosticsTests(unittest.TestCase):
             self.assertEqual(report["requests_used"], 1)
             self.assertNotIn("private-body", json.dumps(report))
             self.assertTrue(conns[-1].closed)
+
+
+class OpaqueRowLabelTests(unittest.TestCase):
+    def test_upstream_mapping_values_allow_opaque_bounded_row_labels(self):
+        for label in ("0", "search_results_0", "index", "opaque-label"):
+            self.assertTrue(sd._read_calendar({"playback":{"search_results":[{label:{"date":DATE}}]}},DATE))
+            value = next(iter(clip_entries(1,_day_start_utc())[0].values()))
+            self.assertEqual(sd._read_clips({"playback":{"search_video_results":[{label:value}]}},"+07:00",DATE),(1,"FIRST_PAGE_ONLY"))
+
+    def test_diagnostics_are_fixed_and_date_guards_retained(self):
+        for rows, expected in (([{"private-label":{"date":"secret"}}],"DATE_FORMAT"),
+                               ([{"x"*129:{"date":DATE}}],"ROW_LABEL")):
+            with self.assertRaises(sd.SdError) as ctx:
+                sd._read_calendar({"playback":{"search_results":rows}},DATE)
+            self.assertEqual(ctx.exception.detail,expected)
+            self.assertNotIn("private",str(ctx.exception))
+
+    def test_calendar_failure_preserves_fixed_diagnostic_and_valid_uid_flag(self):
+        cal=envelope([resp("getUserID",{"user_id":42}),resp("searchDateWithVideo",{"playback":{"search_results":[{"private-label":{"date":"wrong"}}]}})])
+        report,_=run_login_with_device([(200,METADATA_OK),(200,CAPABILITY_OK),(200,cal)])
+        self.assertEqual(report["detail"],"DATE_FORMAT")
+        self.assertTrue(report["user_id_valid"])
+        self.assertNotIn("private-label",json.dumps(report))
+
+
+class CalendarFilteringTests(unittest.TestCase):
+    def test_extra_dates_filtered_but_only_requested_date_sent_to_clip_query(self):
+        cal=envelope([resp("getUserID",{"user_id":42}),resp("searchDateWithVideo",{"playback":{"search_results":[{"row_a":{"date":"20261011"}},{"row_b":{"date":DATE}},{"row_c":{"date":"20261013"}}]}})])
+        report,conns=run_login_with_device([(200,METADATA_OK),(200,CAPABILITY_OK),(200,cal),(200,CLIP_OK)])
+        self.assertEqual(report["status"],"SUCCESS")
+        self.assertEqual(report["calendar_other_dates_count"],2)
+        self.assertTrue(report["calendar_has_requested_date"])
+        request=json.loads(conns[-1].sent[0][2])["inputParams"]["requestData"]["params"]["requests"][0]
+        self.assertEqual(request["params"]["playback"]["search_video_utility"]["date"],DATE)
+        self.assertEqual(report["requests_used"],4)
+
+    def test_only_extra_dates_does_not_query_a_different_day_or_claim_complete_empty_day(self):
+        cal=envelope([resp("getUserID",{"user_id":42}),resp("searchDateWithVideo",{"playback":{"search_results":[{"row_a":{"date":"20261011"}}]}})])
+        report,conns=run_login_with_device([(200,METADATA_OK),(200,CAPABILITY_OK),(200,cal)])
+        self.assertEqual(report["list_scope"],"NO_MATCHING_DATE")
+        self.assertFalse(report["calendar_has_requested_date"])
+        self.assertEqual(report["requests_used"],3)
+        self.assertEqual(len(conns),5)

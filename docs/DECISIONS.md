@@ -1,5 +1,7 @@
 # Owner Decisions — Foot-traffic-counter
 
+OD-43 final evidence (2026-10-12): home Mac read real device metadata and20 SD clip entries for the requested date via the selected cloud target, exit0/SUCCESS,4requests. SD NORMAL/timezone+07:00;5extra calendar dates filtered locally. This advances the verified boundary to first-page SD listing; Fixed media/download/batch completeness/counting remain unverified. No Owner action is needed to repeat completed auth/list diagnostics. Final PO510/510 tests PASS; NOT_RUN_BY_DEVELOPER.
+
 OD-43 follow-up: ready-input trial authenticated and selected the target, then device metadata returned HTTP_ERROR (1request). PO fixed source-confirmed missing JSON Content-Type and added redacted HTTP diagnostics within the same scope; full505 tests passed. Corrected live trial timed out at EMAIL_INPUT before network; fix not live verified. Current blocker/evidence is in STATUS; no new permission request or credential storage.
 
 OD-43 actual trial: exit2 TIMEOUT/EMAIL_INPUT after300s, before any auth/device request. No camera/SD rejection inferred. Fresh private input is required for the next attempt; standing Owner test authorization remains.

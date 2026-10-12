@@ -1,5 +1,7 @@
 # แผนงาน: ดึงคลิปจากกล้องเป็นชุด แล้วนับคนเดินผ่านภายหลัง
 
+**OD-43 actual milestone / 2026-10-12:** Home Mac read C545D metadata and20 real SD clip entries for20261012 through the uniquely selected cloud target; SD NORMAL, timezone+07:00,4bounded requests, FIRST_PAGE_ONLY. This supersedes prior SD-unverified statements. Fixed media mapping, actual download, full-day completeness and counting remain unverified. Final PO510tests PASS. Next: bounded one-clip retrieval preparation and actual Fixed-track verification.
+
 **OD-43 / 2026-10-12:** Owner อนุญาต bounded read-only SD metadata/listing จริงผ่าน named target. Implementation และข้อจำกัดอยู่ [SD_PROBE_GUIDE](SD_PROBE_GUIDE.md); ผล actual ล่าสุดดู [STATUS](STATUS.md). PO full503/503 tests PASS; synthetic ไม่แทนผลกล้อง/Fixed/download. เก็บคลิป SD บน Mac ที่บ้านเป็นเป้าหมายเดิม.
 
 OD-38 (Owner, 2026-10-09): The home Mac must connect and retrieve shop-camera SD recordings itself. An iPhone video download/export/transfer step does not satisfy this requirement and must not be a prerequisite. iPhone may support instructions or authentication, but is not the video intermediary. Evaluate camera SD -> Tapo vendor relay -> home Mac -> Fixed Lens processing; this is not a claim of direct IP/P2P connectivity or tested C545D compatibility. Secure account input and audited transport remain unresolved. No device trial occurred in this clarification.

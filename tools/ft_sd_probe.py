@@ -68,10 +68,14 @@ _DECIMAL_UID_RE = re.compile(r"[1-9][0-9]{0,18}")
 _SD_STATUS_VALUES = frozenset({"normal", "unformatted", "offline", "abnormal"})
 
 
+SD_DETAILS = frozenset({"ENVELOPE_FORMAT", "CALENDAR_RESULT", "CALENDAR_LIST", "ROW_SHAPE", "ROW_LABEL", "ROW_DUPLICATE", "DATE_FORMAT", "DATE_OUTSIDE_REQUEST", "USER_ID_INVALID", "TIMEZONE_UNKNOWN"})
+
+
 class SdError(Exception):
     """Carries only a fixed, pre-redacted code; never raw exception/body text."""
 
-    def __init__(self, code, http_status=None, gateway_reason=None):
+    def __init__(self, code, http_status=None, gateway_reason=None, detail=None):
+        self.detail = detail if detail in SD_DETAILS else None
         self.http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
         self.gateway_reason = gateway_reason if gateway_reason in ("MODEL_SCHEMA_CHECK_FAILED", "HTTP_REDIRECT", "UNCLASSIFIED") else None
         code = code if code in ERROR_CODES else "UNKNOWN_ERROR"
@@ -434,44 +438,39 @@ def _read_user_id(result):
     return None
 
 
-_NUMERIC_KEY_RE = re.compile(r"0|[1-9][0-9]{0,8}")
-
-
-def _single_numeric_entry(entry):
-    """Each calendar/clip entry is ``{"<index>": {...}}`` with exactly one
-    bounded, canonical (no leading zero) nonnegative decimal string key;
-    not the literal key ``"index"``."""
+def _single_index_entry(entry):
+    """Opaque row labels are not protocol indices or output. Upstream iterates
+    mapping values; require one bounded nonempty label and validate its value.
+    """
     if not isinstance(entry, dict) or len(entry) != 1:
-        raise SdError("MALFORMED_RESPONSE")
+        raise SdError("MALFORMED_RESPONSE", detail="ROW_SHAPE")
     (key, value), = entry.items()
-    if not isinstance(key, str) or not _NUMERIC_KEY_RE.fullmatch(key):
-        raise SdError("MALFORMED_RESPONSE")
+    if not isinstance(key, str) or not (1 <= len(key) <= 128):
+        raise SdError("MALFORMED_RESPONSE", detail="ROW_LABEL")
     return key, value
 
 
 def _read_calendar(result, requested_date):
     if not isinstance(result, dict):
-        raise SdError("MALFORMED_RESPONSE")
+        raise SdError("MALFORMED_RESPONSE", detail="CALENDAR_RESULT")
     playback = result.get("playback")
     entries = playback.get("search_results") if isinstance(playback, dict) else None
     if not isinstance(entries, list):
-        raise SdError("MALFORMED_RESPONSE")
+        raise SdError("MALFORMED_RESPONSE", detail="CALENDAR_LIST")
     seen_keys = set()
     dates = set()
     for entry in entries:
-        key, value = _single_numeric_entry(entry)
+        key, value = _single_index_entry(entry)
         if key in seen_keys:
-            raise SdError("MALFORMED_RESPONSE")
+            raise SdError("MALFORMED_RESPONSE", detail="ROW_DUPLICATE")
         seen_keys.add(key)
         date = value.get("date") if isinstance(value, dict) else None
         if not isinstance(date, str) or not _DATE_RE.fullmatch(date):
-            raise SdError("MALFORMED_RESPONSE")
+            raise SdError("MALFORMED_RESPONSE", detail="DATE_FORMAT")
         try:
             datetime.datetime.strptime(date, "%Y%m%d")
         except ValueError:
-            raise SdError("MALFORMED_RESPONSE") from None
-        if date != requested_date:
-            raise SdError("MALFORMED_RESPONSE")
+            raise SdError("MALFORMED_RESPONSE", detail="DATE_FORMAT") from None
         dates.add(date)
     return requested_date in dates
 
@@ -501,7 +500,7 @@ def _read_clips(result, tz_offset, date):
     day_start, day_end = _day_bounds_utc(date, tz_offset)
     seen_keys = set()
     for entry in entries:
-        key, index = _single_numeric_entry(entry)
+        key, index = _single_index_entry(entry)
         if key in seen_keys:
             raise SdError("MALFORMED_RESPONSE")
         seen_keys.add(key)
@@ -612,7 +611,12 @@ def probe_selected_device(token, terminal_uuid, selected, date):
         requests = _expected_requests(batch, date, uid)
         raw = _device_request(budget, token, terminal_uuid, device_id, requests, batch, date, uid)
         methods = {r["method"] for r in requests}
-        return _parse_responses(raw, methods, methods if batch == "capability" else frozenset())
+        try:
+            return _parse_responses(raw, methods, methods if batch == "capability" else frozenset())
+        except SdError as exc:
+            if exc.code == "MALFORMED_RESPONSE":
+                exc.detail = "ENVELOPE_FORMAT"
+            raise
 
     try:
         data = send("metadata")
@@ -632,20 +636,26 @@ def probe_selected_device(token, terminal_uuid, selected, date):
         stage = "CALENDAR"
         data = send("calendar")
         uid = _read_user_id(data["getUserID"])
+        facts["user_id_valid"] = uid is not None
         has_date = _read_calendar(data["searchDateWithVideo"], date)
         facts["calendar_has_requested_date"] = has_date
+        rows = data["searchDateWithVideo"]["playback"]["search_results"]
+        outside_count = sum(next(iter(row.values()))["date"] != date for row in rows)
+        facts["calendar_other_dates_count"] = outside_count
         if not has_date:
-            facts.update(clip_count=0, list_scope="NO_CLIPS")
+            facts.update(clip_count=0, list_scope="NO_MATCHING_DATE" if outside_count else "NO_CLIPS")
         else:
             if uid is None:
-                raise SdError("MALFORMED_RESPONSE")
+                raise SdError("MALFORMED_RESPONSE", detail="USER_ID_INVALID")
             stage = "CLIPS"
             if facts["timezone_offset"] is None:
-                raise SdError("MALFORMED_RESPONSE")
+                raise SdError("MALFORMED_RESPONSE", detail="TIMEZONE_UNKNOWN")
             data = send("clip", uid)
             count, scope = _read_clips(data["searchVideoOfDay"], facts["timezone_offset"], date)
             facts.update(clip_count=count, list_scope=scope)
     except (SdError, cloud.ProbeError) as exc:
+        if getattr(exc, "detail", None) in SD_DETAILS:
+            facts["detail"] = exc.detail
         if getattr(exc, "http_status", None) is not None:
             facts["http_status"] = exc.http_status
         if getattr(exc, "gateway_reason", None) is not None:

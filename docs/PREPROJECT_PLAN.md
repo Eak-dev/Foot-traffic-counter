@@ -1,5 +1,7 @@
 # แผนก่อนโครงการ FT-D0: เตรียมดึงข้อมูลคลิปจากกล้องก่อนนับคน
 
+**OD-43 actual milestone / 2026-10-12:** Home Mac read C545D metadata and20 real SD clip entries for20261012 through the uniquely selected cloud target; SD NORMAL, timezone+07:00,4bounded requests, FIRST_PAGE_ONLY. This supersedes prior SD-unverified statements. Fixed media mapping, actual download, full-day completeness and counting remain unverified. Final PO510tests PASS. Next: bounded one-clip retrieval preparation and actual Fixed-track verification.
+
 **OD-43 / 2026-10-12:** Owner อนุญาต bounded read-only SD metadata/listing จริงผ่าน named target. Implementation และข้อจำกัดอยู่ [SD_PROBE_GUIDE](SD_PROBE_GUIDE.md); ผล actual ล่าสุดดู [STATUS](STATUS.md). PO full503/503 tests PASS; synthetic ไม่แทนผลกล้อง/Fixed/download. เก็บคลิป SD บน Mac ที่บ้านเป็นเป้าหมายเดิม.
 
 > Issue #1 · branch `claude/ft-d0-preflight` · baseline `73249aabf9d413325c4a772cd68a3ebc5890415e`
