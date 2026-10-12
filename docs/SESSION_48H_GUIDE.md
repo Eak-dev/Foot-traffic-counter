@@ -1,6 +1,6 @@
 # เซสชัน Tapo ใช้ซ้ำบน Mac
 
-OD-45 / 2026-10-13: โค้ดและ native helper ติดตั้งแล้ว; Keychain จำลอง write/read ข้าม process/update/delete และ ACL audit ผ่าน. บัญชีจริงยัง REAUTH_REQUIRED จนกว่า Owner กรอก native dialog ครั้งแรกสำเร็จ. ไม่ถือว่าตรวจ vendor ครบ48ชั่วโมงแล้ว.
+OD-45 / 2026-10-13: โค้ดและ native helper ติดตั้งแล้ว; Keychain จำลอง write/read ข้าม process/update/delete และ ACL audit ผ่าน. บัญชีจริงยัง REAUTH_REQUIRED: bootstrapรอบแรกจบ TIMEOUT หลังรอ private input300s; processจบแล้ว ไม่มี popup/workerค้าง. ต้องกรอก native dialog ครั้งแรกเมื่อ Ownerพร้อมก่อนเปิดใช้จริง. ไม่ถือว่าตรวจ vendor ครบ48ชั่วโมงแล้ว.
 
 PO เป็นผู้รันคำสั่งให้ Owner; Owner ใช้ iPhone remote กรอกเฉพาะ email/password/OTP ในหน้าต่างส่วนตัว **Foot Traffic / Tapo login**. ใช้บัญชีเข้าแอป Tapo สำหรับ cloud login. ไม่ส่งรหัสในแชต. โปรแกรมไม่เก็บ password/email/OTP; โทเคนเก่าใน memory ไม่สามารถกู้มาใช้ได้ จึงต้อง bootstrap อีกครั้ง.
 
