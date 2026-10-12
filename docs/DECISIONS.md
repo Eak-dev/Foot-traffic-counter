@@ -1,5 +1,9 @@
 # Owner Decisions — Foot-traffic-counter
 
+### OD-44 — Reuse authentication for48hours (2026-10-12)
+
+Owner requested a design to avoid repeated email/password entry. PO selected a project-scoped local Keychain session, storing access/refresh tokens rather than password/OTP, with absolute48h reuse ceiling and bounded refresh. This replaces the previous memory-only product requirement for the forthcoming scoped implementation. No Keychain item or active session created in this design pass; vendor expiry/revocation may force earlier reauthentication. Design and acceptance criteria: [SESSION_48H_DESIGN](SESSION_48H_DESIGN.md). No new camera/media/scheduler authority.
+
 OD-43 final evidence (2026-10-12): home Mac read real device metadata and20 SD clip entries for the requested date via the selected cloud target, exit0/SUCCESS,4requests. SD NORMAL/timezone+07:00;5extra calendar dates filtered locally. This advances the verified boundary to first-page SD listing; Fixed media/download/batch completeness/counting remain unverified. No Owner action is needed to repeat completed auth/list diagnostics. Final PO510/510 tests PASS; NOT_RUN_BY_DEVELOPER.
 
 OD-43 follow-up: ready-input trial authenticated and selected the target, then device metadata returned HTTP_ERROR (1request). PO fixed source-confirmed missing JSON Content-Type and added redacted HTTP diagnostics within the same scope; full505 tests passed. Corrected live trial timed out at EMAIL_INPUT before network; fix not live verified. Current blocker/evidence is in STATUS; no new permission request or credential storage.
