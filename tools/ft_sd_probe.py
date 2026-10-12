@@ -94,11 +94,14 @@ class _DeviceBudget:
     without sharing its (larger) module-level constants.
     """
 
-    def __init__(self):
+    def __init__(self, session_guard=None):
         self.start = time.monotonic()
         self.requests = 0
+        self.session_guard = session_guard
 
     def check_time(self):
+        if self.session_guard is not None:
+            self.session_guard()
         if time.monotonic() >= self.start + DEVICE_BUDGET_S:
             raise SdError("TIME_BUDGET_EXCEEDED")
 
@@ -589,7 +592,7 @@ def _report(status, reason=None, extra=None, stage=None):
     return report
 
 
-def probe_selected_device(token, terminal_uuid, selected, date):
+def probe_selected_device(token, terminal_uuid, selected, date, session_guard=None):
     """Read four fixed batches from the unique selected C545D, in memory only."""
     facts = {"fixed_mapping": "UNKNOWN"}
     try:
@@ -604,10 +607,12 @@ def probe_selected_device(token, terminal_uuid, selected, date):
             raise SdError("INVALID_INPUT")
     except SdError as exc:
         return _report("BLOCKED", exc.code, dict(facts, requests_used=0))
-    budget = _DeviceBudget()
+    budget = _DeviceBudget(session_guard=session_guard)
     stage = "METADATA"
 
     def send(batch, uid=None):
+        if session_guard is not None:
+            session_guard()
         requests = _expected_requests(batch, date, uid)
         raw = _device_request(budget, token, terminal_uuid, device_id, requests, batch, date, uid)
         methods = {r["method"] for r in requests}

@@ -1,5 +1,9 @@
 # Owner Decisions — Foot-traffic-counter
 
+### OD-45 — Implement reusable session now (Owner,2026-10-12; implementation2026-10-13)
+
+Owner explicitly approved implementation and instructed continuing the unfinished work. PO implemented local-only Keychain token reuse with absolute48h deadline, explicit status/start/use/forget, single bounded refresh and unchanged named-target/SD limits. No password/email/OTP persistence and no scheduler. Native-helper language exception changed from Swift proposal to Objective-C after actual compiler/SDK failure; existing clang compiled/signed helper successfully without package/global-toolchain changes. Real disposable Keychain cross-process storage and narrow ACL audit passed; initial real session activation still depends on Owner's private native input. Earlier memory-only/design-only wording is historical for this task. Guide and current live evidence: SESSION_48H_GUIDE/STATUS.
+
 ### OD-44 — Reuse authentication for48hours (2026-10-12)
 
 Owner requested a design to avoid repeated email/password entry. PO selected a project-scoped local Keychain session, storing access/refresh tokens rather than password/OTP, with absolute48h reuse ceiling and bounded refresh. This replaces the previous memory-only product requirement for the forthcoming scoped implementation. No Keychain item or active session created in this design pass; vendor expiry/revocation may force earlier reauthentication. Design and acceptance criteria: [SESSION_48H_DESIGN](SESSION_48H_DESIGN.md). No new camera/media/scheduler authority.

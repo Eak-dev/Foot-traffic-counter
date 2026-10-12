@@ -128,6 +128,7 @@ DETAIL_CODES = frozenset(
         "REGION_EUW1_ACCOUNT",
         "REGION_USE1_ACCOUNT",
         "REGION_OTHER_OR_INVALID",
+        "AUTH_INVALID_HTTP401",
     }
 )
 
@@ -271,8 +272,51 @@ def _validate_request_target(host, method, path):
     if host == DISCOVERY_HOST:
         if method != "GET" or path != "/v2/things":
             raise ProbeError("CONNECT_ERROR")
-    elif host != ACCOUNT_HOST or method != "POST" or path not in _ACCOUNT_PATHS:
+    elif host != ACCOUNT_HOST or method != "POST" or (path not in _ACCOUNT_PATHS and path != "/"):
         raise ProbeError("CONNECT_ERROR")
+def _validate_refresh_body(body, headers):
+    try:
+        if not isinstance(body, bytes) or len(body) > 20000:
+            raise ValueError()
+        obj = json.loads(body, object_pairs_hook=_no_duplicate_keys)
+        if not isinstance(obj, dict) or set(obj) != {"method", "params"} or obj["method"] != "refreshToken":
+            raise ValueError()
+        params = obj["params"]
+        if not isinstance(params, dict) or set(params) != {"appType", "refreshToken", "terminalUUID"}:
+            raise ValueError()
+        if params["appType"] != APP_TYPE:
+            raise ValueError()
+        for key in ("refreshToken", "terminalUUID"):
+            value = params[key]
+            if not isinstance(value, str) or not 1 <= len(value) <= 8192 or any(ord(c) < 33 or ord(c) > 126 for c in value):
+                raise ValueError()
+        if headers != {"Content-Type": "application/json; charset=UTF-8"}:
+            raise ValueError()
+    except (ValueError, TypeError, KeyError, ProbeError):
+        raise ProbeError("INVALID_INPUT") from None
+
+
+def _refresh(budget, refresh_token, terminal_uuid):
+    """One pinned refresh; no retries, region changes or unbounded diagnostics."""
+    body = json.dumps({"method": "refreshToken", "params": {
+        "appType": APP_TYPE, "refreshToken": refresh_token, "terminalUUID": terminal_uuid,
+    }}).encode("utf-8")
+    status, data = _request(budget, ACCOUNT_HOST, "POST", "/",
+        {"Content-Type": "application/json; charset=UTF-8"}, body)
+    if status == 401:
+        raise ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401")
+    if status != 200:
+        raise ProbeError("HTTP_ERROR")
+    obj = _parse_json_object(data)
+    code, present = _account_error_code(obj)
+    if present and code != 0:
+        raise ProbeError("AUTH_FAILED")
+    result = obj.get("result")
+    if not isinstance(result, dict) or not isinstance(result.get("token"), str) or not result["token"]:
+        raise ProbeError("MALFORMED_RESPONSE")
+    if "appServerUrlV2" in result and _validate_region_origin(result["appServerUrlV2"]) is None:
+        raise ProbeError("UNSUPPORTED_REGION")
+    return {"token": result["token"], "refresh_token": result.get("refreshToken") or refresh_token}
 
 
 def _open_connection(budget, host):
@@ -319,6 +363,8 @@ def _request(budget, host, method, path, headers, body):
     into serving as an arbitrary sender for a caller-supplied URL.
     """
     _validate_request_target(host, method, path)
+    if path == "/":
+        _validate_refresh_body(body, headers)
     budget.check_time()
     budget.use_request()
     conn = _open_connection(budget, host)
@@ -499,7 +545,7 @@ _REGION_REDIRECT_CODE = -20212
 _MFA_REQUIRED_CODE = -20677
 
 
-def _login(budget, email, password):
+def _login(budget, email, password, refresh_token_needed=False):
     """Sign and send the cloud login, accepting only explicit, non-conflicting
     success/challenge codes.
 
@@ -518,7 +564,7 @@ def _login(budget, email, password):
         "cloudUserName": email,
         "cloudPassword": password,
         "platform": "Android 15",
-        "refreshTokenNeeded": False,
+        "refreshTokenNeeded": refresh_token_needed,
         "terminalUUID": terminal_uuid,
         "terminalName": "FootTrafficProbe",
         "terminalMeta": "ft_cloud_probe",
@@ -574,6 +620,7 @@ def _login(budget, email, password):
         if isinstance(token, str) and token:
             return {
                 "token": token,
+                "refresh_token": result.get("refreshToken") if refresh_token_needed else None,
                 "account_host": account_host,
                 "terminal_uuid": terminal_uuid,
                 "mfa": None,
@@ -622,7 +669,7 @@ def _send_mfa(budget, account_host, email, terminal_uuid, password):
         raise ProbeError("MFA_FAILED", "MFA_SEND_REJECTED")
 
 
-def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code):
+def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code, refresh_token_needed=False):
     path = "/api/v2/account/checkMFACodeAndLogin"
     body_obj = {
         "appType": APP_TYPE,
@@ -632,7 +679,7 @@ def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code):
         "MFAType": MFA_EMAIL,
         "terminalUUID": terminal_uuid,
         "terminalName": "FootTrafficProbe",
-        "refreshTokenNeeded": False,
+        "refreshTokenNeeded": refresh_token_needed,
     }
     body = json.dumps(body_obj).encode("utf-8")
     status, data = _request(budget, account_host, "POST", path, _signed_headers(path, body), body)
@@ -651,6 +698,8 @@ def _submit_mfa(budget, account_host, email, terminal_uuid, mfa_id, code):
     token = result.get("token")
     if not isinstance(token, str) or not token:
         raise ProbeError("MFA_FAILED")
+    if refresh_token_needed:
+        return {"token": token, "refresh_token": result.get("refreshToken")}
     return token
 
 
@@ -762,7 +811,7 @@ def _discover(budget, token, terminal_uuid, target_name_sha256=None):
         budget, DISCOVERY_HOST, "GET", "/v2/things", _cloud_headers(token, terminal_uuid), None
     )
     if status == 401:
-        raise ProbeError("AUTH_FAILED")
+        raise ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401")
     if status != 200:
         raise ProbeError("DISCOVERY_FAILED")
     obj = _parse_json_object(data)

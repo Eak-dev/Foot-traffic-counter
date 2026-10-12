@@ -1,5 +1,9 @@
 # แผนก่อนโครงการ FT-D0: เตรียมดึงข้อมูลคลิปจากกล้องก่อนนับคน
 
+**OD-45 implementation /2026-10-13:** Local project Keychain storage and absolute48h lease are implemented; real disposable cross-process storage/ACL test passed, synthetic543tests passed. These results establish storage/local expiry only, not account cache reuse/vendor refresh or vendor48h availability. Objective-C helper uses existing clang after Swift SDK mismatch. Current live bootstrap evidence in STATUS; camera/media gates unchanged.
+
+**OD-45 implementation authorized:** Owner instructs implementing SESSION_48H_DESIGN. Scoped Python manager plus native Swift Security helper exception and project-only Keychain tokens; exact scope in PROJECT_CONTROL. Implementation/testing in progress; not yet active.
+
 **OD-44 priority:** Owner requests reusable48h authentication. [SESSION_48H_DESIGN](SESSION_48H_DESIGN.md) defines local Keychain session reuse, bounded refresh and absolute expiry before repeated media trials. DESIGN_READY only; not installed/active. Proposed native Security helper is a specifically scoped implementation change to the earlier Python-only plan, using installed Apple tools without new packages. SD-list milestone remains verified.
 
 **OD-43 actual milestone / 2026-10-12:** Home Mac read C545D metadata and20 real SD clip entries for20261012 through the uniquely selected cloud target; SD NORMAL, timezone+07:00,4bounded requests, FIRST_PAGE_ONLY. This supersedes prior SD-unverified statements. Fixed media mapping, actual download, full-day completeness and counting remain unverified. Final PO510tests PASS. Next: bounded one-clip retrieval preparation and actual Fixed-track verification.

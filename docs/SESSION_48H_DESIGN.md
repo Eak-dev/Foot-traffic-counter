@@ -1,6 +1,8 @@
 # เซสชัน Tapo ใช้ซ้ำสูงสุด 48 ชั่วโมง — OD-44
 
-สถานะ: **DESIGN_READY / NOT_IMPLEMENTED / NOT_ACTIVE** (2026-10-12). Owner ขอออกแบบเพื่อลดการกรอกบัญชีทุกครั้ง. เอกสารนี้เป็นแบบที่ PO ตรวจจากโค้ดและแหล่งข้อมูลแล้ว ไม่ใช่ผลยืนยันว่าเปิดใช้ 48 ชั่วโมงจริง. Claude design review หมดเวลา180.7s ก่อนส่งไฟล์; PO ตรวจ process และรับ ownership กลับก่อนเขียน. NOT_RUN_BY_DEVELOPER.
+สถานะปัจจุบัน: **IMPLEMENTED / BOOTSTRAP_INPUT_PENDING** (2026-10-13); implementation ใช้ Objective-C helper แทน Swift หลังพบ SDK/compiler mismatch. Keychain จำลองข้าม process และ543 synthetic tests ผ่าน; account reuse/refresh ยังไม่ยืนยัน. ดู SESSION_48H_GUIDE/STATUS.
+
+บันทึกงานออกแบบเดิม: **DESIGN_READY / NOT_IMPLEMENTED / NOT_ACTIVE** (2026-10-12). Owner ขอออกแบบเพื่อลดการกรอกบัญชีทุกครั้ง. เอกสารนี้เป็นแบบที่ PO ตรวจจากโค้ดและแหล่งข้อมูลแล้ว ไม่ใช่ผลยืนยันว่าเปิดใช้ 48 ชั่วโมงจริง. Claude design review หมดเวลา180.7s ก่อนส่งไฟล์; PO ตรวจ process และรับ ownership กลับก่อนเขียน. NOT_RUN_BY_DEVELOPER.
 
 ## สาเหตุและผลที่ต้องการ
 
