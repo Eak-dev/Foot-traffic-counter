@@ -1,5 +1,7 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
+OD-49 current milestone: actual remote SD acquisition and local noon counting pilot work. Read latest STATUS/COUNTING_VALIDATION; do not restart auth or route research. Whole-day completeness/accuracy remains unverified. Continue from existing local runtime/session and reviewed evidence.
+
 คำสั่ง Owner วันที่ 2026-10-09 (OD-38/39). Codex และ Claude ต้องอ่านไฟล์นี้ก่อนเริ่มงานทุกครั้งร่วมกับ PROJECT_CONTROL และ STATUS
 
 ## ผลลัพธ์ที่ต้องส่งมอบ

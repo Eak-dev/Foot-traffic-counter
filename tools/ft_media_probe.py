@@ -34,6 +34,7 @@ RELAY_HOST = "aps1-cipc-api.i.tplinkcloud.com"
 # remains PO-scoped; this flag does not start or authorize batch acquisition.
 LIVE_TRIAL_ENABLED = False
 TRANSFER_MODE = "download"
+LIST_WINDOW = "day"  # PO may select the exact reviewed noon window
 CLIP_SELECTION = "shortest"  # PO-scoped experiment only; default media remains HOLD
 ROOT = Path('/private/tmp') / ('ft-sd-sample-' + str(os.getuid()))
 FFPROBE = Path(__file__).resolve().parent.parent / '.venv/ft-media-bin/ffprobe'
@@ -94,6 +95,12 @@ def _private_root():
 
 def _select_fixed_interval(candidates):
     # Already validated, unique and shortest-first by sd._fixed_intervals.
+    if CLIP_SELECTION == 'nearest_noon':
+        if LIST_WINDOW != 'noon' or not candidates:
+            raise SampleError('NO_ELIGIBLE_CLIP')
+        day, _ = sd._day_bounds_utc(sd.FIXED_DATE, '+07:00')
+        noon = day + 12*3600
+        return min(candidates, key=lambda x: (0 if x[0] <= noon < x[1] else min(abs(x[0]-noon), abs(x[1]-noon)), x[0]))
     if CLIP_SELECTION not in ('shortest', 'second_shortest'):
         raise SampleError('NO_ELIGIBLE_CLIP')
     index = 1 if CLIP_SELECTION == 'second_shortest' else 0
@@ -124,8 +131,13 @@ def _list_one(token, terminal, selected, budget):
     uid = sd._read_user_id(cal['getUserID'])
     if uid is None or not sd._read_calendar(cal['searchDateWithVideo'], sd.FIXED_DATE):
         raise SampleError('NO_ELIGIBLE_CLIP')
-    clips = send('clip-utc', uid)
+    if LIST_WINDOW not in ('day', 'noon'):
+        raise SampleError('NO_ELIGIBLE_CLIP')
+    clips = send('clip-noon' if LIST_WINDOW == 'noon' else 'clip-utc', uid)
     candidates, _rows, _missing = sd._fixed_intervals(clips['searchVideoWithUTC'])
+    if LIST_WINDOW == 'noon':
+        day, _ = sd._day_bounds_utc(sd.FIXED_DATE, '+07:00')
+        candidates = [(s, e) for s, e in candidates if s < day + 12*3600 + 5*60 and e > day + 11*3600 + 55*60]
     if not candidates:
         raise SampleError('NO_ELIGIBLE_CLIP')
     start, end = _select_fixed_interval(candidates)

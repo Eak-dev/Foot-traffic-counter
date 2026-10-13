@@ -169,6 +169,8 @@ def _expected_requests(batch, date, user_id):
         return _calendar_requests(date)
     if batch == "clip":
         return _clip_requests(date, user_id)
+    if batch == "clip-noon":
+        return _clip_noon_requests(date, user_id)
     if batch == "clip-utc":
         return _clip_utc_requests(date, user_id)
     raise SdError("INVALID_INPUT")
@@ -184,7 +186,7 @@ def _validate_requests(requests, batch, date, user_id):
     """
     if date != FIXED_DATE:
         raise SdError("INVALID_INPUT")
-    if batch in ("clip", "clip-utc"):
+    if batch in ("clip", "clip-utc", "clip-noon"):
         if isinstance(user_id, bool) or not isinstance(user_id, int) or not (0 < user_id <= 2**63 - 1):
             raise SdError("INVALID_INPUT")
     expected = _expected_requests(batch, date, user_id)
@@ -585,6 +587,16 @@ def _clip_utc_requests(date, user_id):
     return [{'method':'searchVideoWithUTC', 'params':{'playback':{
         'search_video_with_utc':{'channel':0, 'id':user_id, 'start_index':0,
             'end_index':MAX_CLIP_ENTRIES-1, 'start_time':start, 'end_time':end-1}}}}]
+
+
+def _clip_noon_requests(date, user_id):
+    """OD49 exact11:55–12:05 Bangkok window, first20rows; no arbitrary API."""
+    requests = _clip_utc_requests(date, user_id)
+    query = requests[0]['params']['playback']['search_video_with_utc']
+    day, _ = _day_bounds_utc(date, '+07:00')
+    query['start_time'] = day + 11 * 3600 + 55 * 60
+    query['end_time'] = day + 12 * 3600 + 5 * 60 - 1
+    return requests
 
 
 def _fixed_intervals(result):
