@@ -1,6 +1,6 @@
 """Local Keychain-backed Tapo lease. Public reports never contain credentials.
 
-Run as ``python3 -m tools.ft_session status|start|use|sd-check|refresh-check|forget``.
+Run as ``python3 -m tools.ft_session status|start|use|sd-check|fixed-check|media-check|refresh-check|forget``.
 Only explicit start opens private native input. No daemon or automatic login.
 """
 import contextlib
@@ -311,10 +311,14 @@ class SessionManager:
 
     def command(self, command, target=None, on_selected_camera=None):
         self.stage = None
-        if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check"}:
+        if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check", "media-check", "fixed-check"}:
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
-        if command in {"start", "use", "refresh-check", "sd-check"} and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
+        if command in {"start", "use", "refresh-check", "sd-check", "media-check", "fixed-check"} and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
+        if command == "media-check":
+            from tools.ft_media_probe import LIVE_TRIAL_ENABLED
+            if not LIVE_TRIAL_ENABLED:
+                return {"status": "BLOCKED", "reason": "MEDIA_PROTOCOL_UNVERIFIED"}
         try:
             with self.lock():
                 try:
@@ -360,6 +364,14 @@ class SessionManager:
                         from tools.ft_sd_probe import probe_selected_device
                         extra["sd_probe"] = probe_selected_device(record["token"], record["terminal_uuid"], selected,
                             "20261012", session_guard=lease.check)
+                    elif command == "fixed-check":
+                        from tools.ft_sd_probe import probe_fixed_metadata
+                        extra["sd_probe"] = probe_fixed_metadata(record["token"], record["terminal_uuid"], selected,
+                            session_guard=lease.check)
+                    elif command == "media-check":
+                        from tools.ft_media_probe import sample_selected_device
+                        extra["media_probe"] = sample_selected_device(record["token"], record["terminal_uuid"], selected,
+                            session_guard=lease.check)
                     elif on_selected_camera is not None:
                         extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected)
                     self._touch(record, lease)
@@ -369,6 +381,9 @@ class SessionManager:
                     if extra.get("sd_probe", {}).get("status") == "BLOCKED":
                         result["status"] = "BLOCKED"
                         result["reason"] = "SD_PROBE_BLOCKED"
+                    if extra.get("media_probe", {}).get("status") == "BLOCKED":
+                        result["status"] = "BLOCKED"
+                        result["reason"] = "MEDIA_PROBE_BLOCKED"
                     return result
                 except SessionError as exc:
                     if exc.code == "EXPIRED":
@@ -412,7 +427,7 @@ def load_target():
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     try:
-        if len(args) != 1 or args[0] not in {"status", "start", "use", "sd-check", "refresh-check", "forget"}:
+        if len(args) != 1 or args[0] not in {"status", "start", "use", "sd-check", "media-check", "fixed-check", "refresh-check", "forget"}:
             raise SessionError("INVALID_INPUT")
         target = load_target() if args[0] not in {"status", "forget"} else None
         report = SessionManager().command(args[0], target)

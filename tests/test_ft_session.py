@@ -291,6 +291,30 @@ class SessionTests(unittest.TestCase):
                 sd.call_args.kwargs["session_guard"]()
         self.prompt.assert_not_called()
 
+    def test_media_hold_blocks_before_keychain_and_network(self):
+        with patch.object(self.store, "load") as load:
+            self.assertEqual(self.call("media-check")["reason"], "MEDIA_PROTOCOL_UNVERIFIED")
+            load.assert_not_called()
+        self.discovery.assert_not_called()
+        self.prompt.assert_not_called()
+
+    def test_fixed_check_preserves_lease_and_propagates_blocked(self):
+        with patch('tools.ft_sd_probe.probe_fixed_metadata', return_value={'status':'BLOCKED','reason':'MALFORMED_RESPONSE'}) as fixed:
+            result=self.call('fixed-check')
+            self.assertEqual(result['reason'],'SD_PROBE_BLOCKED')
+            self.now=173800
+            with self.assertRaises(s.SessionError): fixed.call_args.kwargs['session_guard']()
+        self.prompt.assert_not_called()
+
+    def test_media_session_guard_and_blocked_propagation(self):
+        with patch("tools.ft_media_probe.LIVE_TRIAL_ENABLED", True), patch("tools.ft_media_probe.sample_selected_device", return_value={"status":"BLOCKED", "reason":"QUOTA"}) as sample:
+            result = self.call("media-check")
+            self.assertEqual(result["reason"], "MEDIA_PROBE_BLOCKED")
+            self.now = 173800
+            with self.assertRaises(s.SessionError):
+                sample.call_args.kwargs["session_guard"]()
+        self.prompt.assert_not_called()
+
     def test_json_duplicate_keys_and_nan_rejected(self):
         for raw in ('{"x":1,"x":2}', '{"x":NaN}'):
             with self.assertRaises(s.SessionError):

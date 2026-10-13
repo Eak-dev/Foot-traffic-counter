@@ -169,6 +169,8 @@ def _expected_requests(batch, date, user_id):
         return _calendar_requests(date)
     if batch == "clip":
         return _clip_requests(date, user_id)
+    if batch == "clip-utc":
+        return _clip_utc_requests(date, user_id)
     raise SdError("INVALID_INPUT")
 
 
@@ -182,7 +184,7 @@ def _validate_requests(requests, batch, date, user_id):
     """
     if date != FIXED_DATE:
         raise SdError("INVALID_INPUT")
-    if batch == "clip":
+    if batch in ("clip", "clip-utc"):
         if isinstance(user_id, bool) or not isinstance(user_id, int) or not (0 < user_id <= 2**63 - 1):
             raise SdError("INVALID_INPUT")
     expected = _expected_requests(batch, date, user_id)
@@ -574,6 +576,86 @@ def _clip_requests(date, user_id):
             },
         }
     ]
+
+
+def _clip_utc_requests(date, user_id):
+    """Pinned pytapo3.4.26 request shape; exact day and first20 rows only."""
+    _validate_date(date)
+    start, end = _day_bounds_utc(date, '+07:00')
+    return [{'method':'searchVideoWithUTC', 'params':{'playback':{
+        'search_video_with_utc':{'channel':0, 'id':user_id, 'start_index':0,
+            'end_index':MAX_CLIP_ENTRIES-1, 'start_time':start, 'end_time':end-1}}}}]
+
+
+def _fixed_intervals(result):
+    """Strict source-backed C545D lens metadata. Never infer from row order."""
+    if not isinstance(result, dict) or not isinstance(result.get('playback'), dict):
+        raise SdError('MALFORMED_RESPONSE')
+    rows = result['playback'].get('search_video_results')
+    if not isinstance(rows, list) or len(rows) > MAX_CLIP_ENTRIES:
+        raise SdError('MALFORMED_RESPONSE')
+    start_day, end_day = _day_bounds_utc(FIXED_DATE, '+07:00')
+    candidates, labels, missing = set(), set(), 0
+    for row in rows:
+        label, item = _single_index_entry(row)
+        if label in labels or not isinstance(item, dict):
+            raise SdError('MALFORMED_RESPONSE')
+        labels.add(label)
+        start, end, kind = item.get('startTime'), item.get('endTime'), item.get('vedio_type')
+        if type(start) is not int or type(end) is not int or not start_day <= start < end <= end_day:
+            raise SdError('MALFORMED_RESPONSE')
+        if not ((type(kind) is int and kind in (1,2)) or (isinstance(kind,str) and kind in ('1','2'))):
+            raise SdError('MALFORMED_RESPONSE')
+        channels = item.get('chn_times')
+        if channels is None:
+            missing += 1
+            continue
+        if not isinstance(channels, dict) or not channels or not set(channels) <= {'1','2'}:
+            raise SdError('MALFORMED_RESPONSE')
+        for lens, timing in channels.items():
+            if not isinstance(timing, dict):
+                raise SdError('MALFORMED_RESPONSE')
+            lens_start = timing.get('event_start_time')
+            if type(lens_start) is not int or not start <= lens_start < end:
+                raise SdError('MALFORMED_RESPONSE')
+            if lens == '1' and 5 <= end-lens_start <= 180:
+                candidates.add((lens_start,end))
+    return sorted(candidates, key=lambda x:(x[1]-x[0],x[0])), len(rows), missing
+
+
+def probe_fixed_metadata(token, terminal_uuid, selected, session_guard=None):
+    """Three readonly requests; public report contains counts, never times/IDs."""
+    budget = _DeviceBudget(session_guard=session_guard)
+    facts = {'fixed_mapping':'UNVERIFIED', 'media_downloaded':False}
+    stage = 'METADATA'
+    try:
+        if not isinstance(selected,dict) or selected.get('model_kind') not in ('EXACT','VARIANT') or not cloud._validate_canonical_app_server(selected.get('app_server')):
+            raise SdError('IDENTITY_MISMATCH')
+        device = _validate_device_id(selected.get('thing_name'))
+        def send(batch, uid=None):
+            reqs = _expected_requests(batch,FIXED_DATE,uid)
+            raw = _device_request(budget,token,terminal_uuid,device,reqs,batch,FIXED_DATE,uid)
+            return _parse_responses(raw,{r['method'] for r in reqs})
+        meta=send('metadata')
+        _read_device_model(meta['getDeviceInfo'],selected['model_kind'])
+        if _read_timezone_offset(meta['getTimezone']) != '+07:00' or _read_sd_status(meta['getSdCardStatus']) != 'NORMAL':
+            raise SdError('IDENTITY_MISMATCH')
+        stage='CALENDAR'
+        cal=send('calendar')
+        uid=_read_user_id(cal['getUserID'])
+        if uid is None or not _read_calendar(cal['searchDateWithVideo'],FIXED_DATE):
+            raise SdError('MALFORMED_RESPONSE')
+        stage='CLIPS'
+        response=send('clip-utc',uid)
+        candidates,count,missing=_fixed_intervals(response['searchVideoWithUTC'])
+        facts.update(clip_count=count,rows_without_lens_metadata=missing,fixed_candidate_count=len(candidates),
+                     lens1_metadata_present=bool(candidates),list_scope='FIRST_PAGE_ONLY')
+        if candidates:
+            facts['shortest_candidate_seconds']=candidates[0][1]-candidates[0][0]
+        return _report('SUCCESS',extra=dict(facts,requests_used=budget.requests))
+    except (SdError,cloud.ProbeError) as exc:
+        if getattr(exc,'http_status',None) is not None: facts['http_status']=exc.http_status
+        return _report('BLOCKED',exc.code,dict(facts,requests_used=budget.requests),stage)
 
 
 # -- orchestration ------------------------------------------------------------

@@ -1,0 +1,22 @@
+# One bounded SD sample using the cached session
+
+**Current: BLOCKED.** `media-check` returns MEDIA_PROTOCOL_UNVERIFIED before Keychain/network. Six bounded experiments failed to produce a usable file; do not re-enable without new protocol evidence and PO review. Sessions/listing remain usable. The details below describe the experimental implementation, not an operational downloader.
+
+OD-46 /2026-10-13: Owner requested the next step after the cached-session milestone. PO runs `python3 -m tools.ft_session media-check`; it never opens a login dialog. See STATUS for actual outcomes. Synthetic tests do not prove acquisition.
+
+The selected device must match the stored target/device digests. Read the existing date20261012 and first20 entries using four fixed requests: metadata/calendar/clip and a fresh playback UID through the existing calendar envelope. Select the shortest complete interval of5–180seconds; do not truncate a longer clip. The playback candidate used streamType1 with playback get/stop; the final candidate used streamType3 plus the native download frame and socket close, with no invented download-stop. Each trial had at most one negotiation/one media connection, retry0. The final candidate was rejected before its frame was sent. No recording/camera settings or live preview.
+
+PO selected conservative limits from the prior proposal under the next-step authorization:100MiB media,1MiB wire overhead,8MiB/part,300s overall cooperative deadline,10s socket calls,60s initial media idle wait (12s after video) and10GiB free-space reserve. The lease guard is checked through reception. DNS/syscalls are cooperative, not a guaranteed hard process kill. Stage outside git/sync in an owner-only directory0700 with files0600; do not print its path. Reject overwrites. Delete failed partials. A successful sample expires after24h and is removed on the next invocation; no scheduler guarantees deletion while offline. Before expiry, SAMPLE_EXISTS prevents duplicate acquisition.
+
+Negotiation uses only pinned TLS to aps1-cipc-api.i.tplinkcloud.com. Validate returned endpoint as HTTPS443 beneath tplinkcloud.com and path relayservice. Prefer the public literal relayIp returned by the authenticated negotiation, matching pinned upstream; if absent, resolve DNS once and require public addresses. Always verify the original vendor hostname/SNI with the pinned CA, including when dialing the returned IP. No private addresses, fallback/reconnect, CDN, redirect or proxy. Account/relay tokens, URLs, UID and source interval remain in memory. Shared diagnostics contain only fixed stages, byte counts and validated status codes.
+
+Reject duplicate headers/JSON keys, malformed error codes and excessive parts. Track video PTS per PID, including fragmented TS packets and rollover; idle/EOF without sufficient media time fails. Inspect the local file using the already installed ffprobe, restricted to local file protocol and MPEG-TS. Each video track must have the requested duration within2s tolerance; acquisition is not a claim of bit-exact SD export. Publish with atomic no-overwrite hard link after SHA256 and duration validation.
+
+Fixed remains PENDING_VISUAL_VERIFICATION after acquisition until PO checks actual images. [TP-Link FAQ4666](https://www.tp-link.com/us/support/faq/4666/) describes dual-track SD recordings, Fixed as the first video track and PT as the second. Do not infer lens identity from transport channels0,1 alone. Full-day completeness and counting remain unverified.
+
+Protocol adapted from [pinned MIT OnTapo](https://github.com/noriellecruz/ontapo/tree/a387f6abddb72f7e6eea72b374df5ad189da1f5f), see THIRD_PARTY_NOTICES. Claude implemented the offline protocol module/tests through the scoped launcher; PO corrected query/error handling and implemented transport/session/staging. Initial PO full606/606 PASS15.376s; Claude reported592/592 before PO changes. Final code NOT_RUN_BY_DEVELOPER. Latest tests/results are recorded in STATUS.
+
+
+## Readonly lens metadata follow-up
+
+`python3 -m tools.ft_session fixed-check` reuses the session for metadata/calendar/UTC-list only, three device requests on the same day/first20 rows. Exact method/params are guarded, including UID types and index/date limits. The C545D `chn_times` fields are checked for both lenses; unlabeled/PT-only rows never become lens1 candidates. Actual result:20rows,19lens1 candidates,0missing lens metadata. This supplies candidate intervals, not a visual mapping or complete downloaded clips. The media hold remains.
