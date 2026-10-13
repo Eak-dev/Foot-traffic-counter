@@ -90,16 +90,6 @@ def _private_root():
         raise SampleError('PREREQUISITE')
 
 
-def _choose_interval(result, tz):
-    sd._read_clips(result, tz, sd.FIXED_DATE)  # validates all returned rows first
-    rows = result['playback']['search_video_results']
-    intervals = {(v['startTime'], v['endTime']) for row in rows for v in row.values()
-                 if 5 <= v['endTime'] - v['startTime'] <= 180}
-    if not intervals:
-        raise SampleError('NO_ELIGIBLE_CLIP')
-    return min(intervals, key=lambda v: (v[1] - v[0], v[0]))
-
-
 def _list_one(token, terminal, selected, budget):
     if not isinstance(selected, dict) or selected.get('model_kind') not in ('EXACT', 'VARIANT'):
         raise SampleError('IDENTITY')
@@ -122,8 +112,11 @@ def _list_one(token, terminal, selected, budget):
     uid = sd._read_user_id(cal['getUserID'])
     if uid is None or not sd._read_calendar(cal['searchDateWithVideo'], sd.FIXED_DATE):
         raise SampleError('NO_ELIGIBLE_CLIP')
-    clips = send('clip', uid)
-    start, end = _choose_interval(clips['searchVideoOfDay'], tz)
+    clips = send('clip-utc', uid)
+    candidates, _rows, _missing = sd._fixed_intervals(clips['searchVideoWithUTC'])
+    if not candidates:
+        raise SampleError('NO_ELIGIBLE_CLIP')
+    start, end = candidates[0]  # already sorted shortest-first by sd._fixed_intervals
     # Pinned Camera.download obtains a fresh playback UID after search_day.
     # Reuse the already-reviewed calendar/getUserID envelope, still <=4 calls.
     fresh = send('calendar')
@@ -132,7 +125,7 @@ def _list_one(token, terminal, selected, budget):
         raise SampleError('IDENTITY')
     budget.metrics['fresh_playback_uid'] = True
     budget.metrics['playback_uid_changed'] = playback_uid != uid
-    return device, playback_uid, start, end, db.requests
+    return device, playback_uid, start, end, db.requests, len(candidates)
 
 
 def _negotiate(token, terminal, device, track, budget):
@@ -141,7 +134,7 @@ def _negotiate(token, terminal, device, track, budget):
         'customParams': '{"audio_config":{"encode_type":"G711ulaw","sample_rate":"16"}}',
         'dataTimeoutCount': 0, 'deviceId': sd._validate_device_id(device),
         'deviceType': 'SMART.IPCAMERA', 'playerId': terminal, 'preConnection': 0,
-        'resolution': 'HD', 'rootCaVer': '1', 'streamType': 3, 'trackId': track}).encode()
+        'resolution': 'HD', 'rootCaVer': '1', 'streamType': 1, 'trackId': track}).encode()
     headers = {'Authorization': token, 'X-Client-Id': terminal, 'X-Source': 'tapo-app',
         'X-Brand': 'TPLINK', 'X-Ca-Type': 'cloud-self', 'X-Request-Signature': 'OnTapo',
         'Content-Type': 'application/json; charset=UTF-8',
@@ -309,6 +302,34 @@ class VideoClock:
         return bool(self.clocks) and all(v[1] / 90000 >= seconds for v in self.clocks.values())
 
 
+# Diagnostics admit only fixed protocol containers/values. Unknown subtrees,
+# arbitrary text, sequence/session IDs, timestamps and credentials are dropped.
+def _control_summary(obj):
+    markers, codes = set(), set()
+    containers = {'params', 'data', 'result', 'playback', 'download', 'stream_status'}
+    enums = {'playing', 'finished', 'stopped', 'paused', 'success', 'error',
+             'no_data', 'idle', 'stream_status', 'response', 'notification'}
+    def visit(value, depth=0):
+        if depth > 8:
+            return
+        if isinstance(value, list):
+            for item in value[:20]:
+                visit(item, depth+1)
+        elif isinstance(value, dict):
+            for key, val in value.items():
+                if key in ('session_id', 'playback', 'download', 'event_type', 'stream_status'):
+                    markers.add('has_' + key)
+                if key in ('type', 'method', 'event_type', 'status', 'stream_status') and isinstance(val, str) and val in enums:
+                    markers.add(val)
+                if key in ('error_code', 'errorCode') and type(val) is int and -1000000 <= val <= 1000000:
+                    if len(codes) < 16:
+                        codes.add(val)
+                if key in containers:
+                    visit(val, depth+1)
+    visit(obj)
+    return {'markers': sorted(markers), 'error_codes': sorted(codes)}
+
+
 def _stream(relay, terminal, track, uid, start, end, out, budget, mode='playback'):
     if mode not in ('playback', 'download'):
         raise SampleError('PROTOCOL')
@@ -378,30 +399,27 @@ def _stream(relay, terminal, track, uid, start, end, out, budget, mode='playback
                     return written
             else:
                 budget.metrics['control_parts'] += 1
+                # Fixed protocol markers only, computed BEFORE any terminal
+                # END/INCOMPLETE decision, so redacted diagnostics survive
+                # even a zero-media terminal notification. Never dump an
+                # arbitrary reply: only known path names/status enum values,
+                # bounded integer error codes and presence booleans are kept.
+                obj = cloud._parse_json_object(payload)
+                summary = _control_summary(obj)
+                parts = budget.metrics.setdefault('control_summaries', [])
+                if len(parts) == 8:
+                    parts.pop()  # preserve first seven plus latest terminal part
+                parts.append(summary)
+                markers = set(budget.metrics.get('control_markers', []))
+                markers.update(summary['markers'])
+                budget.metrics['control_markers'] = sorted(markers)
                 reply = control_reply(payload)
+                if obj.get('type') == 'response':
+                    budget.metrics['playback_ack'] = True
                 if reply == 'END':
                     if not clock.covers(end - start - 2) or clock.tail:
                         raise SampleError('INCOMPLETE')
                     return written
-                obj = cloud._parse_json_object(payload)
-                # Fixed protocol markers only; never dump an arbitrary reply.
-                markers = set(budget.metrics.get('control_markers', []))
-                def inspect(value, depth=0):
-                    if depth > 8:
-                        return
-                    if isinstance(value, dict):
-                        for k, v in value.items():
-                            if k in ('stream_status', 'session_id', 'playback', 'notification', 'event_type'):
-                                markers.add('has_' + k)
-                            if k in ('status', 'stream_status', 'event_type', 'method', 'type') and isinstance(v, str) and v in ('playing', 'finished', 'stopped', 'paused', 'success', 'error', 'no_data', 'idle', 'stream_status', 'response', 'notification'):
-                                markers.add(v)
-                            inspect(v, depth + 1)
-                    elif isinstance(value, list):
-                        for v in value[:20]: inspect(v, depth + 1)
-                inspect(obj)
-                budget.metrics['control_markers'] = sorted(markers)
-                if obj.get('type') == 'response':
-                    budget.metrics['playback_ack'] = True
         raise SampleError('QUOTA')
     except (socket.timeout, SampleError) as exc:
         # Idle/EOF after complete packets may end a playback stream, but only
@@ -453,13 +471,14 @@ def sample_selected_device(token, terminal, selected, session_guard):
 def _run_sample(token, terminal, selected, session_guard):
     budget, stage, written = Budget(session_guard), 'PREFLIGHT', 0
     part, created = ROOT / 'sample.part', False
-    facts = {'fixed_mapping': 'UNKNOWN', 'media_complete': False, 'transfer_mode': 'DOWNLOAD'}
+    facts = {'fixed_mapping': 'UNKNOWN', 'media_complete': False, 'transfer_mode': 'PLAYBACK'}
     try:
         budget.check_time()
         _private_root()
         stage = 'LIST'
-        device, uid, start, end, count = _list_one(token, terminal, selected, budget)
-        facts.update(device_requests=count, requested_seconds=end-start)
+        device, uid, start, end, count, candidate_count = _list_one(token, terminal, selected, budget)
+        facts.update(device_requests=count, requested_seconds=end-start,
+                     lens_metadata_selected=True, fixed_candidate_count=candidate_count)
         track = 'backup-' + device + '-' + str(start)
         stage = 'RELAY'
         relay = _negotiate(token, terminal, device, track, budget)
@@ -467,7 +486,7 @@ def _run_sample(token, terminal, selected, session_guard):
         fd = os.open(str(part), os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
         created = True
         with os.fdopen(fd, 'wb') as out:
-            written = _stream(relay, terminal, track, uid, start, end, out, budget, mode='download')
+            written = _stream(relay, terminal, track, uid, start, end, out, budget, mode='playback')
             out.flush()
             os.fsync(out.fileno())
         stage = 'VALIDATE'

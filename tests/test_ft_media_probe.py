@@ -70,17 +70,75 @@ class MediaTests(unittest.TestCase):
         with patch.object(m,'_dial',return_value=sock),self.assertRaisesRegex(m.SampleError,'INCOMPLETE'):
             m._stream(('relay.tplinkcloud.com','/relayservice?r=x','token'),'uuid','track',1,100,110,io.BytesIO(),self.budget)
 
+    def test_terminal_diagnostics_survive_zero_media_and_are_bounded(self):
+        ack = {'type':'response', 'params':{'error_code':0,'session_id':'secret-session'}}
+        end = {'type':'notification','params':{'event_type':'stream_status','status':'finished'}}
+        wire = b'HTTP/1.1 200 OK\r\n\r\n'
+        wire += multipart(json.dumps(ack).encode(), b'application/json') * 10
+        wire += multipart(json.dumps(end).encode(), b'application/json')
+        sock = Sock(wire)
+        with patch.object(m,'_dial',return_value=sock), self.assertRaisesRegex(m.SampleError,'INCOMPLETE'):
+            m._stream(('relay.tplinkcloud.com','/relayservice?r=x','token'),'uuid','track',1,100,110,io.BytesIO(),self.budget)
+        self.assertEqual(len(self.budget.metrics['control_summaries']),8)
+        self.assertIn('finished',self.budget.metrics['control_summaries'][-1]['markers'])
+        self.assertIn('finished',self.budget.metrics['control_markers'])
+        self.assertTrue(self.budget.metrics['playback_ack'])
+        self.assertEqual(self.budget.metrics['media_bytes'],0)
+        self.assertNotIn('secret-session',json.dumps(self.budget.metrics))
+
+    def test_diagnostics_drop_unknown_text_and_numeric_identifiers(self):
+        obj = {'type':'notification','params':{'event_type':'stream_status',
+            'data':{'status':'finished','error_code':-52405,'session_id':987654,
+                    'reason':'private-message','errorCode':True},
+            'unknown':{'error_code':123456,'status':'playing'},
+            'seq':543210,'url':'https://secret.example','token':'secret'},
+            'private-key':{'status':'paused'}}
+        summary = m._control_summary(obj)
+        self.assertEqual(summary['error_codes'],[-52405])
+        text = json.dumps(summary)
+        for private in ('987654','543210','123456','private','secret','playing','paused'):
+            self.assertNotIn(private,text)
+        self.assertIn('finished',text)
+        self.assertIn('has_session_id',text)
+
+    def test_refusal_is_not_ack_but_has_redacted_code(self):
+        data = {'type':'response','params':{'error_code':-52405}}
+        sock=Sock(b'HTTP/1.1 200 OK\r\n\r\n'+multipart(json.dumps(data).encode(),b'application/json'))
+        with patch.object(m,'_dial',return_value=sock),self.assertRaisesRegex(p.MediaError,'STREAM_BUSY'):
+            m._stream(('relay.tplinkcloud.com','/relayservice?r=x','token'),'uuid','track',1,100,110,io.BytesIO(),self.budget)
+        self.assertFalse(self.budget.metrics['playback_ack'])
+        self.assertEqual(self.budget.metrics['control_summaries'][0]['error_codes'],[-52405])
+
+    def test_diagnostic_depth_list_and_code_limits(self):
+        obj = {'params':[{'error_code':n} for n in range(100)]}
+        self.assertLessEqual(len(m._control_summary(obj)['error_codes']),16)
+        obj = {'error_code':999999}
+        for _ in range(10): obj={'params':obj}
+        self.assertEqual(m._control_summary(obj)['error_codes'],[])
+        for code in (True, '1234',1000001,-1000001):
+            self.assertEqual(m._control_summary({'error_code':code})['error_codes'],[])
+
     def test_fresh_uid_after_listing_uses_four_bounded_requests(self):
         replies=[{'getDeviceInfo':{},'getTimezone':{},'getSdCardStatus':{}},
-                 {'getUserID':{},'searchDateWithVideo':{}}, {'searchVideoOfDay':{}},
+                 {'getUserID':{},'searchDateWithVideo':{}}, {'searchVideoWithUTC':{}},
                  {'getUserID':{},'searchDateWithVideo':{}}]
         def send(budget,*args):
             budget.use_request()
             return b'{}'
-        with patch.object(m.sd,'_device_request',side_effect=send) as request, patch.object(m.sd,'_parse_responses',side_effect=replies), patch.object(m.sd,'_read_device_model'), patch.object(m.sd,'_read_timezone_offset',return_value='+07:00'), patch.object(m.sd,'_read_sd_status',return_value='NORMAL'), patch.object(m.sd,'_read_calendar',return_value=True), patch.object(m.sd,'_read_user_id',side_effect=[7,9]), patch.object(m,'_choose_interval',return_value=(100,110)):
+        with patch.object(m.sd,'_device_request',side_effect=send) as request, patch.object(m.sd,'_parse_responses',side_effect=replies), patch.object(m.sd,'_read_device_model'), patch.object(m.sd,'_read_timezone_offset',return_value='+07:00'), patch.object(m.sd,'_read_sd_status',return_value='NORMAL'), patch.object(m.sd,'_read_calendar',return_value=True), patch.object(m.sd,'_read_user_id',side_effect=[7,9]), patch.object(m.sd,'_fixed_intervals',return_value=([(100,110),(200,260)],2,0)):
             result=m._list_one('token','uuid',{'thing_name':'synthetic','model_kind':'EXACT','app_server':None},self.budget)
-            self.assertEqual(result,('synthetic',9,100,110,4))
-            self.assertEqual([c.args[5] for c in request.call_args_list],['metadata','calendar','clip','calendar'])
+            self.assertEqual(result,('synthetic',9,100,110,4,2))
+            self.assertEqual([c.args[5] for c in request.call_args_list],['metadata','calendar','clip-utc','calendar'])
+
+    def test_no_lens1_candidate_is_rejected(self):
+        replies=[{'getDeviceInfo':{},'getTimezone':{},'getSdCardStatus':{}},
+                 {'getUserID':{},'searchDateWithVideo':{}}, {'searchVideoWithUTC':{}}]
+        def send(budget,*args):
+            budget.use_request()
+            return b'{}'
+        with patch.object(m.sd,'_device_request',side_effect=send), patch.object(m.sd,'_parse_responses',side_effect=replies), patch.object(m.sd,'_read_device_model'), patch.object(m.sd,'_read_timezone_offset',return_value='+07:00'), patch.object(m.sd,'_read_sd_status',return_value='NORMAL'), patch.object(m.sd,'_read_calendar',return_value=True), patch.object(m.sd,'_read_user_id',return_value=7), patch.object(m.sd,'_fixed_intervals',return_value=([],5,5)):
+            with self.assertRaisesRegex(m.SampleError,'NO_ELIGIBLE_CLIP'):
+                m._list_one('token','uuid',{'thing_name':'synthetic','model_kind':'EXACT','app_server':None},self.budget)
 
     def test_clock_fragmented_packets_and_independent_pids(self):
         c = m.VideoClock()
@@ -189,13 +247,24 @@ class MediaTests(unittest.TestCase):
                     m._stream(('relay.tplinkcloud.com','/relayservice?r=x','token'),'uuid','track',1,100,110,io.BytesIO(),self.budget)
             self.assertTrue(sock.closed)
 
-    def test_choose_complete_shortest_interval_and_bad_other_row(self):
-        start, _ = m.sd._day_bounds_utc(m.sd.FIXED_DATE,'+07:00')
-        data = {'playback': {'search_video_results': [{'a': {'startTime':start+1,'endTime':start+61,'vedio_type':1}}, {'b': {'startTime':start+70,'endTime':start+80,'vedio_type':1}}]}}
-        self.assertEqual(m._choose_interval(data,'+07:00'),(start+70,start+80))
-        data['playback']['search_video_results'][0]['a']['startTime']=True
-        with self.assertRaises(m.sd.SdError):
-            m._choose_interval(data,'+07:00')
+    def test_list_one_selects_shortest_validated_lens1_candidate(self):
+        start, _ = m.sd._day_bounds_utc(m.sd.FIXED_DATE, '+07:00')
+        data = {'playback': {'search_video_results': [
+            {'a': {'startTime': start+1, 'endTime': start+61, 'vedio_type': 1,
+                   'chn_times': {'1': {'event_start_time': start+41}}}},
+            {'b': {'startTime': start+70, 'endTime': start+80, 'vedio_type': 1,
+                   'chn_times': {'1': {'event_start_time': start+71}}}},
+        ]}}
+        replies = [{'getDeviceInfo': {}, 'getTimezone': {}, 'getSdCardStatus': {}},
+                   {'getUserID': {}, 'searchDateWithVideo': {}}, {'searchVideoWithUTC': data},
+                   {'getUserID': {}, 'searchDateWithVideo': {}}]
+
+        def send(budget, *args):
+            budget.use_request()
+            return b'{}'
+        with patch.object(m.sd, '_device_request', side_effect=send), patch.object(m.sd, '_parse_responses', side_effect=replies), patch.object(m.sd, '_read_device_model'), patch.object(m.sd, '_read_timezone_offset', return_value='+07:00'), patch.object(m.sd, '_read_sd_status', return_value='NORMAL'), patch.object(m.sd, '_read_calendar', return_value=True), patch.object(m.sd, '_read_user_id', side_effect=[7, 9]):
+            result = m._list_one('token', 'uuid', {'thing_name': 'synthetic', 'model_kind': 'EXACT', 'app_server': None}, self.budget)
+        self.assertEqual(result, ('synthetic', 9, start+71, start+80, 4, 2))
 
     def test_inspection_each_video_duration_required(self):
         data={'streams':[{'index':0,'codec_type':'video','codec_name':'h264','width':720,'height':480,'duration':'10'}]}
@@ -207,11 +276,27 @@ class MediaTests(unittest.TestCase):
             m._inspect(Path('/synthetic/sample.part'),10,self.budget)
 
     def test_failed_trial_removes_part_and_no_publication(self):
-        with tempfile.TemporaryDirectory() as d, patch.object(m,'ROOT',Path(d)), patch.object(m,'_private_root'), patch.object(m,'_list_one',return_value=('dev',1,100,110,3)), patch.object(m,'_negotiate',return_value=('host','path','token')), patch.object(m,'_stream',side_effect=m.SampleError('QUOTA')):
+        with tempfile.TemporaryDirectory() as d, patch.object(m,'ROOT',Path(d)), patch.object(m,'_private_root'), patch.object(m,'_list_one',return_value=('dev',1,100,110,3,2)), patch.object(m,'_negotiate',return_value=('host','path','token')), patch.object(m,'_stream',side_effect=m.SampleError('QUOTA')) as stream:
             r=m._run_sample('secret','uuid',{},lambda:None)
             self.assertEqual(r['reason'],'QUOTA')
             self.assertEqual(list(Path(d).iterdir()),[])
             self.assertNotIn('secret',json.dumps(r))
+            self.assertEqual(r['transfer_mode'],'PLAYBACK')
+            self.assertTrue(r['lens_metadata_selected'])
+            self.assertEqual(r['fixed_candidate_count'],2)
+            self.assertEqual(stream.call_args.kwargs['mode'],'playback')
+
+    def test_negotiate_requests_known_playback_stream_type(self):
+        class Resp:
+            status = 200
+            def read(self, n):
+                return b''
+        conn = Mock()
+        conn.getresponse.return_value = Resp()
+        with patch.object(m.http.client, 'HTTPSConnection', return_value=conn), patch.object(m.cloud, '_bounded_read', return_value=json.dumps({'errorCode': 0, 'result': {'relayUrl': 'https://relay.tplinkcloud.com/relayservice?r=x', 'relayToken': 'tok'}}).encode()):
+            m._negotiate('token', 'uuid', 'synthetic', 'track', self.budget)
+        body = json.loads(conn.request.call_args.kwargs['body'])
+        self.assertEqual(body['streamType'], 1)
 
     def test_private_staging_rejects_symlink_and_preserves_recent_sample(self):
         with tempfile.TemporaryDirectory() as d:
