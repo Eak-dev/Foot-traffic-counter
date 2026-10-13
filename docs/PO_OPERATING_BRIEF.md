@@ -1,6 +1,6 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
-OD-52 current: Owner narrowed the cyan front-shop ROI to a diagonal corridor. Front remains line crossings, pink shop-side remains entries. Pilot now20/27; old35front result refers to the superseded rectangle.
+OD-53 current: Owner widened the cyan diagonal front-shop region to cover the farther aisle. Front remains line crossings, pink shop-side remains entries. Current pilot34/27; OD-52 narrow polygon20 and original rectangle35 are historical definitions, not current counts.
 
 OD-50 current: blue โซนหน้าร้าน line crossings and pink โซนข้างร้าน entries from any edge are implemented separately on the noon clip. Owner confirmed entry semantics. Read latest STATUS/ZONE_COUNTING; preserve both definitions and do not sum them as unique people.
 

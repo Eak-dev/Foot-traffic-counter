@@ -60,3 +60,7 @@ tracks; otherwise, a new inference run is unavoidable before any claim.
 - Reviewed examples near21–22,32–35,42–43s; some crossings at the upper boundary now fall outside the polygon. Missed crossings near polygon tips/ROI resets remain possible; no full accuracy PASS is claimed. Existing CrossingCounter handles polygon state reset; no new class was introduced.
 - Keep the requested diagonal shape rather than trim it further: an extra foreground trim would remove additional possible passages. Seated area overlaps the polygon; finite line-crossing semantics remain necessary.
 - Claude advisory completed exit0/44.4s; NOT_RUN_BY_DEVELOPER. PO performs actual checks and acceptance.
+
+## OD-53 wider corridor — PO follow-up
+
+No new Claude review is claimed. The same crop/anchor/baseline prerequisites apply and were verified: all new corners fit the detector crop, old20event signatures reproduce at stored precision, and pink config/report/events are unchanged. The latest four-corner outline extends farther-aisle coverage; its foreground edge also follows the newly drawn boundary, so it is not a strict superset of the prior polygon. New automatic count34 is not an accuracy metric. PO source-frame spot checks cover the widened upper gate and seated foreground area, with full manual scoring still outstanding. Private media and exact camera coordinates are not included here.

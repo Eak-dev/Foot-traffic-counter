@@ -2,7 +2,7 @@
 
 Owner OD-50 defines blue as **โซนหน้าร้าน** and pink as **โซนข้างร้าน**. Blue counts line-crossing passages; pink counts stable entries from any edge, as explicitly confirmed by Owner. A person who passes both zones can contribute to both reports; these counts must not be added as unique visitors. Initial presence, sitting or remaining inside a region is not itself a passage.
 
-OD-52 replaces the original wide blue rectangle with the Owner-marked diagonal corridor, keeping the original gate direction and clipping the gate to the new polygon. PO maps the pink rectangle from the Owner's screenshot and uses its boundary for entry counting. Pink has no counting line; blue keeps its original visible line. Private camera coordinates and source media are not stored in Git.
+OD-53 widens the diagonal blue corridor to the latest Owner-marked outline, including the farther aisle. It supersedes the narrower OD-52 shape, while keeping the original gate direction and clipping the gate to the new polygon. PO maps the pink rectangle from the Owner's screenshot and uses its boundary for entry counting. Pink has no counting line; blue keeps its original visible line. Private camera coordinates and source media are not stored in Git.
 
 ## Run locally
 
@@ -28,8 +28,14 @@ Private inputs and outputs remain outside Git/sync with owner-only permissions, 
 
 ## Actual noon evidence
 
-The180s pilot yields35blue line crossings and27pink entries. The blue event list is identical toOD49; pink has no complete manual accuracy measurement. Source/model/detection settings were reused; only pink counting semantics changed after Owner clarification. Combined900-frame H.264 decoded in full and Thai labels/regions/totals were visually verified. Full739-test suite:737PASS/2runtime skips, followed by57focused passes after mode-binding hardening. Data never leaves private local staging; no camera/network calls were added.
+The historical OD-50 180s pilot yields35blue line crossings and27pink entries. The blue event list is identical toOD49; pink has no complete manual accuracy measurement. Source/model/detection settings were reused; only pink counting semantics changed after Owner clarification. Combined900-frame H.264 decoded in full and Thai labels/regions/totals were visually verified. Full739-test suite:737PASS/2runtime skips, followed by57focused passes after mode-binding hardening. Data never leaves private local staging; no camera/network calls were added.
 
 ## OD-52 diagonal front region
 
-Current private preset follows the new screenshot polygon and gives20front crossings on the same180s clip; pink remains27entries with unchanged events. The prior35front count belongs to the old rectangular definition. Existing tracks were reused after verifying crop/anchor compatibility and reproducing the old event signatures; no inference or camera call was needed. The shape still includes part of the seated area, so line-crossing semantics and visual spot checks remain necessary. New-region accuracy is NOT_EVALUATED; see ZONE_GEOMETRY_REVIEW.
+The superseded OD-52 private preset follows its screenshot polygon and gives20front crossings on the same180s clip; pink remains27entries with unchanged events. The prior35front count belongs to the old rectangular definition. Existing tracks were reused after verifying crop/anchor compatibility and reproducing the old event signatures; no inference or camera call was needed. The shape still includes part of the seated area, so line-crossing semantics and visual spot checks remain necessary. New-region accuracy is NOT_EVALUATED; see ZONE_GEOMETRY_REVIEW.
+
+## OD-53 wider front region (current)
+
+The latest Owner outline widens the farther-aisle boundary. Map only the video area and the four corners of the closed outline; a continued pen stroke past the lower corner is not another polygon vertex. The original vertical gate now spans the widened region. On the same180s source this counts34front crossings (13forward/21backward), with27pink entries and identical pink report/events. Cached replay first reproduces all20OD-52 event signatures at millisecond precision. Existing detector crop still contains every new corner; model/tracker/center anchors remain unchanged. No new inference or camera call.
+
+The changed counts reflect changed coverage, not proven accuracy. The existing track rounding, occlusion and ID-switch limitations still apply. Source-frame spot checks include the farther aisle and seated foreground occupant; full34-event manual validation remains outstanding. Cyan is retained for front-shop identity even though the Owner drew its target outline in green.
