@@ -1,5 +1,10 @@
 # แผนงาน: ดึงคลิปจากกล้องเป็นชุด แล้วนับคนเดินผ่านภายหลัง
 
+OD-52 geometry result: front-shop cyan polygon now follows the Owner-marked diagonal corridor; the original vertical counting line is clipped to the polygon. Replaying900 existing sampled frames produces20front crossings; pink shop-side remains27entries with identical events. Old rectangle replay reproduces35event signatures at millisecond precision, establishing the comparison baseline. No model/crop/anchor/code changes. Counts measure the new region, not an accuracy improvement. Source-frame spot checks reviewed seated foreground occupant and edge cases; complete new-geometry manual accuracy remains NOT_EVALUATED. Claude advisory exit0/44.4s; writer PO/no worker. See ZONE_GEOMETRY_REVIEW.
+
+OD-52: Owner requests front-shop ROI shaped as the screenshot's narrow diagonal green corridor, replacing the wide blue rectangle, and authorizes PO geometry recommendations. Preserve blue display identity and line-crossing semantics, pink shop-side entry geometry/mode/count. Reuse existing private source/tracks; no new camera calls, inference, dependencies or credentials. PO maps screenshot video bounds, compares old and new geometry on identical persisted anchors, checks seated-person negatives and visually verifies presentation. Lower counts alone are not accuracy evidence; prior manual metrics do not transfer to changed geometry. Private preset/media stay outside Git. Baseline3a724d7f80d4d052c8c3a01d78cc0039e5bdcc3c; same branch, writer PO.
+
+
 OD-50 Owner clarified: pink โซนข้างร้าน counts stable entries from any edge; blue โซนหน้าร้าน retains line crossings. Initial occupancy is not an entry. PO implements entry counting from the same persisted detection/tracker anchors with boundary hysteresis; no new inference/model/network is required for this semantic change. Separate canonical hashes bind the counting mode. Pink line-counter experiment is superseded, not an accepted result.
 
 

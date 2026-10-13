@@ -1,5 +1,7 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
+OD-52 current: Owner narrowed the cyan front-shop ROI to a diagonal corridor. Front remains line crossings, pink shop-side remains entries. Pilot now20/27; old35front result refers to the superseded rectangle.
+
 OD-50 current: blue โซนหน้าร้าน line crossings and pink โซนข้างร้าน entries from any edge are implemented separately on the noon clip. Owner confirmed entry semantics. Read latest STATUS/ZONE_COUNTING; preserve both definitions and do not sum them as unique people.
 
 OD-49 current milestone: actual remote SD acquisition and local noon counting pilot work. Read latest STATUS/COUNTING_VALIDATION; do not restart auth or route research. Whole-day completeness/accuracy remains unverified. Continue from existing local runtime/session and reviewed evidence.

@@ -1,5 +1,12 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
+OD-52 final validation: PO full739tests/32.237s,737PASS/2runtimeSKIP; no source-code changes. New900-frame/179.998667s H.264 whole-file decodePASS and screenshot-time38s geometry/Thai labels visually verified. Current private preset activated. Blue20/pink27, pink report/events identical. Files0600/directories0700 outsideGit. NOT_RUN_BY_DEVELOPER; checkpoint publication recorded separately.
+
+OD-52 geometry result: front-shop cyan polygon now follows the Owner-marked diagonal corridor; the original vertical counting line is clipped to the polygon. Replaying900 existing sampled frames produces20front crossings; pink shop-side remains27entries with identical events. Old rectangle replay reproduces35event signatures at millisecond precision, establishing the comparison baseline. No model/crop/anchor/code changes. Counts measure the new region, not an accuracy improvement. Source-frame spot checks reviewed seated foreground occupant and edge cases; complete new-geometry manual accuracy remains NOT_EVALUATED. Claude advisory exit0/44.4s; writer PO/no worker. See ZONE_GEOMETRY_REVIEW.
+
+OD-52: Owner requests front-shop ROI shaped as the screenshot's narrow diagonal green corridor, replacing the wide blue rectangle, and authorizes PO geometry recommendations. Preserve blue display identity and line-crossing semantics, pink shop-side entry geometry/mode/count. Reuse existing private source/tracks; no new camera calls, inference, dependencies or credentials. PO maps screenshot video bounds, compares old and new geometry on identical persisted anchors, checks seated-person negatives and visually verifies presentation. Lower counts alone are not accuracy evidence; prior manual metrics do not transfer to changed geometry. Private preset/media stay outside Git. Baseline3a724d7f80d4d052c8c3a01d78cc0039e5bdcc3c; same branch, writer PO.
+
+
 OD-51 label-only verification: PO full739tests in40.495s,737PASS/2runtimeSKIP; no code changes. Event equality checked before rerender. Final name is โซนข้างร้าน.
 
 OD-51: Owner corrects pink display name to โซนข้างร้าน. Presentation/config/report labels updated; stable internal zone ID, geometry, counting mode and events stay unchanged (blue35/pink27). PO label-only maintenance; no new inference, camera access or credentials. Publication status recorded after checkpoint.

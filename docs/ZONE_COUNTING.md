@@ -2,7 +2,7 @@
 
 Owner OD-50 defines blue as **โซนหน้าร้าน** and pink as **โซนข้างร้าน**. Blue counts line-crossing passages; pink counts stable entries from any edge, as explicitly confirmed by Owner. A person who passes both zones can contribute to both reports; these counts must not be added as unique visitors. Initial presence, sitting or remaining inside a region is not itself a passage.
 
-The blue preset is preserved from OD-49. PO maps the pink rectangle from the Owner's screenshot and uses its boundary for entry counting. Pink has no counting line; blue keeps its original visible line. Private camera coordinates and source media are not stored in Git.
+OD-52 replaces the original wide blue rectangle with the Owner-marked diagonal corridor, keeping the original gate direction and clipping the gate to the new polygon. PO maps the pink rectangle from the Owner's screenshot and uses its boundary for entry counting. Pink has no counting line; blue keeps its original visible line. Private camera coordinates and source media are not stored in Git.
 
 ## Run locally
 
@@ -29,3 +29,7 @@ Private inputs and outputs remain outside Git/sync with owner-only permissions, 
 ## Actual noon evidence
 
 The180s pilot yields35blue line crossings and27pink entries. The blue event list is identical toOD49; pink has no complete manual accuracy measurement. Source/model/detection settings were reused; only pink counting semantics changed after Owner clarification. Combined900-frame H.264 decoded in full and Thai labels/regions/totals were visually verified. Full739-test suite:737PASS/2runtime skips, followed by57focused passes after mode-binding hardening. Data never leaves private local staging; no camera/network calls were added.
+
+## OD-52 diagonal front region
+
+Current private preset follows the new screenshot polygon and gives20front crossings on the same180s clip; pink remains27entries with unchanged events. The prior35front count belongs to the old rectangular definition. Existing tracks were reused after verifying crop/anchor compatibility and reproducing the old event signatures; no inference or camera call was needed. The shape still includes part of the seated area, so line-crossing semantics and visual spot checks remain necessary. New-region accuracy is NOT_EVALUATED; see ZONE_GEOMETRY_REVIEW.
