@@ -1,5 +1,7 @@
 # SD media relay: independent review and PO disposition (OD-46)
 
+**Superseded by OD-48 success:** Native download over recorded relay1 produced a real validated clip. Fixed was identified visually and extracted. Earlier empty-playback results remain accurate for that different frame; native/cloud pairing is now empirically verified for this one camera/interval. See [OD48_PROTOCOL_REVIEW](OD48_PROTOCOL_REVIEW.md) and STATUS for final evidence.
+
 Claude advisory completed through the scoped local launcher, exit0/123.4s; no tests/network/runtime access, NOT_RUN_BY_DEVELOPER. PO checked its conclusions against the actual stage results and public sources before writing this final disposition. Raw advisory stays local in launcher results.
 
 ## Verified outcome

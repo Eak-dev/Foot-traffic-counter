@@ -318,7 +318,7 @@ class SessionManager:
         if command == "media-check":
             from tools.ft_media_probe import LIVE_TRIAL_ENABLED
             if not LIVE_TRIAL_ENABLED:
-                return {"status": "BLOCKED", "reason": "MEDIA_PROTOCOL_UNVERIFIED"}
+                return {"status": "BLOCKED", "reason": "MEDIA_TRIAL_NOT_ENABLED"}
         try:
             with self.lock():
                 try:

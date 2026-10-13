@@ -293,7 +293,7 @@ class SessionTests(unittest.TestCase):
 
     def test_media_hold_blocks_before_keychain_and_network(self):
         with patch.object(self.store, "load") as load:
-            self.assertEqual(self.call("media-check")["reason"], "MEDIA_PROTOCOL_UNVERIFIED")
+            self.assertEqual(self.call("media-check")["reason"], "MEDIA_TRIAL_NOT_ENABLED")
             load.assert_not_called()
         self.discovery.assert_not_called()
         self.prompt.assert_not_called()

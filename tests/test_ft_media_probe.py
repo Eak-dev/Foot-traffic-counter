@@ -101,6 +101,57 @@ class MediaTests(unittest.TestCase):
         self.assertIn('finished',text)
         self.assertIn('has_session_id',text)
 
+    def test_protocol_identifiers_capture_underscored_event_type_and_vocab(self):
+        obj = {'type': 'notification', 'params': {'event_type': 'stream_sequence',
+            'data': {'event_type': 'channel_stream_status', 'status': 'no_data',
+                      'reason': 'timeout'}}}
+        summary = m._control_summary(obj)
+        self.assertEqual(summary['protocol_identifiers']['event_type'],
+                          ['channel_stream_status', 'stream_sequence'])
+        self.assertEqual(summary['protocol_identifiers']['status'], ['no_data'])
+        self.assertEqual(summary['protocol_identifiers']['reason'], ['timeout'])
+
+    def test_protocol_identifiers_drop_unknown_and_malformed_strings(self):
+        obj = {'params': {'event_type': 'solo', 'status': 'private-message',
+            'reason': 'secret_token', 'data': {
+                'event_type': 'secret_token@example.com', 'status': '987654',
+                'reason': 'Mixed_Case', 'event_type2': 'stream_status'}}}
+        summary = m._control_summary(obj)
+        text = json.dumps(summary['protocol_identifiers'])
+        for private in ('solo', 'private-message', 'secret_token', '987654',
+                         'Mixed_Case', 'example.com', '@'):
+            self.assertNotIn(private, text)
+        self.assertEqual(summary['protocol_identifiers'], {})
+
+    def test_protocol_identifiers_bounded_and_dropped_outside_containers(self):
+        obj = {'unknown': {'event_type': 'outside_container'},
+               'params': {'event_type': ['not_a_string'],
+                   'data': [{'event_type': 'evt_' + chr(97+n)} for n in range(20)]}}
+        summary = m._control_summary(obj)
+        self.assertEqual(len(summary['protocol_identifiers'].get('event_type', [])), 16)
+        self.assertNotIn('outside_container', json.dumps(summary['protocol_identifiers']))
+
+    def test_control_identifiers_aggregate_across_parts_and_survive_terminal(self):
+        first = {'type': 'response', 'params': {'event_type': 'stream_sequence', 'error_code': 0}}
+        end = {'type': 'notification', 'params': {'event_type': 'channel_stream_status',
+            'status': 'finished'}}
+        wire = b'HTTP/1.1 200 OK\r\n\r\n'
+        wire += multipart(json.dumps(first).encode(), b'application/json')
+        wire += multipart(json.dumps(end).encode(), b'application/json')
+        sock = Sock(wire)
+        with patch.object(m, '_dial', return_value=sock), self.assertRaisesRegex(m.SampleError, 'INCOMPLETE'):
+            m._stream(('relay.tplinkcloud.com', '/relayservice?r=x', 'token'), 'uuid', 'track', 1, 100, 110, io.BytesIO(), self.budget)
+        identifiers = self.budget.metrics['control_identifiers']
+        self.assertEqual(identifiers['event_type'], ['channel_stream_status', 'stream_sequence'])
+        self.assertEqual(identifiers['status'], ['finished'])
+
+    def test_lens_mask_notification_is_readonly_redacted_enum(self):
+        for state in ('on','off'):
+            summary=m._control_summary({'params':{'event_type':'channel_lens_mask_info','enabled':state}})
+            self.assertIn('lens_mask_'+state,summary['markers'])
+        summary=m._control_summary({'params':{'event_type':'channel_lens_mask_info','enabled':'private-secret'}})
+        self.assertNotIn('private-secret',json.dumps(summary))
+
     def test_refusal_is_not_ack_but_has_redacted_code(self):
         data = {'type':'response','params':{'error_code':-52405}}
         sock=Sock(b'HTTP/1.1 200 OK\r\n\r\n'+multipart(json.dumps(data).encode(),b'application/json'))
@@ -129,6 +180,14 @@ class MediaTests(unittest.TestCase):
             result=m._list_one('token','uuid',{'thing_name':'synthetic','model_kind':'EXACT','app_server':None},self.budget)
             self.assertEqual(result,('synthetic',9,100,110,4,2))
             self.assertEqual([c.args[5] for c in request.call_args_list],['metadata','calendar','clip-utc','calendar'])
+
+    def test_alternate_clip_is_an_existing_distinct_interval(self):
+        candidates=[(100,116),(200,230)]
+        with patch.object(m,'CLIP_SELECTION','second_shortest'):
+            self.assertEqual(m._select_fixed_interval(candidates),(200,230))
+            with self.assertRaises(m.SampleError): m._select_fixed_interval(candidates[:1])
+        with patch.object(m,'CLIP_SELECTION','unknown'),self.assertRaises(m.SampleError):
+            m._select_fixed_interval(candidates)
 
     def test_no_lens1_candidate_is_rejected(self):
         replies=[{'getDeviceInfo':{},'getTimezone':{},'getSdCardStatus':{}},
@@ -281,10 +340,20 @@ class MediaTests(unittest.TestCase):
             self.assertEqual(r['reason'],'QUOTA')
             self.assertEqual(list(Path(d).iterdir()),[])
             self.assertNotIn('secret',json.dumps(r))
-            self.assertEqual(r['transfer_mode'],'PLAYBACK')
+            self.assertEqual(r['transfer_mode'],'DOWNLOAD')
             self.assertTrue(r['lens_metadata_selected'])
             self.assertEqual(r['fixed_candidate_count'],2)
-            self.assertEqual(stream.call_args.kwargs['mode'],'playback')
+            self.assertEqual(stream.call_args.kwargs['mode'],'download')
+
+    def test_scoped_native_frame_uses_same_recorded_relay_without_fallback(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(m,'ROOT',Path(d)), patch.object(m,'TRANSFER_MODE','download'), patch.object(m,'_private_root'), patch.object(m,'_list_one',return_value=('dev',1,100,116,4,19)), patch.object(m,'_negotiate',return_value=('host','path','token')) as negotiate, patch.object(m,'_stream',side_effect=m.SampleError('INCOMPLETE')) as stream:
+            result=m._run_sample('secret','uuid',{},lambda:None)
+            self.assertEqual(result['transfer_mode'],'DOWNLOAD')
+            self.assertEqual(result['relay_stream_type'],1)
+            self.assertEqual(stream.call_args.kwargs['mode'],'download')
+            self.assertEqual(stream.call_count,1)
+            self.assertEqual(negotiate.call_count,1)
+            self.assertEqual(list(Path(d).iterdir()),[])
 
     def test_negotiate_requests_known_playback_stream_type(self):
         class Resp:
