@@ -54,7 +54,53 @@ def _config_sha256(cfg):
 
 def _zone_config_sha(zone):
     cfg = zone["config"]
+    if zone.get("counter_mode") == "lanes":
+        from tools import ft_lane_counter as lc
+        return _config_sha256({"config": cfg, "lanes": zone["lanes"], "counter_mode": "lanes",
+            "rules": [lc.ARM_CONSECUTIVE, lc.CONFIRM_CONSECUTIVE, lc.MIN_LANE_DISPLACEMENT,
+                      lc.LANE_COOLDOWN_S, lc.IMPLAUSIBLE_STEP, lc.IMPLAUSIBLE_STEP_WINDOW_S]})
     return _config_sha256(cfg if zone.get("counter_mode", "line") == "line" else {"config": cfg, "counter_mode": "entries"})
+
+
+def recount_lanes(zone, report, track_path):
+    """Replay one shared detector/tracker stream through two front-shop gates."""
+    from tools.ft_lane_counter import LaneCrossingCounter, validate_lanes
+    validate_lanes(zone["lanes"], zone["config"])
+    ft_count._outside_repo(track_path)
+    st = os.lstat(track_path)
+    _require(stat.S_ISREG(st.st_mode) and st.st_uid == os.getuid() and not st.st_mode & 0o077, "private tracks required")
+    _require(st.st_size <= ft_count.MAX_TRACKS_JSONL_BYTES, "track log too large")
+    _require(report.get("config_sha256") in (_config_sha256(zone["config"]), _zone_config_sha(zone)), "lane config mismatch")
+    tracks_sha = ft_count._file_sha256(track_path)
+    if "tracks_sha256" in report:
+        _require(report["tracks_sha256"] == tracks_sha, "track hash mismatch")
+    counter = LaneCrossingCounter(zone["lanes"], zone["config"].get("deadband", ft_count.DEFAULT_DEADBAND))
+    frames, previous, previous_frame = 0, -1, -1
+    with open(track_path) as fh:
+        while True:
+            line = fh.readline(1024 * 1024)
+            if not line: break
+            _require(line.endswith("\n"), "track row incomplete")
+            row = json.loads(line)
+            t, frame = row["time_seconds"], row["frame"]
+            _require(type(t) in (int,float) and math.isfinite(t) and previous < t <= report["duration_seconds"], "invalid track clock")
+            _require(abs(t - frames / report["sample_fps"]) <= .002, "track clock mismatch")
+            _require(type(frame) is int and frame > previous_frame and (frames != 0 or frame == 0), "invalid frame clock")
+            _require(isinstance(row["tracks"], list), "invalid track row")
+            seen = set()
+            for track in row["tracks"]:
+                tid = track["track_id"]
+                _require(isinstance(tid,(int,str)) and not isinstance(tid,bool) and tid not in seen, "duplicate/invalid track id")
+                seen.add(tid)
+                counter.update(tid, track["foot"], t)
+            previous, previous_frame = t, frame
+            frames += 1
+    _require(frames == report["frames_processed"], "lane track log incomplete")
+    events = sorted(counter.events, key=lambda e: e["time_seconds"])
+    return {**report, "counter_mode": "lanes", "config_sha256": _zone_config_sha(zone),
+            "tracks_sha256": tracks_sha, "replay_anchor_precision_decimals": 4,
+            "count": counter.count, "events": events, "lane_counts": counter.lane_counts,
+            "direction_counts": {d:sum(e["direction"] == d for e in events) for d in ("forward","backward")}}
 
 
 def recount_entries(zone, report, track_path):
@@ -117,9 +163,10 @@ def validate_zones_config(cfg):
     sample_fps_values = set()
     for zone in zones:
         _require(isinstance(zone, dict), "zone must be an object")
-        _require(set(zone) >= {"id", "name", "color", "config"} and set(zone) <= {"id", "name", "color", "config", "counter_mode"}, "unknown zone field")
+        _require(set(zone) >= {"id", "name", "color", "config"} and set(zone) <= {"id", "name", "color", "config", "counter_mode", "lanes"}, "unknown zone field")
 
-        _require(zone.get("counter_mode", "line") in ("line", "entries"), "invalid counter mode")
+        _require(zone.get("counter_mode", "line") in ("line", "entries", "lanes"), "invalid counter mode")
+        _require(("lanes" in zone) == (zone.get("counter_mode") == "lanes"), "lanes require lane mode")
         zid = zone.get("id")
         _require(isinstance(zid, str) and bool(ZONE_ID_RE.fullmatch(zid)), "invalid zone id")
         _require(zid not in ids, "duplicate zone id")
@@ -141,6 +188,9 @@ def validate_zones_config(cfg):
         zcfg = zone.get("config")
         _require(isinstance(zcfg, dict), "zone config must be an object")
         ft_count.validate_config(zcfg)
+        if zone.get("counter_mode") == "lanes":
+            from tools.ft_lane_counter import validate_lanes
+            validate_lanes(zone["lanes"], zcfg)
         sample_fps_values.add(zcfg.get("sample_fps", ft_count.DEFAULT_SAMPLE_FPS))
 
     _require(len(sample_fps_values) == 1, "zones must share the same sample_fps")
@@ -159,8 +209,9 @@ def _run_zone(zone, input_path, model_path, zone_output_dir, deadline_monotonic,
         raw = fh.read(8 * 1024 * 1024 + 1)
     _require(len(raw) <= 8 * 1024 * 1024, "zone report too large")
     report = json.loads(raw)
-    if zone.get("counter_mode", "line") == "entries":
-        report = recount_entries(zone, report, os.path.join(zone_output_dir, "tracks.jsonl"))
+    if zone.get("counter_mode", "line") in ("entries", "lanes"):
+        recount = recount_lanes if zone["counter_mode"] == "lanes" else recount_entries
+        report = recount(zone, report, os.path.join(zone_output_dir, "tracks.jsonl"))
         with open(os.path.join(zone_output_dir, "report.json"), "w", encoding="utf-8") as fh:
             json.dump(report, fh)
         # Single-zone annotation is the inference diagnostic, not the entry display.
@@ -223,6 +274,12 @@ def merge_reports(zones, reports):
 
         for direction in ("forward", "backward"):
             _require(direction_counts[direction] == sum(e["direction"] == direction for e in events), "event directions disagree with totals")
+        if zone.get("counter_mode") == "lanes":
+            ids = {lane["id"] for lane in zone["lanes"]}
+            lane_counts = report.get("lane_counts")
+            _require(isinstance(lane_counts,dict) and set(lane_counts) == ids and all(type(v) is int and v >= 0 for v in lane_counts.values()), "invalid lane counts")
+            _require(all(e.get("lane_id") in ids for e in events), "invalid event lane")
+            _require(all(lane_counts[lid] == sum(e["lane_id"] == lid for e in events) for lid in ids), "lane count mismatch")
 
     first, second = reports
     for key in ("input_sha256", "model_sha256", "duration_seconds", "sample_fps", "frames_processed"):
@@ -242,6 +299,8 @@ def merge_reports(zones, reports):
                 "config_sha256": report["config_sha256"],
             }
         )
+        if zone.get("counter_mode") == "lanes":
+            zones_out[-1]["lane_counts"] = report["lane_counts"]
 
     return {
         "schema_version": 2,
@@ -274,6 +333,7 @@ def _sanitize_stdout_report(merged):
                 "count": z["count"],
                 "direction_counts": z["direction_counts"],
                 "config_sha256": z["config_sha256"],
+                **({"lane_counts": z["lane_counts"]} if "lane_counts" in z else {}),
             }
             for z in merged.get("zones", [])
         ],
@@ -303,12 +363,18 @@ def write_zones_page(root, zones, reports, combined=False):
         for n, event in enumerate(report.get("events", []), 1):
             t = float(event["time_seconds"])
             direction = "เข้าโซน" if zone.get("counter_mode") == "entries" else html.escape(str(event["direction"]))
+            if zone.get("counter_mode") == "lanes":
+                lane_name = next(lane["name"] for lane in zone["lanes"] if lane["id"] == event["lane_id"])
+                direction = html.escape(lane_name) + " · " + direction
             rows.append(
                 '<tr><td>%d</td><td><button data-time="%.2f" data-zone="%s">%.1f วินาที</button></td>'
                 '<td>%s</td></tr>' % (n, t, html.escape(safe_id), t, direction)
             )
         name = html.escape(zone["name"])
         method = "เดินเข้ากรอบจากด้านใดก็ได้ (ไม่รวมคนที่อยู่ในกรอบตั้งแต่เริ่มคลิป)" if zone.get("counter_mode") == "entries" else "เดินข้ามเส้นนับภายในกรอบ"
+        if zone.get("counter_mode") == "lanes":
+            method = "เดินข้ามเส้นในช่องใกล้หรือช่องไกล ยอดหน้าร้านแยกจากโซนข้างร้าน"
+            method += " · " + " / ".join(html.escape(lane["name"])+": "+str(report["lane_counts"][lane["id"]])+" ครั้ง" for lane in zone["lanes"])
         color = html.escape(zone["color"])
         cards.append(
             '<section class="zone"><h2 style="color:%s">%s</h2>'

@@ -2,7 +2,7 @@
 
 Owner OD-50 defines blue as **โซนหน้าร้าน** and pink as **โซนข้างร้าน**. Blue counts line-crossing passages; pink counts stable entries from any edge, as explicitly confirmed by Owner. A person who passes both zones can contribute to both reports; these counts must not be added as unique visitors. Initial presence, sitting or remaining inside a region is not itself a passage.
 
-OD-54 replaces the front-shop region with the latest Owner-marked concave polygon and rotates the counting gate to the internal diagonal shown in that image. It supersedes OD-53 geometry. PO maps the pink rectangle from the Owner's screenshot and uses its boundary for entry counting. Pink has no counting line; blue shows its new finite diagonal line. Private camera coordinates and source media are not stored in Git.
+OD-55 splits front-shop into blue near and green far corridors with separate finite gates and one shared front tracker. The two primary zones remain front-shop and shop-side; pink still counts stable entries from any edge. See FRONT_LANES for the current semantics, evidence and limitations. Private camera coordinates and media are not stored in Git.
 
 ## Run locally
 
@@ -40,10 +40,16 @@ The latest Owner outline widens the farther-aisle boundary. Map only the video a
 
 The changed counts reflect changed coverage, not proven accuracy. The existing track rounding, occlusion and ID-switch limitations still apply. Source-frame spot checks include the farther aisle and seated foreground occupant; full34-event manual validation remains outstanding. Cyan is retained for front-shop identity even though the Owner drew its target outline in green.
 
-## OD-54 concave region and diagonal gate (current)
+## OD-54 concave region and diagonal gate (historical)
 
 The blue outline follows the eight corners of the latest green drawing; the internal oblique gate connects the marked notch to the near-shop boundary. The polygon is simple, with the gate interior inside it and the whole region within the existing detector crop. Existing center anchors and line-crossing semantics remain. Pink entry counting is unchanged.
 
 On the same 180s clip, cached replay yields 25 automatic front crossings (8 forward / 17 backward) and 27 pink entries. The old 34-event signature reproduces before geometry changes. This is a changed gate/coverage definition; the numbers cannot be treated as comparative accuracy measurements. Temporary IDs switch between an occluded seated occupant and passing people. A late table-occlusion sequence also produces crossing transitions without corresponding passages; full manual accuracy is unverified and the automatic total may include errors. Moving the line alone did not establish a reliable correction. The requested line remains active, with this limitation recorded rather than deleting selected events or claiming accuracy PASS.
 
 New 900-frame H.264 passed complete decoding; screenshot-time presentation and source-frame event examples reviewed locally. PO full 739 tests: 737 PASS / 2 optional-runtime SKIP. No source changes, new inference, camera request, credential input or external media upload.
+
+## OD-55 two front lanes (current)
+
+The front zone accepts `counter_mode: lanes` plus exactly two lane objects with id/name/color/roi/line. Each gate must remain inside its lane, and both polygons must fit the shared detector crop. Lanes use the same persisted track stream; adding a lane does not create a new inference/tracker. The front report retains per-event lane IDs and validated lane subtotals. Pink stays independent.
+
+Current180s automatic results: near15/far21/front36, pink27. Same-track cooldown prevents near-simultaneous accepted lane events from being added twice; it does not prove unique identity or resolve all ID switches. Both gates are placed before foreground table occlusion. Source-frame checks support7far passages in a frozen-rule40s window, including4right-to-left. Full accuracy remains unverified. See FRONT_LANES for rule/calibration/developer handoff details.

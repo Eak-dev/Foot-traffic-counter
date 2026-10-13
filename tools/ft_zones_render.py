@@ -73,29 +73,40 @@ def render_review(source, root, zones, reports, deadline):
                 ft_count._require(bool(line) and line.endswith('\n'), 'track log incomplete')
                 row = json.loads(line)
                 ft_count._require(row['frame'] == frame_index and abs(row['time_seconds'] - t) < .002, 'track timing mismatch')
-                color = zone['color']
-                roi = zone['config']['roi']
-                points = [(round(x*width), round(y*height)) for x, y in roi]
-                draw.line(points + [points[0]], fill=color, width=3)
-                gate = [(round(x*width), round(y*height)) for x, y in zone['config']['line']]
-                if zone.get("counter_mode", "line") == "line":
-                    draw.line(gate, fill=color, width=4)
-                for track in row['tracks']:
-                    if ft_count._point_in_polygon(track['foot'], roi):
-                        x, y = track['foot'][0]*width, track['foot'][1]*height
-                        draw.ellipse((x-3,y-3,x+3,y+3), fill=color)
-                label_x, label_y = points[0]
-                label_y = max(102, label_y-32)
-                box = draw.textbbox((label_x,label_y), zone['name'], font=small)
-                draw.rectangle((box[0]-4,box[1]-3,box[2]+4,box[3]+3), fill='#142128')
-                draw.text((label_x,label_y), zone['name'], font=small, fill=color)
+                regions = zone['lanes'] if zone.get('counter_mode') == 'lanes' else [{**zone, **zone['config']}]
+                for region in regions:
+                    color, roi = region['color'], region['roi']
+                    points = [(round(x*width), round(y*height)) for x, y in roi]
+                    draw.line(points + [points[0]], fill=color, width=3)
+                    gate = [(round(x*width), round(y*height)) for x, y in region['line']]
+                    if zone.get("counter_mode", "line") in ("line", "lanes"):
+                        draw.line(gate, fill=color, width=4)
+                    for track in row['tracks']:
+                        if ft_count._point_in_polygon(track['foot'], roi):
+                            x, y = track['foot'][0]*width, track['foot'][1]*height
+                            draw.ellipse((x-3,y-3,x+3,y+3), fill=color)
+                    label_x, label_y = points[0]
+                    label_y = max(102, label_y-32)
+                    box = draw.textbbox((label_x,label_y), region['name'], font=small)
+                    draw.rectangle((box[0]-4,box[1]-3,box[2]+4,box[3]+3), fill='#142128')
+                    draw.text((label_x,label_y), region['name'], font=small, fill=color)
             # Panel stays to the right of the camera's timestamp/lens overlay.
-            draw.rectangle((620, 3, 1148, 114), fill='#111B22')
-            for n,(zone,report) in enumerate(zip(zones,reports)):
+            panel_rows = []
+            for zone,report in zip(zones,reports):
                 count = sum(e['time_seconds'] <= t + 1e-6 for e in report['events'])
-                method = "เข้าโซน" if zone.get("counter_mode") == "entries" else "ข้ามเส้น"
-                draw.text((636,8+n*38), f"{zone['name']} ({method})   {count} ครั้ง", font=font, fill=zone['color'])
-            draw.text((636,88), f'PILOT | separate passages | {t:.1f}s', font=small, fill='white')
+                if zone.get('counter_mode') == 'lanes':
+                    for lane in zone['lanes']:
+                        subtotal = sum(e['time_seconds'] <= t + 1e-6 and e['lane_id'] == lane['id'] for e in report['events'])
+                        panel_rows.append((f"{lane['name']}   {subtotal} ครั้ง", lane['color']))
+                    panel_rows.append((f"รวมหน้าร้าน (ข้ามเส้น)   {count} ครั้ง", zone['color']))
+                else:
+                    method = "เข้าโซน" if zone.get("counter_mode") == "entries" else "ข้ามเส้น"
+                    panel_rows.append((f"{zone['name']} ({method})   {count} ครั้ง", zone['color']))
+            panel_bottom = 38*len(panel_rows)+38
+            draw.rectangle((620, 3, 1148, panel_bottom), fill='#111B22')
+            for n,(label,color) in enumerate(panel_rows):
+                draw.text((636,8+n*38), label, font=font, fill=color)
+            draw.text((636,panel_bottom-26), f'PILOT | passages | {t:.1f}s', font=small, fill='white')
             proc.stdin.write(canvas.tobytes())
             emitted += 1
             if emitted % 50 == 0:

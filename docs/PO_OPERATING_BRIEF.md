@@ -1,6 +1,6 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
-OD-54 current: Owner-authorized concave front-shop polygon and internal diagonal gate are active. Pilot gives 25 automatic front crossings / 27 shop-side entries. Table occlusion causes observed track-switch/false-crossing risk, so accuracy remains pending; do not present the count as verified people. Current geometry replaces OD-53 vertical gate; all earlier front totals are historical.
+OD-55 current: front-shop has blue near / green far corridors sharing one tracker, separate gates and lane subtotals. Current pilot near15/far21/front36, pink27. Source checks support four right-to-left far passages in a separate40s window, but full accuracy remains unverified. Read FRONT_LANES and current STATUS; preserve pink semantics and do not sum pink into unique people.
 
 OD-50 current: blue โซนหน้าร้าน line crossings and pink โซนข้างร้าน entries from any edge are implemented separately on the noon clip. Owner confirmed entry semantics. Read latest STATUS/ZONE_COUNTING; preserve both definitions and do not sum them as unique people.
 
