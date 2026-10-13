@@ -455,6 +455,8 @@ def _sanitize_stdout_report(report):
 
 def _run_pipeline(args, cfg, config_sha, deadline_monotonic):
     """Runs the full cv2/numpy/supervision pipeline. Imported lazily."""
+    output_budget = getattr(args, "output_budget_bytes", 512 * 1024**2)
+    _require(type(output_budget) is int and 0 < output_budget <= 512 * 1024**2, "invalid output budget")
     out_dir = _prepare_output_dir(args.output)
     os.umask(0o077)
     os.environ["MPLCONFIGDIR"] = out_dir
@@ -534,7 +536,7 @@ def _run_pipeline(args, cfg, config_sha, deadline_monotonic):
             _require(frame_index <= math.ceil(frame_count) + 2, "unexpected extra frames")
             if frame_index % 30 == 0:
                 _require(shutil.disk_usage(out_dir).free >= 10 * 1024**3, "disk reserve exhausted")
-                _require(sum(p.stat().st_size for p in Path(out_dir).iterdir() if p.is_file()) <= 512 * 1024**2, "output quota exhausted")
+                _require(sum(p.stat().st_size for p in Path(out_dir).iterdir() if p.is_file()) <= output_budget, "output quota exhausted")
             if frame_index % stride != 0:
                 continue
 

@@ -1,5 +1,7 @@
 # Local Fixed Lens counting pilot
 
+For Owner-defined blue/pink zones and separate totals, use [ZONE_COUNTING](ZONE_COUNTING.md). The single-zone CLI remains supported.
+
 OD49 implements actual local inference on clips retrieved from shop SD through the vendor relay. Owner specifies the period in chat; PO operates the tools. No iPhone video forwarding, cloud inference, face recognition, database, server or scheduler.
 
 ## PO runbook
