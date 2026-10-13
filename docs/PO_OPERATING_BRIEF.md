@@ -1,6 +1,6 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
-OD-53 current: Owner widened the cyan diagonal front-shop region to cover the farther aisle. Front remains line crossings, pink shop-side remains entries. Current pilot34/27; OD-52 narrow polygon20 and original rectangle35 are historical definitions, not current counts.
+OD-54 current: Owner-authorized concave front-shop polygon and internal diagonal gate are active. Pilot gives 25 automatic front crossings / 27 shop-side entries. Table occlusion causes observed track-switch/false-crossing risk, so accuracy remains pending; do not present the count as verified people. Current geometry replaces OD-53 vertical gate; all earlier front totals are historical.
 
 OD-50 current: blue โซนหน้าร้าน line crossings and pink โซนข้างร้าน entries from any edge are implemented separately on the noon clip. Owner confirmed entry semantics. Read latest STATUS/ZONE_COUNTING; preserve both definitions and do not sum them as unique people.
 

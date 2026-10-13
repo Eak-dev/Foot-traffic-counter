@@ -64,3 +64,9 @@ tracks; otherwise, a new inference run is unavoidable before any claim.
 ## OD-53 wider corridor — PO follow-up
 
 No new Claude review is claimed. The same crop/anchor/baseline prerequisites apply and were verified: all new corners fit the detector crop, old20event signatures reproduce at stored precision, and pink config/report/events are unchanged. The latest four-corner outline extends farther-aisle coverage; its foreground edge also follows the newly drawn boundary, so it is not a strict superset of the prior polygon. New automatic count34 is not an accuracy metric. PO source-frame spot checks cover the widened upper gate and seated foreground area, with full manual scoring still outstanding. Private media and exact camera coordinates are not included here.
+
+## OD-54 concave polygon / rotated gate — PO follow-up
+
+The current ROI matches the eight-corner outline, including its concave notch, and the internal gate follows the Owner's diagonal. Existing counter supports simple concave polygons and arbitrary finite line direction; no implementation changes needed. The gate interior is inside the ROI; every ROI vertex is inside the unchanged rectangular detector crop. Baseline 34-event replay reproduces at stored precision, and pink config/report remain identical.
+
+Source spot checks include 4.8–5.8,29.4–30.4,50.2–51.2s and the146–153s table-occlusion sequence. Temporary IDs visibly switch to moving people; later crossing transitions also appear while nearby people sit or remain near the table. Thus stationary occupancy alone is not counted, but tracker association errors can create false crossing evidence. Parallel-offset experiments remain diagnostics; no accuracy-based selection was possible. Preserve the requested gate and explicitly keep manual accuracy/tracker correction outstanding. No new Claude advisory is claimed.
