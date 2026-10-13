@@ -1,6 +1,6 @@
 # Two-zone Fixed Lens counting
 
-Owner OD-50 defines blue as **โซนหน้าร้าน** and pink as **โซนข้างน้ำ**. Blue counts line-crossing passages; pink counts stable entries from any edge, as explicitly confirmed by Owner. A person who passes both zones can contribute to both reports; these counts must not be added as unique visitors. Initial presence, sitting or remaining inside a region is not itself a passage.
+Owner OD-50 defines blue as **โซนหน้าร้าน** and pink as **โซนข้างร้าน**. Blue counts line-crossing passages; pink counts stable entries from any edge, as explicitly confirmed by Owner. A person who passes both zones can contribute to both reports; these counts must not be added as unique visitors. Initial presence, sitting or remaining inside a region is not itself a passage.
 
 The blue preset is preserved from OD-49. PO maps the pink rectangle from the Owner's screenshot and uses its boundary for entry counting. Pink has no counting line; blue keeps its original visible line. Private camera coordinates and source media are not stored in Git.
 
