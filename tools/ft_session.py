@@ -190,6 +190,7 @@ class SessionManager:
     def __init__(self, store=None, wall=time.time, mono=time.monotonic, lock=session_lock):
         self.store = store if store is not None else KeychainStore()
         self.wall, self.mono, self.lock = wall, mono, lock
+        self.stage = None
 
     def _save(self, record, expected_revision):
         validate(record)
@@ -243,29 +244,42 @@ class SessionManager:
         self._save(updated, record["revision"])
         record.update(updated)
 
+    def _input(self, prompt, stage, timeout_s=cloud.DIALOG_TIMEOUT_S):
+        """Retry only a locally invalid field, never credentials rejected by Tapo."""
+        self.stage = stage
+        began = self.mono()
+        for attempt in range(3):
+            remaining = timeout_s - (self.mono() - began)
+            if remaining <= 0:
+                raise SessionError("TIMEOUT")
+            label = prompt if attempt == 0 else "Please fill this field (1-256 characters). " + prompt
+            value, reason = cloud._native_prompt(label, timeout_s=remaining)
+            if value is not None:
+                return value
+            if reason != "INVALID_INPUT":
+                raise SessionError(reason)
+        raise SessionError("INVALID_INPUT")
+
     def _start(self, target):
         # Refuse an existing item: use/forget is explicit, no repeated login by default.
         if self.store.load() is not None:
             raise SessionError("SESSION_BUSY")
         cloud._load_pinned_der()
-        email, reason = cloud._native_prompt("Tapo account email (start 48-hour session):")
-        if email is None:
-            raise SessionError(reason)
-        password, reason = cloud._native_prompt("Tapo account password (not saved):")
-        if password is None:
-            raise SessionError(reason)
+        email = self._input("Tapo account email (start 48-hour session):", "EMAIL_INPUT")
+        password = self._input("Tapo account password (not saved):", "PASSWORD_INPUT")
         budget = cloud._Budget()
         try:
+            self.stage = "LOGIN"
             auth = cloud._login(budget, email, password, refresh_token_needed=True)
             if auth["token"] is None:
                 mfa = auth["mfa"]
                 if cloud.MFA_EMAIL not in mfa["types"]:
                     raise SessionError("MFA_TYPE_UNSUPPORTED")
+                self.stage = "MFA_SEND"
                 cloud._send_mfa(budget, auth["account_host"], email, auth["terminal_uuid"], password)
                 password = None
-                code, reason = cloud._native_prompt("Tapo email verification code:", timeout_s=cloud.TOTAL_BUDGET_S)
-                if code is None:
-                    raise SessionError(reason)
+                code = self._input("Tapo email verification code:", "OTP_INPUT", timeout_s=cloud.TOTAL_BUDGET_S)
+                self.stage = "MFA_SUBMIT"
                 result = cloud._submit_mfa(budget, auth["account_host"], email, auth["terminal_uuid"], mfa["process_id"], code, refresh_token_needed=True)
                 auth.update(result)
                 code = None
@@ -281,8 +295,10 @@ class SessionManager:
         lease = Lease(record, self.wall, self.mono)
         guarded = GuardBudget(lease)
         guarded.start, guarded.requests = budget.start, budget.requests
+        self.stage = "DISCOVERY"
         _, record["device_digest"] = self._selected(guarded, record)
         record["last_seen"] = lease.check()
+        self.stage = "SESSION_STORE"
         self._save(record, None)
         return self._public(record, "SESSION_CREATED", lease)
 
@@ -294,6 +310,7 @@ class SessionManager:
             "refresh_available": record["refresh_token"] is not None}
 
     def command(self, command, target=None, on_selected_camera=None):
+        self.stage = None
         if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check"}:
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
         if command in {"start", "use", "refresh-check", "sd-check"} and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
@@ -361,7 +378,12 @@ class SessionManager:
                             return {"status": "BLOCKED", "reason": "EXPIRED", "cleanup_pending": True}
                     raise
         except (SessionError, cloud.ProbeError) as exc:
-            return {"status": "BLOCKED", "reason": exc.code}
+            result = {"status": "BLOCKED", "reason": exc.code}
+            if self.stage in cloud.STAGES | {"SESSION_STORE"}:
+                result["stage"] = self.stage
+            if getattr(exc, "detail", None) in cloud.DETAIL_CODES:
+                result["detail"] = exc.detail
+            return result
         except Exception:
             return {"status": "BLOCKED", "reason": "UNKNOWN_ERROR"}
 

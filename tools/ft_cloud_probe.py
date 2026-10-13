@@ -880,6 +880,7 @@ def _native_prompt(prompt_text, timeout_s=DIALOG_TIMEOUT_S):
     returns stderr/exception detail.
     """
     script_lines = [
+        "activate",
         "set dlgResult to display dialog {prompt} default answer \"\" with title {title} "
         'with hidden answer buttons {{"Cancel", "OK"}} default button "OK"'.format(
             prompt=_as_applescript_literal(prompt_text),

@@ -1,6 +1,6 @@
 # เซสชัน Tapo ใช้ซ้ำบน Mac
 
-OD-45 / 2026-10-13: โค้ดและ native helper ติดตั้งแล้ว; Keychain จำลอง write/read ข้าม process/update/delete และ ACL audit ผ่าน. บัญชีจริงยัง REAUTH_REQUIRED: bootstrapรอบแรกจบ TIMEOUT หลังรอ private input300s; processจบแล้ว ไม่มี popup/workerค้าง. ต้องกรอก native dialog ครั้งแรกเมื่อ Ownerพร้อมก่อนเปิดใช้จริง. ไม่ถือว่าตรวจ vendor ครบ48ชั่วโมงแล้ว.
+OD-45 / 2026-10-13: โค้ดและ native helper ติดตั้งแล้ว; Keychain จำลอง write/read ข้าม process/update/delete และ ACL audit ผ่าน. บัญชีจริงยัง REAUTH_REQUIRED: bootstrapรอบแก้ล่าสุดจบ TIMEOUT/EMAIL_INPUT หลังรอ300s; processจบแล้ว ไม่มี popup/workerค้าง. ต้องกรอก native dialog ครั้งแรกเมื่อ Ownerพร้อมก่อนเปิดใช้จริง. ไม่ถือว่าตรวจ vendor ครบ48ชั่วโมงแล้ว.
 
 PO เป็นผู้รันคำสั่งให้ Owner; Owner ใช้ iPhone remote กรอกเฉพาะ email/password/OTP ในหน้าต่างส่วนตัว **Foot Traffic / Tapo login**. ใช้บัญชีเข้าแอป Tapo สำหรับ cloud login. ไม่ส่งรหัสในแชต. โปรแกรมไม่เก็บ password/email/OTP; โทเคนเก่าใน memory ไม่สามารถกู้มาใช้ได้ จึงต้อง bootstrap อีกครั้ง.
 
@@ -15,7 +15,7 @@ python3 -m tools.ft_session refresh-check
 python3 -m tools.ft_session forget
 ```
 
-- `start`: หน้าต่างส่วนตัวหนึ่งรอบ ขอ refresh token และเลือกกล้องตาม digest config เดิมก่อนเก็บ. หากมีเซสชันอยู่จะไม่เปิดล็อกอินซ้ำ (`SESSION_BUSY`); ใช้ `status/use` ก่อน. `forget` แล้ว `start` ใช้เมื่อจำเป็นต้องยืนยันใหม่จริง.
+- `start`: หน้าต่างส่วนตัวหนึ่งรอบ; ช่องว่าง/ข้อมูลไม่ผ่าน local validation ถามซ้ำเฉพาะช่องเดิมได้สูงสุด3ครั้งใน deadlineเดิม (ไม่ใช่ retryรหัสที่vendorปฏิเสธ) และแสดงชื่อขั้นตอนเมื่อผิดพลาดโดยไม่แสดงค่าที่กรอก. ขอ refresh token และเลือกกล้องตาม digest config เดิมก่อนเก็บ. หากมีเซสชันอยู่จะไม่เปิดล็อกอินซ้ำ (`SESSION_BUSY`); ใช้ `status/use` ก่อน. `forget` แล้ว `start` ใช้เมื่อจำเป็นต้องยืนยันใหม่จริง.
 - `status`: สถานะ เวลาเหลือ และ deadline UTC เท่านั้น ไม่มีการเรียก Tapo.
 - `use`: อ่าน Keychain, ตรวจเวลา/schema/host/target และเรียก inventory เพื่อยืนยันกล้องเดิม. ไม่เปิด dialog. HTTP401 อนุญาต refresh1ครั้งและ GET inventoryซ้ำ1ครั้ง; 403/429/5xx ไม่ใช้กติกานี้.
 - `sd-check`: ใช้เซสชันเดิมกับ probe ที่ตรวจแล้ว สูงสุด4device requests/20คลิปแรกของ20261012. ตรวจ deadline ใน device budget ด้วย. ไม่ดาวน์โหลดวิดีโอ และไม่ถือว่า channel0 คือ Fixed.

@@ -245,6 +245,35 @@ class SessionTests(unittest.TestCase):
         self.assertNotIn("OTP", json.dumps(self.store.value))
         self.assertNotIn("PASSWORD", json.dumps(self.store.value))
 
+    def test_invalid_password_reasks_only_password_without_restarting_email(self):
+        self.store.value = None
+        self.prompt.side_effect = [("mail@example.invalid", None), (None, "INVALID_INPUT"), ("PASSWORD", None)]
+        auth = {"token": "ACCESS", "refresh_token": "REFRESH", "terminal_uuid": "uuid",
+                "account_host": c.ACCOUNT_HOST, "mfa": None}
+        with patch.object(c, "_login", return_value=auth) as login, patch.object(c, "_load_pinned_der"):
+            self.assertEqual(self.call("start")["status"], "SUCCESS")
+        labels = [call.args[0] for call in self.prompt.call_args_list]
+        self.assertEqual(sum("email" in label for label in labels), 1)
+        self.assertEqual(sum("password" in label for label in labels), 2)
+        login.assert_called_once()
+
+    def test_bad_field_attempts_bounded_and_stage_redacted(self):
+        self.store.value = None
+        self.prompt.side_effect = [("mail@example.invalid", None)] + [(None, "INVALID_INPUT")] * 3
+        with patch.object(c, "_login") as login, patch.object(c, "_load_pinned_der"):
+            self.assertEqual(self.call("start"), {"status": "BLOCKED", "reason": "INVALID_INPUT", "stage": "PASSWORD_INPUT"})
+        self.assertEqual(self.prompt.call_count, 4)
+        login.assert_not_called()
+
+    def test_invalid_field_retries_share_one_deadline(self):
+        def prompt(*args, **kwargs):
+            self.elapsed += 301
+            return None, "INVALID_INPUT"
+        self.prompt.side_effect = prompt
+        with self.assertRaisesRegex(s.SessionError, "TIMEOUT"):
+            self.manager._input("password", "PASSWORD_INPUT")
+        self.prompt.assert_called_once()
+
     def test_session_guard_stops_each_device_budget_check(self):
         from tools.ft_sd_probe import _DeviceBudget
         guard = unittest.mock.Mock(side_effect=s.SessionError("EXPIRED"))
