@@ -373,7 +373,9 @@ def _control_summary(obj):
             'protocol_identifiers': {k: sorted(v) for k, v in identifiers.items()}}
 
 
-def _stream(relay, terminal, track, uid, start, end, out, budget, mode='playback'):
+def _stream(relay, terminal, track, uid, start, end, out, budget, mode='playback', *, short_recording=False):
+    if type(short_recording) is not bool or (short_recording and mode!='download'):
+        raise SampleError('PROTOCOL')
     if mode not in ('playback', 'download'):
         raise SampleError('PROTOCOL')
     host, path, relay_token = relay[:3]
@@ -392,7 +394,8 @@ def _stream(relay, terminal, track, uid, start, end, out, budget, mode='playback
     try:
         budget.metrics['media_phase'] = 'SEND_PLAYBACK'
         sock.settimeout(budget.timeout())
-        frame = download_frame(uid, start, end, terminal) if mode == 'download' else control_frame(uid, start, end)
+        frame = (download_frame(uid,start,end,terminal,short_recording=True) if short_recording else
+                 download_frame(uid,start,end,terminal) if mode=='download' else control_frame(uid,start,end))
         sock.sendall(head + frame)
         started = True
         reader = Reader(sock, budget)

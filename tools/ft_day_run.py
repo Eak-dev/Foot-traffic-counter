@@ -42,7 +42,7 @@ def check_space(root):
 def download(token,terminal,device,uid,clip,root,guard,date=sd.FIXED_DATE):
     capture_start=clip.get('capture_start',clip['start']);capture_end=clip.get('capture_end',clip['end'])
     span=capture_end-capture_start
-    if not 5<=span<=180:raise DayError('UNSUPPORTED_SOURCE')
+    if not 1<=span<=180:raise DayError('UNSUPPORTED_SOURCE')
     work=Path(root)/'work';raw=work/'sample.part';fixed=work/'fixed.mp4'
     previous=media.ROOT;media.ROOT=work
     try:
@@ -62,7 +62,7 @@ def download(token,terminal,device,uid,clip,root,guard,date=sd.FIXED_DATE):
         relay=media._negotiate(token,terminal,device,track,budget)
         fd=os.open(str(raw),os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
         with os.fdopen(fd,'wb') as out:
-            media._stream(relay,terminal,track,uid,start,end,out,budget,mode='download')
+            media._stream(relay,terminal,track,uid,start,end,out,budget,mode='download',short_recording=span<5)
             out.flush();os.fsync(out.fileno())
         videos=media._inspect(raw,span,budget)
         if not any(v.get('index')==0 for v in videos):raise DayError('LENS_OR_CLOCK_UNVERIFIED')
@@ -122,6 +122,8 @@ class Worker:
     def count(self,message):
         self.proc.stdin.write((json.dumps(message)+'\n').encode());self.proc.stdin.flush()
         result=self.receive(2450)
+        if isinstance(result,dict) and result.get('status')=='blocked' and result.get('reason') in ('LENS_UNVERIFIED','CLOCK_UNVERIFIED','COUNT_VALIDATION_FAILED'):
+            raise DayError(result['reason'])
         if not isinstance(result,dict) or result.get('status')!='ok' or result.get('config_sha256')!=self.config_hash:raise DayError('WORKER_FAILED')
         return result
 
@@ -184,7 +186,7 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
                 if processed>=max_clips or time.monotonic()-started>JOB_SECONDS:
                     return dict(status='PARTIAL',reason='INVOCATION_BUDGET',summary=save(root,data))
                 clip=items[source['ref']]
-                if not 5<=clip.get('capture_end',clip['end'])-clip.get('capture_start',clip['start'])<=180:
+                if not 1<=clip.get('capture_end',clip['end'])-clip.get('capture_start',clip['start'])<=180:
                     clip['status']='unsupported';complete=False;reset=True;save(root,data);continue
                 try:
                     clean_work(root)

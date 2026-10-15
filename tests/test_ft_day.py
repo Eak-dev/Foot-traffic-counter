@@ -10,7 +10,7 @@ from unittest.mock import Mock,patch
 from contextlib import redirect_stdout
 
 from tools import ft_day_summary as ds,ft_day_acquire as da,ft_day_run as run,ft_sd_probe as sd
-from tools.ft_day_count import ObservationStream,FrameClock,config_digest,worker_main
+from tools.ft_day_count import ObservationStream,FrameClock,config_digest,worker_main,static_alignment_valid,LENS_POLICY,worker_failure_reason,source_duration_valid
 from tools.ft_count import ValidationError
 from tests import test_ft_lane_counter as lh
 
@@ -34,6 +34,45 @@ def config():
     return dict(zones=[a,b])
 
 def box(p,h=.2):return [p[0]-.06,p[1]-h/2,p[0]+.06,p[1]+h/2]
+
+
+class StaticLensAlignmentTests(unittest.TestCase):
+    def test_night_alignment_requires_both_correlation_and_fixed_geometry(self):
+        identity=[[1.,0.,0.],[0.,1.,0.]]
+        self.assertTrue(static_alignment_valid(.8,identity))
+        for score in (.74,float('nan'),float('inf'),True,1.1):self.assertFalse(static_alignment_valid(score,identity))
+        for row,col,value in [(0,0,.95),(1,1,1.05),(0,1,.03),(1,0,.03),(0,2,20.),(1,2,-20.),(0,0,-1.)]:
+            matrix=copy.deepcopy(identity);matrix[row][col]=value
+            self.assertFalse(static_alignment_valid(.99,matrix))
+        for bad in (None,[],[[1,0,0]],[[True,0,0],[0,1,0]],[[1,0,0],[0,1,float('nan')]]):
+            self.assertFalse(static_alignment_valid(.99,bad))
+
+    def test_short_download_allows_bounded_gop_tail_but_not_missing_footage(self):
+        self.assertTrue(source_duration_valid(3,3.666667))
+        self.assertTrue(source_duration_valid(3,2.94))
+        for duration in (2.8,4.01,float('nan'),True):self.assertFalse(source_duration_valid(3,duration))
+        self.assertTrue(source_duration_valid(86,85.999667))
+        self.assertFalse(source_duration_valid(86,83.9))
+
+    def test_worker_errors_are_specific_but_never_expose_runtime_text(self):
+        self.assertEqual(worker_failure_reason(ValidationError('Fixed Lens ceiling verification failed')),'LENS_UNVERIFIED')
+        self.assertEqual(worker_failure_reason(ValidationError('source duration does not match SD interval')),'CLOCK_UNVERIFIED')
+        self.assertEqual(worker_failure_reason(RuntimeError('private-data-or-path')),'COUNT_VALIDATION_FAILED')
+
+    def test_short_recording_is_explicit_and_native_download_only(self):
+        from tools.ft_media_protocol import download_frame,control_frame,MediaError
+        self.assertIn(b'"start_time":"1000"',download_frame(1,1000,1003,'synthetic',short_recording=True))
+        for call in (lambda:download_frame(1,1000,1003,'synthetic'),lambda:control_frame(1,1000,1003),
+                     lambda:download_frame(1,1000,1181,'synthetic',short_recording=True),
+                     lambda:download_frame(1,1000,1000,'synthetic',short_recording=True),
+                     lambda:download_frame(1,1000,1003,'synthetic',short_recording=1)):
+            with self.assertRaises(MediaError):call()
+        with self.assertRaises(run.media.SampleError):
+            run.media._stream(None,None,None,None,None,None,None,None,mode='playback',short_recording=True)
+
+    def test_lens_policy_changes_invalidate_daily_checkpoints(self):
+        before=config_digest(config())
+        with patch.dict(LENS_POLICY,min_score=.8):self.assertNotEqual(before,config_digest(config()))
 
 
 class DailySummaryTests(unittest.TestCase):

@@ -141,7 +141,8 @@ _MIN_SPAN = 5
 _MAX_SPAN = 180
 
 
-def _validate_control_args(uid, start, end, stop):
+def _validate_control_args(uid, start, end, stop, short_recording=False):
+    if type(short_recording) is not bool:raise MediaError(_ERR_FRAME_PARAMS)
     if isinstance(uid, bool) or not isinstance(uid, int):
         raise MediaError(_ERR_FRAME_PARAMS)
     if uid <= 0 or uid > _MAX_UID:
@@ -152,7 +153,7 @@ def _validate_control_args(uid, start, end, stop):
     if not (0 < start < end <= _MAX_TIME):
         raise MediaError(_ERR_FRAME_PARAMS)
     span = end - start
-    if not (_MIN_SPAN <= span <= _MAX_SPAN):
+    if not ((1 if short_recording else _MIN_SPAN) <= span <= _MAX_SPAN):
         raise MediaError(_ERR_FRAME_PARAMS)
     if not isinstance(stop, bool):
         raise MediaError(_ERR_FRAME_PARAMS)
@@ -203,12 +204,12 @@ def control_frame(uid, start, end, stop=False):
     return header + body + b"\r\n"
 
 
-def download_frame(uid, start, end, player_id):
+def download_frame(uid, start, end, player_id, *, short_recording=False):
     """One native recorded-download request (pytapo3.4.26 packet contract).
 
     No live preview, recovery, alternate channel or automatic fallback.
     """
-    _validate_control_args(uid, start, end, False)
+    _validate_control_args(uid, start, end, False, short_recording)
     if not isinstance(player_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,128}', player_id):
         raise MediaError(_ERR_FRAME_PARAMS)
     obj = {'type':'request', 'seq':1, 'params':{'method':'get', 'download':{

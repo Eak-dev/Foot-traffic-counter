@@ -19,12 +19,32 @@ from tools.ft_lane_counter import LaneCrossingCounter
 from tools.ft_track_quality import TrackEvidence
 from tools.ft_zone_entries import ZoneEntryCounter
 
-VERSION='day_stream_v1'
+VERSION='day_stream_v2'
+LENS_POLICY=dict(version='ceiling_gradient_v1',min_score=.75,scale_error=.02,shear=.01,shift_px=2,iterations=100)
 
 
 def config_digest(config):
-    return _config_sha256(dict(engine=VERSION,config=config,
+    return _config_sha256(dict(engine=VERSION,lens_policy=LENS_POLICY,config=config,
                                policies=[_zone_config_sha(z) for z in config['zones']]))
+
+
+def source_duration_valid(span,duration):
+    if type(span) is not int or not 1<=span<=180 or type(duration) not in (int,float) or not math.isfinite(duration):return False
+    # Native downloads can include the final GOP beyond integer-second SD end.
+    # Permit at most1s extra on tiny recordings; do not forgive a missing tail.
+    return span-.15<=duration<=span+1 if span<5 else abs(duration-span)<=2
+
+
+def static_alignment_valid(score,matrix):
+    """Photometric agreement must also have the unchanged camera geometry."""
+    if type(score) not in (int,float) or not math.isfinite(score) or not LENS_POLICY['min_score']<=score<=1.000001:
+        return False
+    if not isinstance(matrix,list) or len(matrix)!=2 or any(not isinstance(row,list) or len(row)!=3 for row in matrix):
+        return False
+    if any(type(v) not in (int,float) or not math.isfinite(v) for row in matrix for v in row):return False
+    return (abs(matrix[0][0]-1)<LENS_POLICY['scale_error'] and abs(matrix[1][1]-1)<LENS_POLICY['scale_error']
+            and abs(matrix[0][1])<LENS_POLICY['shear'] and abs(matrix[1][0])<LENS_POLICY['shear']
+            and abs(matrix[0][2])<LENS_POLICY['shift_px'] and abs(matrix[1][2])<LENS_POLICY['shift_px'])
 
 
 class ObservationStream:
@@ -100,17 +120,30 @@ class Engine:
         cv=self.cv;small=cv.resize(image,(960,540));return cv.cvtColor(small[55:150,30:920],cv.COLOR_BGR2GRAY)
 
     def verify_lens(self,image):
-        cv=self.cv;keys,desc=self.orb.detectAndCompute(self._ceiling(image),None)
-        if desc is None:return False
-        pairs=cv.BFMatcher(cv.NORM_HAMMING).knnMatch(self.ref_d,desc,k=2)
-        good=[m for pair in pairs if len(pair)==2 for m,n in [pair] if m.distance<.7*n.distance]
-        if len(good)<20:return False
-        a=self.np.float32([self.ref_k[m.queryIdx].pt for m in good]);b=self.np.float32([keys[m.trainIdx].pt for m in good])
-        matrix,mask=cv.estimateAffinePartial2D(a,b,method=cv.RANSAC,ransacReprojThreshold=3)
-        return bool(matrix is not None and mask is not None and mask.sum()>=20 and mask.mean()>=.6
-                    and abs(matrix[0,0]-1)<.08 and abs(matrix[1,1]-1)<.08
-                    and abs(matrix[0,1])<.05 and abs(matrix[1,0])<.05
-                    and abs(matrix[0,2])<12 and abs(matrix[1,2])<12)
+        cv=self.cv;ceiling=self._ceiling(image)
+        keys,desc=self.orb.detectAndCompute(ceiling,None)
+        if desc is not None:
+            pairs=cv.BFMatcher(cv.NORM_HAMMING).knnMatch(self.ref_d,desc,k=2)
+            good=[m for pair in pairs if len(pair)==2 for m,n in [pair] if m.distance<.7*n.distance]
+            if len(good)>=20:
+                a=self.np.float32([self.ref_k[m.queryIdx].pt for m in good]);b=self.np.float32([keys[m.trainIdx].pt for m in good])
+                matrix,mask=cv.estimateAffinePartial2D(a,b,method=cv.RANSAC,ransacReprojThreshold=3)
+                if (matrix is not None and mask is not None and mask.sum()>=20 and mask.mean()>=.6
+                        and abs(matrix[0,0]-1)<.08 and abs(matrix[1,1]-1)<.08
+                        and abs(matrix[0,1])<.05 and abs(matrix[1,0])<.05
+                        and abs(matrix[0,2])<12 and abs(matrix[1,2])<12):return True
+        # Lights change brightness and erase ORB texture at night. Gradients of
+        # fixed beams may still align; low texture/moved/other-lens views fail.
+        def gradient(img):
+            gray=img.astype(self.np.float32)/255
+            return cv.magnitude(cv.Sobel(gray,cv.CV_32F,1,0),cv.Sobel(gray,cv.CV_32F,0,1))
+        reference=gradient(self._ceiling(self.reference));current=gradient(ceiling)
+        if min(float(reference.std()),float(current.std()))<.01:return False
+        try:
+            score,matrix=cv.findTransformECC(reference,current,self.np.eye(2,3,dtype=self.np.float32),cv.MOTION_AFFINE,
+                (cv.TERM_CRITERIA_COUNT|cv.TERM_CRITERIA_EPS,LENS_POLICY['iterations'],1e-5),None,5)
+        except cv.error:return False
+        return static_alignment_valid(float(score),matrix.tolist())
 
     def reset(self,origin):
         self.stream.reset(origin);self.trackers={}
@@ -143,7 +176,7 @@ class Engine:
             ok,first=cap.read();f._require(ok and self.verify_lens(first),'Fixed Lens ceiling verification failed')
             fps=cap.get(self.cv.CAP_PROP_FPS);count=int(cap.get(self.cv.CAP_PROP_FRAME_COUNT))
             duration=count/fps if fps>0 else 0
-            f._require(.1<fps<=120 and count>0 and abs(duration-(message['end']-message['start']))<=2,
+            f._require(.1<fps<=120 and count>0 and source_duration_valid(message['end']-message['start'],duration),
                        'source duration does not match SD interval')
             rates={z['config'].get('sample_fps',5) for z in self.config['zones']};f._require(len(rates)==1,'sample rate mismatch')
             stride=max(1,int(round(fps/next(iter(rates)))))
@@ -174,6 +207,15 @@ class Engine:
         finally:cap.release()
 
 
+def worker_failure_reason(exc):
+    # Only exact internal messages map to public enums; never emit arbitrary
+    # runtime/decoder exception text or source paths.
+    if isinstance(exc,f.ValidationError):
+        return {'Fixed Lens ceiling verification failed':'LENS_UNVERIFIED',
+                'source duration does not match SD interval':'CLOCK_UNVERIFIED'}.get(str(exc),'COUNT_VALIDATION_FAILED')
+    return 'COUNT_VALIDATION_FAILED'
+
+
 def worker_main(root,config,model,reference):
     probe=socket.socket()
     try:
@@ -191,8 +233,8 @@ def worker_main(root,config,model,reference):
         try:
             f._require(len(line)<=16384,'worker message too large')
             result=engine.process(json.loads(line))
-        except Exception:
-            print(json.dumps(dict(status='blocked',reason='COUNT_OR_SOURCE_VALIDATION_FAILED')),flush=True)
+        except Exception as exc:
+            print(json.dumps(dict(status='blocked',reason=worker_failure_reason(exc))),flush=True)
             return 2  # cannot continue with potentially partial tracker state
         print(json.dumps(result,allow_nan=False),flush=True)
     return 0

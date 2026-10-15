@@ -1,5 +1,7 @@
 # นับคนย้อนหลังรายวัน (OD-59)
 
+OD-60 current: Private login and cached-session reuse succeeded; REAUTH_REQUIRED below is historical OD-59. Actual20261014 inventory is stable:510clips/66370seconds. Night-lens guard fixed and explicit short native download implemented;13/13static-lens checks and actual3s/15sampled-frame trial PASS. No full-day total: throughput and resume of long continuous groups remain the blocker. Daily download now supports1-180s; legacy minimum remains5s. See STATUS.
+
 Owner ขอขยายจากคลิปเที่ยงเป็นวันเต็มและเลือกช่วงเวลาได้. โปรแกรมรองรับหนึ่งวันที่สิ้นสุดแล้วตามเวลาไทย ค่าเริ่มต้นคือเมื่อวาน; PO เป็นคนรัน ไม่ให้ Owner ใช้ Terminal. ข้อมูลจริงเต็มวันยังไม่ได้ดึง: การเรียกงานล่าสุดหยุด `REAUTH_REQUIRED` ก่อน callback/คำขอกล้อง เพราะ lease48ชั่วโมงหมดอายุ. รอ Owner พร้อมกรอกบัญชี/OTP ในหน้าต่างส่วนตัวบน Mac ผ่านรีโมตเดิม ไม่รับรหัสในแชต.
 
 ## ผลลัพธ์และนิยาม
@@ -33,3 +35,13 @@ Owner ขอขยายจากคลิปเที่ยงเป็นว�
 - Claude launcherล้มเหลว `NOT_LOGGED_IN`, exit1/2.3วินาที,ไม่แก้ไฟล์/ไม่มีlockค้าง. POเขียน ตรวจและรันทดสอบเอง: `NOT_RUN_BY_DEVELOPER`. ผล regressionสุดท้ายดู STATUS.
 
 เมื่อ Ownerพร้อม login ให้ POรัน private bootstrapเดิม แล้วเริ่มวันที่สิ้นสุดแล้ว ตรวจ inventory/ความจุ/ผลจริง. ต้องตรวจความแม่นยำหลายช่วงและข้อจำกัดการบังกันเพิ่มเติม แม้ดึงครบวันแล้ว.
+
+## OD-60 night and actual-day evidence
+
+The00:00:34 Fixed OSD and unchanged ceiling beams were checked privately. Some lights are off, giving only9ORBmatches against the noon reference. A gradient fallback uses the same static ceiling strip: correlation>=0.75, affine scale error<2%, shear<0.01 and translation<2px at960px inspection size. It is bounded to100iterations and refuses low texture. Six night times pass; actual PTday/PTnight and shifted/zoomed/mirrored/blank negatives fail (13/13). Detector/tracker/gates are unchanged. These examples do not prove every lighting/occlusion condition.
+
+The actual3s SD interval produces a3.666667s/53frame MP4 with native trailing GOP. Short sources allow at most1s extra and0.15s missing; frames/events beyond the original interval are excluded. The actual worker accepted15sampled frames/0events. clock_verified means the SD metadata and file duration satisfy these bounds, not independent subsecond-clock/OCR proof.
+
+The selected day has179groups; its largest07:20:43-16:26:03 group is32720s/207clips. Prior CPU speed projects41.6hours for that group alone, exceeding the36h job cap. Total18.44recorded hours project roughly84compute hours, not measured whole-day performance. Whole-day operation is not ready under these limits even though auth/download work. Exact clip-level state checkpoints and validated throughput optimization are the next necessary work; do not knowingly launch a job that cannot finish and label it complete.
+
+Actual86s night trial completed430sampledframes in238.531s with0events. A v2 private report has2of510sources processed and remains PARTIAL_PROCESSING. Trial raw/Fixed copies were cleaned; no whole-day worker is running.
