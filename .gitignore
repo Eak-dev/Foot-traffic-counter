@@ -56,3 +56,4 @@ config.local.*
 .claude/dev.lock/
 .claude/tasks/
 .claude/results/
+.ft_connect-*.tmp

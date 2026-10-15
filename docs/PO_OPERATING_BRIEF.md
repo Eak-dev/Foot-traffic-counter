@@ -1,0 +1,69 @@
+# หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
+
+OD-63 live /2026-10-16: Owner-selected20261015 job is actually running alone, with supervisor/driver/deny-network counting worker and PID-bound caffeinate observed. Two matching terminated inventories contain379Fixed intervals,156continuous groups and46134recorded seconds (12h48m54s), spanning00:00:00–16:49:05Bangkok. All returned recordings are scheduled for counting; no complete-day count/accuracy result exists yet, and missing footage is not asserted to be zero traffic. The prior day10 remains stopped at2/16with its partial42front/14review/23shop-side totals and its own original snapshot; no migration/restart of that old ledger.
+
+The parent runner now includes bounded failure-stage/type/code/HTTP-status diagnostics and propagates existing SessionError to the established session manager; no raw exception messages/paths/args are emitted. This improves classification of a new failure, not a retrospective diagnosis or claimed fix of the old generic DAY_PROCESSING_FAILED. New fingerprinted sources intentionally refuse old-runtime snapshots; the date15 ledger is fresh. No changes to model/zones/gates/sampling/retries/validators/download limits. PO regression844tests/16.816s:836PASS/8optional-runtimeSKIP; all8skips covered by11isolated runtime tests/2.321s. Targeted53tests/0.582s PASS. Claude scoped launch NOT_LOGGED_IN,exit1/1.9s,no changes/no lock; PO final NOT_RUN_BY_DEVELOPER.
+
+The existing completion follow-up10 is retargeted to date15 and ACTIVE, with the same bounded30minute cadence and no camera/auth/runtime changes allowed from follow-up runs. Current48h lease remains; an optional7/30day preference is pending, never auto-applied. Runtime sources are frozen while the job runs. LOCAL_ONLY pending checkpoint.
+
+OD-62 live /2026-10-15: the prior20261014 job was gracefully stopped for the Owner-selected20261010 trial; it had no committed v4 clips yet, so no day14 count is claimed. The new v4 day10 job is actually running alone with its worker and temporary caffeinate. Two matching terminated inventories returned16Fixed clips/2556seconds in one continuous group,11:47:18–12:29:54Bangkok. This proves the returned list is stable, not that original footage outside that42m36s interval was retained. Report every available-clip count, keeping near/far/front accepted/review and shop-side accepted/review separate. Never present query.full_day_complete alone as proof that original whole-day footage exists, or missing hours as zero foot traffic. No completed clip/day10 figures observed yet. A bounded in-thread30minute completion follow-up is ACTIVE for this one run, stopping after final results or a real blocker; no new camera acquisitions/auth/code changes from that follow-up. Runtime sources unchanged from e76ae03; existing839-test evidence retained, tests NOT_RUN for this docs/execution-only handoff. Current48h lease unchanged. LOCAL_ONLY pending checkpoint.
+
+OD-61: exact per-clip JSON checkpoints and atomic ledger commits are implemented, with finite cached-auth execution and whole-group daytime priority. Final regression839tests/30.551s:831PASS/8SKIP;11isolated runtime tests/5.503s cover all8skips. Real-detection replay at5boundaries and a new process preserves every event/state (18accepted/5review/27pink).
+
+The live second adjacent source exposed a vendor SEI-only phantom last frame, not an authentication or resume failure. H.264-only codec-copy SEI filtering preserves all2699decoded images by per-frame size/MD5 and passes strict end decode; replaying900actual sampled frames retains11accepted front/1review/6pink, and its exported state reloads exactly in a new process. These are partial-source checks, not a day total or manual accuracy score. Model/gates/5fps remain unchanged. A fresh day_stream_v4 whole-day job for20261014 is now actually running on the Mac (510intervals, CPU worker and PID-bound caffeinate observed); it does not mix v3 state. Snapshot/runtime sources remain frozen during this job. The finite supervisor permits at most2driver cycles/72h/1000new windows and stops on auth/source/integrity errors. Numeric reports copy at each batch boundary. Full-day completion and sustained daily throughput remain UNVERIFIED. Optional7/30day retention code is tested; the active lease remains48h until Owner answers the pending preference, so a later auth stop remains possible. See [EXACT_RESUME.md](EXACT_RESUME.md). Claude NOT_LOGGED_IN/2.2s/no changes; final PO work NOT_RUN_BY_DEVELOPER. Publication state is recorded in the ignored delivery record.
+
+OD-60 final trial: actual86s Fixed night worker430sampled frames/238.531s/0automated events; processing PASS, manual counting accuracy NOT_VERIFIED. Together with the real3s/15frame trial, a new day_stream_v2 private ledger contains2of510processed sources and2completed short groups, statusPARTIAL_PROCESSING; no day total. Original diagnostic raw/Fixed and trial worker copies removed after validation; ceiling-only evidence remains private. No worker remains active. The current blocker is throughput/exact clip-boundary resume, not authentication.
+
+OD-60 live result /2026-10-15: Owner private bootstrap SUCCESS; token/refresh cached in Keychain,48h local deadline unchanged. Session reused across daily inventory and bounded native downloads without further input. Two terminated sweeps for20261014 agree:510Fixed intervals,66370recorded seconds,179continuous groups; longest group32720s/207clips. Initial full-day run stopped safely on the first night clip because noon-only ORB ceiling matching rejected changed illumination, not auth or a failed media download. Fixed OSD and unchanged ceiling geometry independently checked from the private ceiling-only image. Static-gradient fallback passes6night times plus daylight and rejects actual PTday/PTnight, shifted/zoomed/mirrored/blank images (13/13). New policy binds day_stream_v2 hash; old checkpoints cannot mix.
+
+Native3s recording download verified under an explicit short-recording flag. Actual file includes0.667s final-GOP overrun; short-source tolerance permits at most1s extra and0.15s missing, with frame/event ownership clipped to the original SD interval. Actual worker15sampled frames/0events, lens+SD-duration mapping PASS; no whole-day zero claim. Legacy playback/default5s minimum unchanged. Detailed worker enums distinguish lens/clock/count failures without exposing runtime text. Full regression809tests/36.880s:807PASS/2optional-runtimeSKIP; PO final NOT_RUN_BY_DEVELOPER. Long86s night trial result follows; no complete-day totals.
+
+Full-day capacity BLOCKER:18.44hours recorded versus the prior4.58x realtime CPU benchmark projects roughly84hours compute (extrapolation, not full-day timing). Longest group alone projects41.6h, exceeding36h invocation cap; old resume restarts an incomplete group. Do not launch a known-to-exceed full-day job or request credentials repeatedly. Next PO engineering: validated exact tracker/counter checkpoints at clip boundaries and measured throughput optimization, preserving counts/review. No background daily scheduler/full-day worker. No new packages/setters/account/network changes. Claude unavailable as previously checked; writerPO. LOCAL_ONLY pending checkpoint.
+
+OD-59 current: daily acquisition/continuous counting and offline hourly/period/custom-filter report implemented. Real whole-day run is blocked before camera calls by REAUTH_REQUIRED; no complete-day figures. CPU180s replay preserves18accepted/5review/27pink and duplicate overlap produces0new events. CoreML changed counts and was rejected; CPU remains default. See [DAY_COUNTING.md](DAY_COUNTING.md) for bounds, midnight/resume semantics and remaining capacity/accuracy limits. Claude NOT_LOGGED_IN/no changes; PO owns final code/tests, NOT_RUN_BY_DEVELOPER. Numeric partial pilot only may be delivered to personal iCloud.
+
+OD-58 current: keep the red gates. Track-box quality screening is active:18automatic accepted passages and5review candidates, pink27. Every prior23candidate is retained; review does not mean false and must not be silently added to accepted counts. Three old late ID/box ambiguities are in review. No detector/tracker change; see TRACK_CONTINUITY. Same trial revision only may go to personal iCloud.
+
+OD-57 current: Owner red oblique gates replace both vertical front-lane gates. Near17/far6/front23 are automated, pink27 unchanged. Three late table-occlusion events remain ambiguous; geometry completion is not accuracy PASS. Same existing trial revision may go to personal iCloud only. Read FRONT_LANES/current STATUS; do not restart acquisition/auth.
+
+OD-55 current: front-shop has blue near / green far corridors sharing one tracker, separate gates and lane subtotals. Current pilot near15/far21/front36, pink27. Source checks support four right-to-left far passages in a separate40s window, but full accuracy remains unverified. Read FRONT_LANES and current STATUS; preserve pink semantics and do not sum pink into unique people.
+
+OD-50 current: blue โซนหน้าร้าน line crossings and pink โซนข้างร้าน entries from any edge are implemented separately on the noon clip. Owner confirmed entry semantics. Read latest STATUS/ZONE_COUNTING; preserve both definitions and do not sum them as unique people.
+
+OD-49 current milestone: actual remote SD acquisition and local noon counting pilot work. Read latest STATUS/COUNTING_VALIDATION; do not restart auth or route research. Whole-day completeness/accuracy remains unverified. Continue from existing local runtime/session and reviewed evidence.
+
+คำสั่ง Owner วันที่ 2026-10-09 (OD-38/39). Codex และ Claude ต้องอ่านไฟล์นี้ก่อนเริ่มงานทุกครั้งร่วมกับ PROJECT_CONTROL และ STATUS
+
+## ผลลัพธ์ที่ต้องส่งมอบ
+
+- Mac ที่บ้านเชื่อมต่อกล้องที่ร้านและดึงคลิปจาก SD มาเองเป็นชุด แล้วนับคนย้อนหลังจาก **Fixed Lens** ของ Tapo C545D HW1.0 / Firmware1.1.7
+- ไม่ให้ Owner ดาวน์โหลด/export วิดีโอผ่าน iPhone แล้วส่งมา Mac; วิธีนี้ไม่ถือว่าบรรลุเป้าหมาย
+- Mac อยู่บ้าน ร้านมีเพียงกล้องกับเราเตอร์ ไม่มีคอม/NAS และไม่ซื้อฮาร์ดแวร์เพิ่ม
+- Owner ใช้ iPhone สั่งงานเป็นหลัก. Codex จัดการคำสั่ง โปรแกรม การค้นข้อมูล และการทดสอบบน Mac เองภายในสิทธิ์ที่มี ไม่ให้ Owner เปิด Terminal หรือค้นวิธีทางเทคนิคแทน
+- การใช้ระบบ relay ของผู้ผลิตเป็นทางส่งคลิปให้ Mac เป็น candidate ได้; ไม่อ้างว่าเป็น direct IP/P2P และไม่ถือว่าเชื่อมได้จนมีผลจริง
+- คลิปเหตุการณ์ครบวันใช้สรุปยอดทั้งวันได้ตามคำยืนยัน Owner. ยังต้องตรวจความครบของการดึงและความแม่นยำของการนับ; จำนวน events ไม่ใช่จำนวนคน
+
+## ความรับผิดชอบของ Codex ในตำแหน่ง PO
+
+1. รับผิดชอบผลลัพธ์ตั้งแต่เลือกแนวทาง แตกงาน จัดลำดับ สั่ง Claude Dev ตรวจ diff/หลักฐาน ทดสอบ และสั่งแก้จนงานพร้อมใช้งานหรือพบสิ่งติดขัดที่ต้องให้ Owner ช่วยจริง
+2. ค้นคำตอบและตัดสินใจเรื่องเทคนิคที่ย้อนกลับได้เองภายในขอบเขตที่ Owner อนุญาต. อ่านสิทธิ์จากบทสนทนาและคำสั่งล่าสุดก่อน: ห้ามใช้เอกสารเก่าหรือขั้นอนุมัติที่ PO เขียนเองมาถามสิทธิ์เดิมซ้ำ
+3. เมื่อ scope ในเอกสารไม่ตรงคำสั่งล่าสุด ให้ PO ปรับ control/ใบงานให้ตรงสิทธิ์จริงก่อนส่งงาน; Claude ไม่เพิ่มสิทธิ์ให้ตัวเอง. ข้อจำกัดจากระบบ/เครื่องมือและสิ่งที่ยังไม่ได้อนุญาตจริงยังต้องเคารพ
+4. ไม่จบงานเพียงบอกว่า “ขั้นต่อไปต้องทำอะไร” แล้วรอ Owner พิมพ์ให้ทำต่อ หากยังมีงานจำเป็นที่ทำได้ ให้ลงมือในรอบงานนั้นต่อ
+5. ถ้าติดหนึ่งส่วน ให้ทำส่วนอิสระที่ช่วยพิสูจน์เส้นทางจริงต่อ. หลีกเลี่ยงเอกสารซ้ำหรือโครงโค้ดที่ไม่ช่วยปลดอุปสรรคการเชื่อมต่อ
+6. ใช้ local folder/branch เดียวกับ Claude และมีผู้แก้ไฟล์ครั้งละคนตาม WORKFLOW. อัปเดต GitHub เป็น checkpoint ที่มีสาระ ไม่ sync หรือสร้าง Issue ทุกข้อความ
+
+## การสื่อสารกับ Owner
+
+- ไม่ส่งรายงานความคืบหน้าทั่วไปหรือทวนแผนเพื่อขอให้ Owner สั่งต่อ. เก็บรายละเอียดเทคนิค สถานะ และหลักฐานไว้ในไฟล์ local
+- ติดต่อเมื่อจำเป็นต้องให้ Owner ตัดสินใจเรื่องที่ยังไม่อนุญาตจริง หรือทำสิ่งที่ทีมทำแทนไม่ได้ เช่น ยืนยัน MFA ด้วยตนเอง. ถามเฉพาะข้อมูลที่ขาดและไม่เคยยืนยัน ไม่ถามรุ่นกล้อง/IP/เป้าหมายเดิมซ้ำ
+- ก่อนถาม ต้องตรวจสิ่งที่ทำได้เองและเตรียมทางเลือกหรือขั้นตอนให้พร้อม ระบุสิ่งติดขัด วิธีที่ลอง ผลจริง และสิ่งเดียวที่ต้องการจาก Owner ให้สั้นและชัด
+- หากต้องมีข้อความตามข้อกำหนดของระบบ ให้สั้นที่สุดและไม่เปลี่ยนเป็นรอบขออนุมัติทั่วไป. ไม่กล่าวว่าจะทำงานเบื้องหลังหลังจบ turn หากไม่มี worker ทำงานจริง
+- ไม่รับรหัสผ่าน/token ในแชตหรือ Issue และไม่ค้นความลับจากไฟล์ส่วนตัวเอง; การยืนยันตัวตนต้องมีช่องทางส่วนตัวที่ใช้ได้จริง
+
+## งานที่ต้องเดินต่อจากสถานะปัจจุบัน
+
+อ่าน STATUS และ REMOTE_SD_RESEARCH เพื่อรับผลล่าสุด ไม่เริ่มค้นทุกอย่างใหม่. OnTapo เป็น candidate แรกสำหรับ SD ผ่าน vendor relay; C545D ของเรายังไม่ผ่านการเชื่อมจริง
+
+งานทีมคือปิดข้อไม่รู้ของเส้นทาง auth/region/TLS และคำสั่ง SD ที่จำเป็น จัดช่องทางรับข้อมูลล็อกอินอย่างเป็นส่วนตัว แล้วทำตัวเชื่อมต่อที่จำกัดกล้อง/คำสั่ง/เวลา/ขนาด ตรวจ Fixed และคลิปครบ ก่อนทดลองหนึ่งคลิปและขยายเป็น batch. ใช้ Claude ตามใบงานที่มี baseline/write paths/เกณฑ์ตรวจรับชัดเจน; สิ่งที่ยังไม่ทดสอบต้องรายงานตามจริง
+
+ความสำเร็จของงานนี้คือ Mac รับคลิป SD จากร้านได้จริงโดยไม่มี iPhone เป็นตัวกลางวิดีโอ. เอกสาร, synthetic tests, IP configured หรือการที่ Tapo บนมือถือดูได้ ไม่ใช่หลักฐานแทนผลนั้น

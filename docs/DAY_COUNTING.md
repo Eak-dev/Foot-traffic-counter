@@ -1,0 +1,51 @@
+# นับคนย้อนหลังรายวัน (OD-59)
+
+OD-61: exact per-clip JSON checkpoints and atomic ledger commits are implemented, with finite cached-auth execution and whole-group daytime priority. Final regression839tests/30.551s:831PASS/8SKIP;11isolated runtime tests/5.503s cover all8skips. Real-detection replay at5boundaries and a new process preserves every event/state (18accepted/5review/27pink).
+
+The live second adjacent source exposed a vendor SEI-only phantom last frame, not an authentication or resume failure. H.264-only codec-copy SEI filtering preserves all2699decoded images by per-frame size/MD5 and passes strict end decode; replaying900actual sampled frames retains11accepted front/1review/6pink, and its exported state reloads exactly in a new process. These are partial-source checks, not a day total or manual accuracy score. Model/gates/5fps remain unchanged. A fresh day_stream_v4 whole-day job for20261014 is now actually running on the Mac (510intervals, CPU worker and PID-bound caffeinate observed); it does not mix v3 state. Snapshot/runtime sources remain frozen during this job. The finite supervisor permits at most2driver cycles/72h/1000new windows and stops on auth/source/integrity errors. Numeric reports copy at each batch boundary. Full-day completion and sustained daily throughput remain UNVERIFIED. Optional7/30day retention code is tested; the active lease remains48h until Owner answers the pending preference, so a later auth stop remains possible. See [EXACT_RESUME.md](EXACT_RESUME.md). Claude NOT_LOGGED_IN/2.2s/no changes; final PO work NOT_RUN_BY_DEVELOPER. Publication state is recorded in the ignored delivery record.
+
+OD-60 current: Private login and cached-session reuse succeeded; REAUTH_REQUIRED below is historical OD-59. Actual20261014 inventory is stable:510clips/66370seconds. Night-lens guard fixed and explicit short native download implemented;13/13static-lens checks and actual3s/15sampled-frame trial PASS. No full-day total: throughput and resume of long continuous groups remain the blocker. Daily download now supports1-180s; legacy minimum remains5s. See STATUS.
+
+Owner ขอขยายจากคลิปเที่ยงเป็นวันเต็มและเลือกช่วงเวลาได้. โปรแกรมรองรับหนึ่งวันที่สิ้นสุดแล้วตามเวลาไทย ค่าเริ่มต้นคือเมื่อวาน; PO เป็นคนรัน ไม่ให้ Owner ใช้ Terminal. ข้อมูลจริงเต็มวันยังไม่ได้ดึง: การเรียกงานล่าสุดหยุด `REAUTH_REQUIRED` ก่อน callback/คำขอกล้อง เพราะ lease48ชั่วโมงหมดอายุ. รอ Owner พร้อมกรอกบัญชี/OTP ในหน้าต่างส่วนตัวบน Mac ผ่านรีโมตเดิม ไม่รับรหัสในแชต.
+
+## ผลลัพธ์และนิยาม
+
+- `summary.html`: ไฟล์ออฟไลน์ ไม่มีการเชื่อมต่อภายนอก เลือกทั้งวัน/เช้า06–11/กลางวัน11–15/เย็น15–24/กลางคืน00–06 หรือกำหนดเวลาเอง. มีตัวเลขและตารางชั่วโมงฝังไว้ให้อ่านได้แม้ตัวดูไฟล์ปิด JavaScript.
+- `summary.csv`: UTF-8 BOM เปิดใน Numbers/Excel ได้ มีทั้งวัน สี่ช่วง และ24ชั่วโมง. `summary.json` เป็นสรุปทั้งวัน.
+- หน้าร้าน = ครั้งข้ามเส้นแดง แยกช่องใกล้/ไกล; ข้างร้าน = ครั้งเข้ากรอบชมพูจากด้านใดก็ได้. รักษา OD-58 zones/quality. ไม่รวมสองโซนเป็นคนไม่ซ้ำ และไม่นำรายการรอตรวจไปรวมยอดผ่านเกณฑ์.
+- เวลาเป็นช่วงครึ่งเปิด เช่น11:00รวม แต่15:00ไปอยู่ช่วงถัดไป. รายการรอตรวจยังอาจเป็นคนเดินจริง ไม่ใช่การยืนยันว่าเป็นผลผิด.
+- `COMPLETE_RECORDINGS`/`full_day_complete` หมายถึงรายการ SD ที่พบผ่านการตรวจและประมวลผลครบตามขอบเขตวัน ไม่ใช่การรับรองความแม่นยำ. `accuracy_status` ยังเป็น `NOT_VERIFIED` เสมอ. ช่วงไม่มีคลิปอาศัยคำยืนยัน Owner ว่ากล้องบันทึกเมื่อมีคนเดิน ไม่พิสูจน์ว่าฮาร์ดแวร์ไม่เคยพลาดเหตุการณ์.
+- รายการ SD ยังไม่ครบ/ไฟล์ยังไม่ประมวลผล/เลนส์หรือเวลาไม่ยืนยัน จะแสดงยอดบางส่วน. ช่วงที่ไม่ทราบไม่มีคลิปจะแสดง “—” ไม่แปลงเป็นศูนย์.
+
+## เส้นทางงาน
+
+`ft_day_run` เป็นงาน foreground ครั้งเดียว ไม่มี scheduler/web server. รับวันที่ `YYYYMMDD` ที่ผ่านไปแล้วและ private root/config/reference จาก PO. ใช้ Keychain leaseเดิมผ่าน callbackที่มี expiry guard ไม่เก็บ credentials ในไฟล์.
+
+1. ตรวจกล้องเป้าหมายเดิม รุ่น SD NORMAL และ timezone+07. เรียกรายการ SD แบบหน้าละ20จนถึงหน้าสุดท้ายสองรอบ รายการต้องตรงกัน. ใช้ typed daily getter contexts เท่านั้น; legacy probe ยังล็อกวันทดลองเดิม. หน้าเต็มซ้ำ/เกิน200หน้า/เปลี่ยนระหว่างรอบ/ไม่มี metadata Fixed ไม่ถือว่ารายการครบ.
+2. เก็บเฉพาะช่วง Fixed Lens ตาม metadata. รีเฟรช playback UID ด้วย getter ก่อนดาวน์โหลดแต่ละคลิป. ใช้ native recorded-download ผ่าน vendor relayที่พิสูจน์แล้ว ไม่ส่งภาพผ่าน iPhone.
+3. ดึงทีละไฟล์ ตรวจโครงสร้างแล้วแยก video stream0. Workerตรวจเทียบเพดาน/คานคงที่กับ Fixed referenceเดิมก่อนนับ; ไม่ใช้ใบหน้าหรือระบุตัวบุคคล. เวลาอ้าง SD UTCและจำนวนเฟรม/ระยะเวลาไฟล์ ไม่ใช่ OCRนาฬิกาอิสระ.
+4. Worker deny-network ใช้ CPU/model/runtimeเดิม. Trackers/counters/qualityอยู่ต่อข้ามคลิปที่ติดกัน ทิ้งเฟรมทับซ้อนตามสิทธิ์เวลาครึ่งเปิด; เริ่ม stateใหม่เมื่อมีช่องว่างการบันทึกจริง. เก็บบริบทคลิปเดิมที่คร่อมเที่ยงคืนได้ถึง180วินาที แล้วปล่อยผลเฉพาะวันเป้าหมาย.
+5. ลบ raw/Fixedชั่วคราวหลังประมวลผลแต่ละไฟล์ เหลือ ledgerตัวเลข/แฮช/สถานะส่วนตัว. บันทึก atomicพร้อมรายงานแต่ละไฟล์. สำเร็จต่อเนื่องทั้งกลุ่มจึงเป็น resume checkpoint; ถ้าหยุดกลางกลุ่มต้องเริ่มกลุ่มนั้นใหม่เพื่อคง state. Config/inventoryเปลี่ยนจะปฏิเสธ checkpoint ไม่รวมผลคนละชุด.
+
+ข้อจำกัด: รายการไม่เกิน4000ช่วง;1000media windows/ครั้ง;5–180วินาที/100MiB/300วินาทีต่อการดึง;350MiBต่อjob ภายใต้1GiBรวมและพื้นที่ว่าง10GiB; foreground deadline36ชั่วโมง. คลิปยาวกว่าหรือสั้นกว่าขอบเขตจะเป็น `unsupported`/ผลบางส่วน ไม่แอบตัดและเรียกว่าครบ. กลุ่มต่อเนื่องที่ใหญ่เกินเวลางานอาจยังทำไม่จบ เพราะ resumeจะเล่นกลุ่มนั้นใหม่; ต้องวัดข้อมูลจริงและพัฒนาการเก็บ stateเพิ่มเติมก่อนรับรองความสามารถทุกวัน. ยังไม่มีหลักฐาน throughputทั้งวัน.
+
+## หลักฐานที่รันจริง
+
+- CPU worker แบบ persistent กับ Fixed180วินาทีเดิม:900เฟรม/824.013วินาที, หน้าร้านผ่านเกณฑ์18 (ใกล้14/ไกล4), รอตรวจ5, ข้างร้าน27 ตรง OD-58. ส่งช่วงเดิมทับทั้งหมดอีกรอบแล้วได้0เหตุการณ์ใหม่. การ replay observationด้วยนาฬิกาวันก็ตรงกัน.
+- ตัวตรวจมุมคงที่รับ Fixed และปฏิเสธภาพ PTจริงจากไฟล์เดิม. เป็นหลักฐานสองตัวอย่าง ไม่ใช่พิสูจน์ทุกสภาพแสง.
+- ทดลอง CoreMLที่ติดตั้งอยู่แล้วภายใต้ deny-network:180วินาที/900เฟรมใช้688.053วินาที แต่เปลี่ยนเป็นหน้าร้าน19/รอตรวจ6/ข้างร้าน23. ปฏิเสธการนำมาเป็น default เพราะผลไม่ตรง; productionยัง CPU. ไม่ติดตั้งแพ็กเกจเพิ่ม. แนวทาง providerอ้าง [ONNX Runtime CoreML](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html).
+- HTML queryทดสอบ PythonเทียบJavaScript59ช่วง รวม preset/custom/error. เป็น Node VMพร้อม mock DOM ไม่ใช่ทดสอบ iPhoneจริง. Browserปฏิเสธเปิด local fileตาม URL policy จึงไม่มี browser-render/ปุ่มมือถือ PASS และไม่มีการเปิดserverหรือเลี่ยงpolicy.
+- รายงานตัวอย่างเป็นแค่คลิป180วินาทีวันที่เดิม ช่วงเวลาประมาณจาก OSD: `PARTIAL_INVENTORY`, clock unverified, `full_day_complete=false`. ห้ามใช้18/27เป็นยอดวันเต็ม. ส่งเฉพาะHTML/CSVตัวเลขใน personal iCloud;ไม่ส่งledger/config/raw/tracks. การคัดลอกตรงแฮชไม่รับรองcloud-syncหรือiPhoneเปิดได้แล้ว.
+- Claude launcherล้มเหลว `NOT_LOGGED_IN`, exit1/2.3วินาที,ไม่แก้ไฟล์/ไม่มีlockค้าง. POเขียน ตรวจและรันทดสอบเอง: `NOT_RUN_BY_DEVELOPER`. ผล regressionสุดท้ายดู STATUS.
+
+เมื่อ Ownerพร้อม login ให้ POรัน private bootstrapเดิม แล้วเริ่มวันที่สิ้นสุดแล้ว ตรวจ inventory/ความจุ/ผลจริง. ต้องตรวจความแม่นยำหลายช่วงและข้อจำกัดการบังกันเพิ่มเติม แม้ดึงครบวันแล้ว.
+
+## OD-60 night and actual-day evidence
+
+The00:00:34 Fixed OSD and unchanged ceiling beams were checked privately. Some lights are off, giving only9ORBmatches against the noon reference. A gradient fallback uses the same static ceiling strip: correlation>=0.75, affine scale error<2%, shear<0.01 and translation<2px at960px inspection size. It is bounded to100iterations and refuses low texture. Six night times pass; actual PTday/PTnight and shifted/zoomed/mirrored/blank negatives fail (13/13). Detector/tracker/gates are unchanged. These examples do not prove every lighting/occlusion condition.
+
+The actual3s SD interval produces a3.666667s/53frame MP4 with native trailing GOP. Short sources allow at most1s extra and0.15s missing; frames/events beyond the original interval are excluded. The actual worker accepted15sampled frames/0events. clock_verified means the SD metadata and file duration satisfy these bounds, not independent subsecond-clock/OCR proof.
+
+The selected day has179groups; its largest07:20:43-16:26:03 group is32720s/207clips. Prior CPU speed projects41.6hours for that group alone, exceeding the36h job cap. Total18.44recorded hours project roughly84compute hours, not measured whole-day performance. Whole-day operation is not ready under these limits even though auth/download work. Exact clip-level state checkpoints and validated throughput optimization are the next necessary work; do not knowingly launch a job that cannot finish and label it complete.
+
+Actual86s night trial completed430sampledframes in238.531s with0events. A v2 private report has2of510sources processed and remains PARTIAL_PROCESSING. Trial raw/Fixed copies were cleaned; no whole-day worker is running.

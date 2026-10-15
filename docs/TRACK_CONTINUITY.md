@@ -1,0 +1,25 @@
+# Bounding-box continuity for passage evidence
+
+OD-58 addresses temporary tracker IDs alternating between a full body, a partial head and the seated person near the table. Such transitions can move the box center across a gate even when they do not establish a walking passage. Red gate positions and blue/green lane polygons remain unchanged.
+
+## Counting and uncertainty
+
+Front lane zones can opt in with `track_quality: bbox_continuity_v1`. Existing line/entry modes and point-only lane callers retain their previous behavior. Enabled quality mode requires valid normalized detection boxes for every observation and fails closed on missing/malformed boxes. It never changes the tracker IDs or the original passage candidate generator/cooldown.
+
+Each candidate is checked against its exact armed-anchor-to-confirmation observation sequence. Height changes above1.8x, area changes above2.5x, a center jump above0.12 within0.4seconds, an evidence gap above the existing2second limit, or a missing retained anchor put the candidate in review. The0.4second comparison includes a1microsecond tolerance, so floating-point representations do not bypass that boundary. Normal gradual perspective changes remain supported.
+
+History is bounded to6seconds/96observations for each of at most500temporary tracks. A queue above1000review events fails the job instead of dropping candidates. The policy constants/version are bound into the zone config hash. Candidate records have a canonical digest; report merging validates policy, evidence, timestamps, review reasons, duplicate partitions and accepted/review/lane totals. Accepted and review records must reconstruct the original candidate digest.
+
+`count`, `events` and `lane_counts` contain automatic candidates that passed this screening. `review_count` and `review_events` contain uncertain candidates, not extra confirmed people and not proven false positives. `candidate_count` and `candidate_lane_counts` preserve the original totals. The offline page exposes clickable review timestamps and reasons. The video shows a separate orange review subtotal and an orange ring at each queued event. Pink shop-side counts stay independent.
+
+## Experiments and evidence
+
+Stricter ByteTrack association experiments on the cached detections produced substantial losses of visibly legitimate passages. Those settings were rejected. No new detector inference, model or package was used. The deployed tracker, anchor, crop, sample rate, confidence and motion rules remain unchanged; no face/appearance identity processing was introduced.
+
+On the same180second trial, baseline replay reproduces every23previous candidate record. The quality result is18automatic accepted (near14/far4) and5review candidates;18+5preserves23exact records by digest. Pink remains27with a byte-identical report. All three late ambiguities previously flagged by PO enter review. Source-frame overlays at the exact anchors and confirmations show full-body/head-only and seated/standing box association changes. The two other queued far-lane candidates show moving people and partial-box/ID ambiguity; they remain available for review, not silently removed. No hardcoded camera position, person ID or event timestamp is used by the quality algorithm.
+
+This trial was used for development and inspection. It is not an independent held-out evaluation. Screening does not prove that every accepted event is correct; review may include genuine people, and original detection/ID-switch/occlusion misses remain possible. Full-clip precision/recall, independent-clip validation, overlap/clip-boundary handling and whole-day readiness remain unverified. Do not describe18as the final actual-person count or18+5as23confirmed people.
+
+PO full suite:770tests in15.493seconds,768PASS/2optional-runtime SKIP. Meaningful synthetic coverage includes shape switches, ordinary perspective changes, exact floating-time boundaries, distinct simultaneous people, missing evidence, malformed boxes/clocks, bounded memory, opt-in compatibility, hash/policy binding, conservation/report corruption and review-page behavior. Actual H.2641152x648/900frames/179.998667seconds passed whole-file decoding; Thai separate totals, red gates and orange review markers were visually checked. The final page was regenerated after an existing-file exclusive-create refusal; no overwrite protection was weakened.
+
+Claude could not start because the local session was not logged in (exit1,1.8seconds), made no changes and retained no lock. PO implemented and reviewed the final changes; NOT_RUN_BY_DEVELOPER. Private source/tracks/reports/configs remain outside Git/sync with owner-only permissions and staging/free-space bounds. Only the annotated revision of this same trial was copied and hash-verified in Owner personal iCloud under the existing mobile-delivery exception; raw data and sidecars were not uploaded. Cloud-upload completion and iPhone playback are not verified. No public sharing, new camera calls, dependencies, server, scheduler or background deletion was introduced.
