@@ -1,5 +1,7 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
+OD-57 current: Owner red oblique gates replace both vertical front-lane gates. Near17/far6/front23 are automated, pink27 unchanged. Three late table-occlusion events remain ambiguous; geometry completion is not accuracy PASS. Same existing trial revision may go to personal iCloud only. Read FRONT_LANES/current STATUS; do not restart acquisition/auth.
+
 OD-55 current: front-shop has blue near / green far corridors sharing one tracker, separate gates and lane subtotals. Current pilot near15/far21/front36, pink27. Source checks support four right-to-left far passages in a separate40s window, but full accuracy remains unverified. Read FRONT_LANES and current STATUS; preserve pink semantics and do not sum pink into unique people.
 
 OD-50 current: blue โซนหน้าร้าน line crossings and pink โซนข้างร้าน entries from any edge are implemented separately on the noon clip. Owner confirmed entry semantics. Read latest STATUS/ZONE_COUNTING; preserve both definitions and do not sum them as unique people.

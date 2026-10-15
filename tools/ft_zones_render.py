@@ -80,7 +80,8 @@ def render_review(source, root, zones, reports, deadline):
                     draw.line(points + [points[0]], fill=color, width=3)
                     gate = [(round(x*width), round(y*height)) for x, y in region['line']]
                     if zone.get("counter_mode", "line") in ("line", "lanes"):
-                        draw.line(gate, fill=color, width=4)
+                        gate_color = '#FF3030' if zone.get('counter_mode') == 'lanes' else color
+                        draw.line(gate, fill=gate_color, width=4)
                     for track in row['tracks']:
                         if ft_count._point_in_polygon(track['foot'], roi):
                             x, y = track['foot'][0]*width, track['foot'][1]*height

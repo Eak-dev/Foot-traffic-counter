@@ -1,5 +1,15 @@
 # Front-shop near and far lane counting
 
+## Current geometry revision: OD-57
+
+The Owner moved both gates to the red oblique alignment shown on a zoomed and cropped review frame. PO registered the unchanged pink rectangle against normalized source coordinates and intersected the alignment with each unchanged near/far polygon. The small gap at the shared polygon edge comes from the existing distinct boundaries. Both gates are now red; outlines/labels retain blue and green. No detector, tracker, crop, anchor, sample rate or counter rule was changed.
+
+Old-preset replay reproduces every one of the36previous event records before the new gates yield17near and6far passages (front23). Pink remains27 with a byte-identical report. These totals describe different gates and must not be compared as accuracy scores. Source-frame spot checks at selected far-event times and the late table interval identify three near events needing review because temporary tracking associations change around the seated occupant. They have not been manually removed or presented as confirmed passages. Full new-geometry precision/recall remains NOT_EVALUATED.
+
+Claude could not start because its local session was not logged in (child exit1,2.1s). PO completed the two-line gate-color maintenance and independent review; final changes are NOT_RUN_BY_DEVELOPER. PO full suite759tests/14.245s:757PASS/2optional-runtimeSKIP; actual private H.264900frames/1152x648/179.998667s whole decodePASS and red alignment visually checked. The existing trial revision may be copied to the Owner personal iCloud folder under OD-56/57; this does not authorize raw clips, sidecars, other dates or public sharing. No automatic iCloud deletion is configured.
+
+## Previous OD-55 baseline
+
 OD-55 addresses the Owner's report that right-to-left passages on the far side of the table were intermittently missed. The front-shop measurement now has two lane polygons, blue for the near corridor and green for the far corridor. Each has a finite gate placed across its own walking path before the worst table occlusion. Pink shop-side entry counting stays separate.
 
 ## Shared tracking and passage semantics
