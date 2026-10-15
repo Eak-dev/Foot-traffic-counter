@@ -1,5 +1,7 @@
 # เซสชัน Tapo ใช้ซ้ำบน Mac
 
+OD-61 opt-in local retention: retain-7 / retain-30 commands are implemented and synthetically tested. They require a currently valid session, keep the original issued_at/target/device/terminal and update only the local encrypted Keychain record (schema2) with a bounded7/30day duration. No vendor request, password storage, OTP disabling or automatic renewal of the local deadline. Expired sessions cannot be revived. Defaults and the active session remain48h until Owner explicitly selects a longer option; the preference question is pending. The next bootstrap still defaults48h, so PO should reapply the recorded Owner choice after a necessary future private bootstrap without asking the same permission again. Vendor refresh/lifetime remains independently controlled by Tapo.
+
 OD-45 /2026-10-13: บัญชีจริงล็อกอินสำเร็จและบันทึกเซสชันใน Keychain แล้ว. ใช้ซ้ำจากสอง process ผ่านโดยไม่มี dialog, ทดสอบ vendor refresh ผ่านโดยไม่เลื่อน deadline และอ่านรายการ SD 20 รายการแรกผ่านเซสชันเดิมได้. CACHE_REUSE_VERIFIED / REFRESH_VERIFIED; ยังไม่ได้สังเกตครบ48ชั่วโมงจริง และยังไม่ได้ดาวน์โหลดวิดีโอหรือยืนยัน Fixed track. ผลล่าสุดดู STATUS.
 
 PO เป็นผู้รันคำสั่งให้ Owner; Owner ใช้ iPhone remote กรอกเฉพาะ email/password/OTP ในหน้าต่างส่วนตัว **Foot Traffic / Tapo login**. ใช้บัญชีเข้าแอป Tapo สำหรับ cloud login. ไม่ส่งรหัสในแชต. โปรแกรมไม่เก็บ password/email/OTP. ขณะเซสชันปัจจุบันยังใช้ได้ ให้ใช้ `use` หรือ `sd-check` โดยไม่เปิด bootstrap ซ้ำ; กรอกใหม่เฉพาะเมื่อจำเป็นต้องยืนยันตัวตนใหม่จริง.

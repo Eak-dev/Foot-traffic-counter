@@ -280,6 +280,17 @@ class ContinuousStateTests(unittest.TestCase):
             engine.assert_not_called()
 
 
+def fake_checkpoint(root,message,cfg):
+    import hashlib
+    folder=Path(root)/'checkpoints';folder.mkdir(mode=0o700,exist_ok=True)
+    data=dict(schema=1,source_ref=message['source_ref'],input_sha256=message['input_sha256'],
+              runtime='f'*64,reference_sha256=run.REFERENCE_SHA256,config_sha256=config_digest(cfg),state=None)
+    raw=json.dumps(data,separators=(',',':'))
+    ds.atomic_write(folder/(message['source_ref']+'.json'),raw)
+    return dict(source_ref=message['source_ref'],input_sha256=message['input_sha256'],
+                runtime='f'*64,coverage_end=message['end'],sha256=hashlib.sha256(raw.encode()).hexdigest())
+
+
 class ParentTransactionTests(unittest.TestCase):
     def setup_job(self,root):
         cfg=config();path=root/'config.json';path.write_text(json.dumps(cfg));path.chmod(0o600)
@@ -295,14 +306,15 @@ class ParentTransactionTests(unittest.TestCase):
                 def count(self,m):
                     calls.append(m)
                     return dict(status='ok',frames=50,events=[event(m['start']+1,salt=m['source_ref'])],
-                                input_sha256='b'*64,config_sha256=config_digest(cfg),clock_verified=True,lens_verified=True)
+                                input_sha256='b'*64,config_sha256=config_digest(cfg),clock_verified=True,lens_verified=True,
+                                checkpoint=fake_checkpoint(root,m,cfg))
                 def close(self):pass
             with patch.object(run,'inventory',return_value=(info,'synthetic',7)),patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256),patch.object(run,'download',return_value='b'*64),patch.object(run,'Worker',FakeWorker),patch.object(run,'check_space'),redirect_stdout(io.StringIO()):
                 first=run.run_selected('t','u',{},lambda:None,root,path,'ref',1)
                 self.assertEqual(first['status'],'PARTIAL')
                 second=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
                 self.assertEqual(second['status'],'SUCCESS');self.assertEqual(second['summary']['totals']['front'],3)
-                self.assertEqual([m['reset'] for m in calls],[True,True,False,True])
+                self.assertEqual([m['reset'] for m in calls],[True,False,True])
                 n=len(calls);third=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
                 self.assertEqual(third['summary']['totals']['front'],3);self.assertEqual(len(calls),n)
 
@@ -314,6 +326,91 @@ class ParentTransactionTests(unittest.TestCase):
             with self.assertRaises(da.DayError):run.prepare_ledger(root,changed,cfg,sd.FIXED_DATE)
             cfg['zones'][0]['config']['deadband']=.02
             with self.assertRaises(da.DayError):run.prepare_ledger(root,info,cfg,sd.FIXED_DATE)
+
+    def transaction_worker(self,root,cfg,calls):
+        class FakeWorker:
+            def __init__(self,*args):pass
+            def count(self,m):
+                calls.append(m)
+                return dict(status='ok',frames=50,events=[event(m['start']+1,salt=m['source_ref'])],
+                    input_sha256='b'*64,config_sha256=config_digest(cfg),clock_verified=True,lens_verified=True,
+                    checkpoint=fake_checkpoint(root,m,cfg))
+            def close(self):pass
+        return FakeWorker
+
+    def transaction_patches(self,root,cfg,info,calls):
+        from contextlib import ExitStack
+        stack=ExitStack()
+        for target,kwargs in [('inventory',dict(return_value=(info,'synthetic',7))),
+            ('download',dict(return_value='b'*64)),('check_space',{}),
+            ('Worker',dict(new=self.transaction_worker(root,cfg,calls)))]:
+            stack.enter_context(patch.object(run,target,**kwargs))
+        stack.enter_context(patch.object(run.f,'_validate_input_file'))
+        stack.enter_context(patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256))
+        stack.enter_context(redirect_stdout(io.StringIO()))
+        return stack
+
+    def test_report_failure_after_atomic_commit_keeps_the_new_cursor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[];original=run.write_reports
+            def reports(folder,data):
+                if data['cursor']==1:raise OSError('simulated report interruption')
+                return original(folder,data)
+            with self.transaction_patches(root,cfg,info,calls):
+                with patch.object(run,'write_reports',side_effect=reports):
+                    result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+                self.assertEqual(result['status'],'BLOCKED')
+                committed=ds.read_ledger(root/'ledger.json')
+                self.assertEqual(committed['cursor'],1)
+                self.assertEqual(committed['clips'][0]['status'],'counted')
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+                self.assertEqual(result['status'],'SUCCESS')
+                self.assertEqual(len(calls),3)
+
+    def test_uncommitted_snapshot_is_discarded_and_source_replayed_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[];original=run.atomic_write
+            def write(path,text):
+                if Path(path).name=='ledger.json' and json.loads(text)['cursor']==1:
+                    raise OSError('simulated interruption before ledger replace')
+                return original(path,text)
+            with self.transaction_patches(root,cfg,info,calls):
+                with patch.object(run,'atomic_write',side_effect=write):
+                    first=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+                self.assertEqual(first['status'],'BLOCKED')
+                self.assertEqual(ds.read_ledger(root/'ledger.json')['cursor'],0)
+                self.assertEqual(len(list((root/'checkpoints').glob('*.json'))),1)
+                final=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+                self.assertEqual(final['summary']['totals']['front'],3)
+                self.assertEqual(len(calls),4)
+                self.assertEqual(len(list((root/'checkpoints').glob('*.json'))),1)
+
+    def test_missing_committed_snapshot_stops_before_another_download(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            with self.transaction_patches(root,cfg,info,calls):
+                run.run_selected('t','u',{},lambda:None,root,path,'ref',1)
+                for p in (root/'checkpoints').iterdir():p.unlink()
+                with patch.object(run,'download') as download:
+                    result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+                    self.assertEqual(result['reason'],'CHECKPOINT_MISMATCH');download.assert_not_called()
+
+    def test_daytime_priority_changes_order_without_losing_night_or_group_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            for c in info['clips'][1:]:c.update(start=c['start']+43200,end=c['end']+43200)
+            with self.transaction_patches(root,cfg,info,calls):
+                first=run.run_selected('t','u',{},lambda:None,root,path,'ref',1,daytime_first=True)
+                self.assertEqual(first['status'],'PARTIAL')
+                final=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000,daytime_first=True)
+                self.assertEqual(final['status'],'SUCCESS')
+                self.assertEqual([m['start'] for m in calls],[43210,43230,0])
+                self.assertEqual([m['reset'] for m in calls],[True,True,True])
+                self.assertEqual(final['summary']['totals']['front'],3)
 
     def test_job_lock_prevents_two_writers(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -328,6 +425,17 @@ class ParentTransactionTests(unittest.TestCase):
             with self.assertRaises(da.DayError):run.Worker('root','cfg','ref')
             close.assert_called_once()
 
+    def test_worker_does_not_inherit_parent_credentials_in_environment(self):
+        fake=Mock();fake.stdout=io.BytesIO();fake.stdin=io.BytesIO()
+        with patch.dict(os.environ,{'TAPO_PASSWORD':'SYNTHETIC_PARENT_ONLY','OTHER_API_KEY':'SYNTHETIC_PARENT_ONLY'}), \
+             patch.object(run.subprocess,'Popen',return_value=fake) as popen, \
+             patch.object(run.selectors,'DefaultSelector'), \
+             patch.object(run.Worker,'receive',return_value=dict(status='ready',config_sha256=H,runtime='f'*64)):
+            worker=run.Worker('root','cfg','ref')
+            self.assertNotIn('TAPO_PASSWORD',popen.call_args.kwargs['env'])
+            self.assertNotIn('OTHER_API_KEY',popen.call_args.kwargs['env'])
+            worker.close()
+
     def test_interrupted_atomic_temp_is_recovered_under_job_lock(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(os.path.realpath(tmp));root.chmod(0o700)
@@ -339,7 +447,71 @@ class ParentTransactionTests(unittest.TestCase):
         from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
-            def encode(args,**kwargs):Path(args[-1]).write_bytes(b'fixture');return SimpleNamespace(returncode=0)
-            with patch.object(run,'check_space'),patch.object(run.media,'_private_root'),patch.object(sd,'_device_request'),patch.object(sd,'_parse_responses',return_value=dict(getUserID={},searchDateWithVideo={})),patch.object(sd,'_read_user_id',return_value=9),patch.object(sd,'_read_calendar',return_value=True),patch.object(run.media,'_negotiate',return_value=('synthetic','path','token')),patch.object(run.media,'_stream') as stream,patch.object(run.media,'_inspect',return_value=[dict(index=0)]),patch.object(run.subprocess,'run',side_effect=encode),patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value='b'*64):
+            def encode(args,**kwargs):
+                self.assertEqual(args[args.index('-map')+1],'0:0')
+                self.assertEqual(args[args.index('-c:v')+1],'copy')
+                self.assertEqual(args[args.index('-bsf:v')+1],'filter_units=remove_types=6')
+                Path(args[-1]).write_bytes(b'fixture');return SimpleNamespace(returncode=0)
+            with patch.object(run,'check_space'),patch.object(run.media,'_private_root'),patch.object(sd,'_device_request'),patch.object(sd,'_parse_responses',return_value=dict(getUserID={},searchDateWithVideo={})),patch.object(sd,'_read_user_id',return_value=9),patch.object(sd,'_read_calendar',return_value=True),patch.object(run.media,'_negotiate',return_value=('synthetic','path','token')),patch.object(run.media,'_stream') as stream,patch.object(run.media,'_inspect',return_value=[dict(index=0,codec_name='h264')]),patch.object(run.subprocess,'run',side_effect=encode),patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value='b'*64):
                 self.assertEqual(run.download('t','u','synthetic',7,dict(start=0,end=10),root,lambda:None),'b'*64)
                 self.assertEqual(stream.call_args.args[3],9)
+
+    def test_sei_removal_is_never_applied_to_hevc_or_an_unverified_lens(self):
+        for videos,reason in (([dict(index=0,codec_name='hevc')],'UNSUPPORTED_SOURCE'),
+                              ([dict(index=2,codec_name='h264')],'LENS_OR_CLOCK_UNVERIFIED'),
+                              ([dict(index=0,codec_name='h264')]*2,'LENS_OR_CLOCK_UNVERIFIED')):
+            with self.assertRaises(da.DayError) as raised:run.fixed_remux_filter(videos)
+            self.assertEqual(raised.exception.code,reason)
+
+
+class FiniteDriverTests(unittest.TestCase):
+    def arguments(self,root,*extra):
+        return ['--run','--root',str(root),'--config','synthetic-config','--reference','synthetic-reference',
+                '--date','20010101',*extra]
+
+    def test_finite_batches_reuse_auth_and_stop_on_completion(self):
+        reports=[dict(status='SUCCESS',callback=dict(status='PARTIAL',reason='INVOCATION_BUDGET')),
+                 dict(status='SUCCESS',callback=dict(status='SUCCESS',summary=dict(full_day_complete=True)))]
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H),patch.object(run,'check_space'),redirect_stdout(io.StringIO()):
+                manager.return_value.command.side_effect=reports
+                self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','3')),0)
+                self.assertEqual(manager.return_value.command.call_count,2)
+                self.assertTrue(all(c.args[0]=='use' for c in manager.return_value.command.call_args_list))
+            self.assertFalse(json.loads((root/'job-status.json').read_text())['running'])
+
+    def test_auth_or_source_errors_do_not_spin_or_prompt(self):
+        for error in (dict(status='BLOCKED',reason='REAUTH_REQUIRED'),
+                      dict(status='SUCCESS',callback=dict(status='BLOCKED',reason='LENS_UNVERIFIED'))):
+            with tempfile.TemporaryDirectory() as tmp:
+                root=Path(os.path.realpath(tmp));root.chmod(0o700)
+                with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H),patch.object(run,'check_space'),redirect_stdout(io.StringIO()):
+                    manager.return_value.command.return_value=error
+                    self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','3')),2)
+                    self.assertEqual(manager.return_value.command.call_count,1)
+
+    def test_media_window_product_limit_is_checked_before_session_use(self):
+        with tempfile.TemporaryDirectory() as tmp,patch.object(run,'SessionManager') as manager,redirect_stdout(io.StringIO()):
+            self.assertEqual(run.main(self.arguments(Path(tmp),'--max-clips','1000','--max-batches','2')),2)
+            manager.assert_not_called()
+
+    def test_another_job_cannot_overwrite_active_status_or_clean_its_work(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            status=root/'job-status.json';ds.atomic_write(status,'{"running":true,"pid":7}')
+            media=root/'work/fixed.mp4';media.write_bytes(b'active-owner-work');media.chmod(0o600)
+            with run.job_lock(root),redirect_stdout(io.StringIO()):
+                self.assertEqual(run.main(self.arguments(root)),2)
+            self.assertTrue(json.loads(status.read_text())['running'])
+            self.assertEqual(media.read_bytes(),b'active-owner-work')
+
+    def test_delivery_copies_only_numeric_reports_and_retains_partial_label(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            for name in ('summary.html','summary.csv'):ds.atomic_write(root/name,'numeric-example')
+            ds.atomic_write(root/'ledger.json','private-provenance-not-for-delivery')
+            destination=root/'delivery'
+            run.deliver_reports(root,destination,'2001-01-01',False)
+            self.assertEqual(sorted(p.suffix for p in destination.iterdir()),['.csv','.html'])
+            self.assertTrue(all('PARTIAL' in p.name for p in destination.iterdir()))

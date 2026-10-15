@@ -17,14 +17,16 @@ from tools import ft_count as f
 from tools.ft_count_zones import load_zones_config, _zone_config_sha, _config_sha256
 from tools.ft_lane_counter import LaneCrossingCounter
 from tools.ft_track_quality import TrackEvidence
+from tools.ft_state_codec import StateError
 from tools.ft_zone_entries import ZoneEntryCounter
 
-VERSION='day_stream_v2'
+VERSION='day_stream_v4'
+REMUX_POLICY='h264_remove_sei_v1'
 LENS_POLICY=dict(version='ceiling_gradient_v1',min_score=.75,scale_error=.02,shear=.01,shift_px=2,iterations=100)
 
 
 def config_digest(config):
-    return _config_sha256(dict(engine=VERSION,lens_policy=LENS_POLICY,config=config,
+    return _config_sha256(dict(engine=VERSION,lens_policy=LENS_POLICY,remux_policy=REMUX_POLICY,config=config,
                                policies=[_zone_config_sha(z) for z in config['zones']]))
 
 
@@ -104,11 +106,14 @@ class Engine:
         self.cv,self.np,self.sv=cv2,np,sv;cv2.setNumThreads(4)
         self.root=Path(root).resolve();self.config=config;self.clock=FrameClock()
         self.stream=ObservationStream(config['zones']);self.trackers={}
+        from tools.ft_day_state import runtime_digest
+        self.runtime_digest=runtime_digest()
         f._validate_model_file(model)
         options=ort.SessionOptions();options.intra_op_num_threads=4;options.inter_op_num_threads=1
         self.net=ort.InferenceSession(str(model),sess_options=options,providers=['CPUExecutionProvider'])
         self.input_name=self.net.get_inputs()[0].name
         f._validate_input_file(reference)
+        self.reference_sha256=f._file_sha256(reference)
         cap=cv2.VideoCapture(str(reference));ok,image=cap.read();cap.release()
         f._require(ok,'reference lens frame unavailable')
         self.reference=image;self.orb=cv2.ORB_create(nfeatures=1000)
@@ -216,7 +221,7 @@ def worker_failure_reason(exc):
     return 'COUNT_VALIDATION_FAILED'
 
 
-def worker_main(root,config,model,reference):
+def worker_main(root,config,model,reference,resume=None):
     probe=socket.socket()
     try:
         try:probe.bind(('127.0.0.1',0))
@@ -226,13 +231,17 @@ def worker_main(root,config,model,reference):
     os.umask(0o077);os.environ['MPLCONFIGDIR']=str(Path(root)/'cache')
     f._outside_repo(root);s=Path(root).lstat();f._require(s.st_uid==os.getuid() and not s.st_mode&0o077,'private worker root required')
     engine=Engine(root,load_zones_config(config),model,reference)
-    print(json.dumps(dict(status='ready',config_sha256=config_digest(engine.config))),flush=True)
+    from tools.ft_day_state import load_checkpoint, write_checkpoint
+    if resume is not None:load_checkpoint(engine,resume)
+    print(json.dumps(dict(status='ready',config_sha256=config_digest(engine.config),runtime=engine.runtime_digest)),flush=True)
     while True:
         line=sys.stdin.readline(16385)
         if not line:break
         try:
             f._require(len(line)<=16384,'worker message too large')
-            result=engine.process(json.loads(line))
+            message=json.loads(line)
+            result=engine.process(message)
+            result['checkpoint']=write_checkpoint(engine,message['source_ref'],message['input_sha256'])
         except Exception as exc:
             print(json.dumps(dict(status='blocked',reason=worker_failure_reason(exc))),flush=True)
             return 2  # cannot continue with potentially partial tracker state
@@ -243,6 +252,8 @@ def worker_main(root,config,model,reference):
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--worker',action='store_true');parser.add_argument('--root',required=True)
     parser.add_argument('--config',required=True);parser.add_argument('--model',required=True);parser.add_argument('--reference',required=True)
+    parser.add_argument('--resume-json',default=None)
     args=parser.parse_args()
-    try:sys.exit(worker_main(args.root,args.config,args.model,args.reference))
+    try:sys.exit(worker_main(args.root,args.config,args.model,args.reference,json.loads(args.resume_json) if args.resume_json else None))
+    except StateError:print('{"status":"blocked","reason":"CHECKPOINT_MISMATCH"}',flush=True);sys.exit(2)
     except Exception:print('{"status":"blocked","reason":"WORKER_START_FAILED"}',flush=True);sys.exit(2)

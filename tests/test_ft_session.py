@@ -70,6 +70,50 @@ class SessionTests(unittest.TestCase):
         self.prompt.assert_not_called()
         self.refresh.assert_not_called()
 
+    def test_explicit_seven_day_retention_preserves_issue_time_and_never_logs_in(self):
+        result=self.manager.command('retain-7',TARGET)
+        self.assertEqual(result['session_state'],'LOCAL_POLICY_UPDATED')
+        self.assertEqual(self.store.value['issued_at'],1000)
+        self.assertEqual(self.store.value['hard_expires_at'],1000+7*86400)
+        self.assertEqual(self.store.value['lease_seconds'],7*86400)
+        self.assertNotIn('SECRET',json.dumps(result))
+        self.discovery.assert_not_called();self.refresh.assert_not_called();self.prompt.assert_not_called()
+        self.now=200000;self.manager=self.make_manager()
+        self.assertEqual(self.call()['status'],'SUCCESS')
+        self.assertEqual(self.store.value['hard_expires_at'],1000+7*86400)
+
+    def test_explicit_thirty_day_retention_is_bounded_and_not_rolling(self):
+        self.manager.command('retain-30',TARGET);deadline=1000+30*86400
+        self.now+=100
+        self.manager.command('retain-30',TARGET)
+        self.assertEqual(self.store.value['hard_expires_at'],deadline)
+        self.manager.command('refresh-check',TARGET)
+        self.assertEqual(self.store.value['hard_expires_at'],deadline)
+        self.assertEqual(self.store.value['issued_at'],1000)
+
+    def test_expired_session_cannot_be_revived_by_retention_change(self):
+        self.now=173800
+        result=self.manager.command('retain-7',TARGET)
+        self.assertEqual(result['reason'],'EXPIRED');self.assertIsNone(self.store.value)
+        self.discovery.assert_not_called();self.prompt.assert_not_called()
+
+    def test_retention_schema_rejects_unbounded_float_boolean_and_unknown_fields(self):
+        self.manager.command('retain-7',TARGET)
+        original=copy.deepcopy(self.store.value)
+        for invalid in (31*86400,float(7*86400),True,0):
+            bad=copy.deepcopy(original);bad['lease_seconds']=invalid
+            with self.assertRaises(s.SessionError):s.validate(bad)
+        bad=copy.deepcopy(original);bad['password']='synthetic'
+        with self.assertRaises(s.SessionError):s.validate(bad)
+        self.now=original['hard_expires_at'];self.manager=self.make_manager()
+        self.assertEqual(self.call()['reason'],'EXPIRED')
+
+    def test_failed_retention_write_keeps_the_previous_policy(self):
+        self.store.fail_save=True
+        result=self.manager.command('retain-7',TARGET)
+        self.assertEqual(result['reason'],'STORE_DENIED')
+        self.assertEqual(self.store.value['hard_expires_at'],173800)
+
     def test_guarded_callback_gets_lease_check_without_changing_old_callback_api(self):
         called=[]
         def callback(token,terminal,selected,guard):

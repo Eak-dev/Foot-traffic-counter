@@ -20,6 +20,7 @@ import time
 from tools import ft_cloud_probe as cloud
 
 LEASE_SECONDS = 172800
+RETENTION_COMMANDS = {"retain-7": 7*86400, "retain-30": 30*86400}
 APP_DIR = Path.home() / ".local/share/foot-traffic-counter"
 HELPER = APP_DIR / "bin/ft-keychain"
 ERRORS = frozenset({
@@ -138,10 +139,13 @@ def _number(value):
 
 
 def validate(record, target=None):
-    if not isinstance(record, dict) or set(record) != FIELDS:
-        raise SessionError("INVALID_SESSION")
-    if type(record["schema_version"]) is not int or record["schema_version"] != 1:
-        raise SessionError("INVALID_SESSION")
+    if not isinstance(record,dict) or type(record.get('schema_version')) is not int or record['schema_version'] not in (1,2):
+        raise SessionError('INVALID_SESSION')
+    fields=FIELDS if record['schema_version']==1 else FIELDS|{'lease_seconds'}
+    if set(record)!=fields:raise SessionError('INVALID_SESSION')
+    duration=LEASE_SECONDS if record['schema_version']==1 else record['lease_seconds']
+    if type(duration) is not int or duration not in {LEASE_SECONDS,*RETENTION_COMMANDS.values()}:
+        raise SessionError('INVALID_SESSION')
     if type(record["revision"]) is not int or not 1 <= record["revision"] <= 2**53:
         raise SessionError("INVALID_SESSION")
     if not _text(record["token"]) or not _text(record["refresh_token"], optional=True):
@@ -154,7 +158,7 @@ def validate(record, target=None):
         raise SessionError("TARGET_MISMATCH")
     if any(not _number(record[k]) for k in ("issued_at", "hard_expires_at", "last_seen")):
         raise SessionError("INVALID_SESSION")
-    if record["hard_expires_at"] != record["issued_at"] + LEASE_SECONDS or not record["issued_at"] <= record["last_seen"] < record["hard_expires_at"]:
+    if record["hard_expires_at"] != record["issued_at"] + duration or not record["issued_at"] <= record["last_seen"] < record["hard_expires_at"]:
         raise SessionError("INVALID_SESSION")
     return record
 
@@ -313,9 +317,9 @@ class SessionManager:
         self.stage = None
         if type(callback_with_guard) is not bool:
             return {"status":"BLOCKED","reason":"INVALID_INPUT"}
-        if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check", "media-check", "fixed-check"}:
+        if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check", "media-check", "fixed-check"} | set(RETENTION_COMMANDS):
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
-        if command in {"start", "use", "refresh-check", "sd-check", "media-check", "fixed-check"} and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
+        if command in {"start", "use", "refresh-check", "sd-check", "media-check", "fixed-check"} | set(RETENTION_COMMANDS) and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
         if command == "media-check":
             from tools.ft_media_probe import LIVE_TRIAL_ENABLED
@@ -334,6 +338,17 @@ class SessionManager:
                         raise SessionError("REAUTH_REQUIRED")
                     validate(record, target)
                     lease = Lease(record, self.wall, self.mono)
+                    if command in RETENTION_COMMANDS:
+                        # Explicit Owner-selected LOCAL retention only. Keep the
+                        # original issue time; no vendor request or OTP bypass.
+                        duration=RETENTION_COMMANDS[command]
+                        if lease.check()>=record['issued_at']+duration:
+                            raise SessionError('INVALID_INPUT')
+                        updated=copy.deepcopy(record)
+                        updated.update(schema_version=2,lease_seconds=duration,
+                            hard_expires_at=record['issued_at']+duration,last_seen=lease.check(),revision=record['revision']+1)
+                        self._save(updated,record['revision'])
+                        return self._public(updated,'LOCAL_POLICY_UPDATED',Lease(updated,self.wall,self.mono))
                     self._touch(record, lease)
                     if command == "status":
                         return self._public(record, "ACTIVE", lease)
@@ -432,7 +447,7 @@ def load_target():
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     try:
-        if len(args) != 1 or args[0] not in {"status", "start", "use", "sd-check", "media-check", "fixed-check", "refresh-check", "forget"}:
+        if len(args) != 1 or args[0] not in {"status", "start", "use", "sd-check", "media-check", "fixed-check", "refresh-check", "forget"} | set(RETENTION_COMMANDS):
             raise SessionError("INVALID_INPUT")
         target = load_target() if args[0] not in {"status", "forget"} else None
         report = SessionManager().command(args[0], target)
