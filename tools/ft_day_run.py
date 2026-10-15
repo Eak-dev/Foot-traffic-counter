@@ -19,7 +19,7 @@ from tools.ft_count_zones import load_zones_config
 from tools.ft_day_acquire import inventory, groups, DayError
 from tools.ft_day_count import config_digest
 from tools.ft_day_summary import atomic_write, read_ledger, write_reports, digest
-from tools.ft_session import SessionManager, load_target
+from tools.ft_session import SessionManager, SessionError, load_target
 from tools.ft_day_state import read_checkpoint, StateError
 
 JOB_BYTES=350*1024**2
@@ -27,6 +27,31 @@ JOB_SECONDS=36*3600
 DRIVER_SECONDS=48*3600
 REFERENCE_SHA256='2fef18ff159658903c9d6b0fce96d9e62c873fb40107fb2ee8aebc5dc0785d6c'
 REPO=Path(__file__).resolve().parent.parent
+FAILURE_STAGES=frozenset(('CONFIG','INVENTORY','PREPARE','GUARD','WORKER_START',
+    'DOWNLOAD','COUNT','CHECKPOINT','COMMIT','CLEANUP'))
+MEDIA_CODES=frozenset(('TIMEOUT','QUOTA','DISK_SPACE','STORAGE','SAMPLE_EXISTS',
+    'NO_ELIGIBLE_CLIP','IDENTITY','HTTP','TLS','CONNECT','PROTOCOL','INCOMPLETE',
+    'VALIDATION','PUBLIC_ENDPOINT_REQUIRED','PREREQUISITE'))
+
+
+def failure_diagnostic(stage,exc):
+    """Only fixed enums/numbers; never exception messages, args or paths."""
+    result=dict(stage=stage if stage in FAILURE_STAGES else 'UNKNOWN',
+                kind='UNCLASSIFIED',code='UNCLASSIFIED')
+    if isinstance(exc,(media.SampleError,sd.SdError)):
+        media_error=isinstance(exc,media.SampleError)
+        codes=MEDIA_CODES if media_error else sd.ERROR_CODES
+        code=getattr(exc,'code',None)
+        result.update(kind='MEDIA' if media_error else 'SD',
+                      code=code if type(code) is str and code in codes else 'UNKNOWN')
+        status=getattr(exc,'http_status',None)
+        if type(status) is int and 100<=status<=599:result['http_status']=status
+    elif isinstance(exc,subprocess.TimeoutExpired):result.update(kind='PROCESS',code='TIMEOUT')
+    elif isinstance(exc,OSError):
+        result.update(kind='IO',code='ERROR')
+        if type(exc.errno) is int and 0<exc.errno<=4095:result['errno']=exc.errno
+    elif isinstance(exc,f.ValidationError):result.update(kind='VALIDATION',code='REJECTED')
+    return result
 
 
 def check_space(root):
@@ -214,13 +239,14 @@ def save(root,data):
 
 
 def run_selected(token,terminal,selected,guard,root,config_path,reference,max_clips,date=sd.FIXED_DATE,daytime_first=False):
-    started=time.monotonic();worker=None
+    started=time.monotonic();worker=None;stage='CONFIG'
     try:
         config=load_zones_config(config_path)
         f._validate_input_file(reference)
         if f._file_sha256(reference)!=REFERENCE_SHA256:raise DayError('LENS_OR_CLOCK_UNVERIFIED')
-        info,device,uid=inventory(token,terminal,selected,guard,date)
+        stage='INVENTORY';info,device,uid=inventory(token,terminal,selected,guard,date)
         if daytime_first:info=prioritize_daytime(info)
+        stage='PREPARE'
         data=prepare_ledger(root,info,config,date);save(root,data)
         processed=0;prune_checkpoints(root,data['checkpoint'])
         atomic_write(Path(root)/'count-config.json',json.dumps(config,ensure_ascii=False))
@@ -229,6 +255,7 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
         prior_group=memberships[data['clips'][data['cursor']-1]['ref']] if data['cursor'] else None
         prior_end=prefix_coverage_end(data['clips'],data['cursor']) if data['cursor'] else None
         for index in range(data['cursor'],len(data['clips'])):
+            stage='GUARD'
             guard();check_space(root)
             if processed>=max_clips or time.monotonic()-started>JOB_SECONDS:
                 return dict(status='PARTIAL',reason='INVOCATION_BUDGET',summary=save(root,data))
@@ -241,10 +268,15 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
             reset=current_group!=prior_group
             coverage_end=end if reset else max(end,prior_end)
             try:
+                stage='CLEANUP'
                 clean_work(root)
+                stage='WORKER_START'
                 if worker is None:worker=Worker(root,Path(root)/'count-config.json',reference,data['checkpoint'])
+                stage='DOWNLOAD'
                 input_hash=download(token,terminal,device,uid,clip,root,guard,date=date)
+                stage='COUNT'
                 result=worker.count(dict(start=start,end=end,reset=reset,source_ref=clip['ref'],input_sha256=input_hash))
+                stage='CHECKPOINT'
                 cp=result.get('checkpoint')
                 if (not isinstance(cp,dict) or cp.get('source_ref')!=clip['ref']
                         or cp.get('input_sha256')!=input_hash or cp.get('coverage_end')!=coverage_end):
@@ -261,17 +293,23 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
                 # The immutable new snapshot exists first. Atomic ledger replacement
                 # commits its pointer and events together. Report failure must never
                 # roll this transaction back or mark a committed source uncounted.
-                summary=save(root,data)
+                stage='COMMIT';summary=save(root,data)
                 prune_checkpoints(root,cp)
                 prior_end=coverage_end;prior_group=current_group;processed+=1
                 print(json.dumps(dict(progress='CLIP_COUNTED',processed=data['cursor'],total=len(data['clips']),
                                       front=summary['totals']['front'],review=summary['totals']['front_review'])),flush=True)
-            finally:clean_work(root)
+            finally:
+                try:clean_work(root)
+                except Exception:
+                    stage='CLEANUP';raise
+        stage='COMMIT'
         summary=save(root,data)
         return dict(status='SUCCESS' if summary['full_day_complete'] else 'PARTIAL',summary=summary)
     except StateError:return dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH')
     except DayError as exc:return dict(status='BLOCKED',reason=exc.code)
-    except Exception:return dict(status='BLOCKED',reason='DAY_PROCESSING_FAILED')
+    except SessionError:raise  # preserve the existing lease/reauth cleanup policy
+    except Exception as exc:
+        return dict(status='BLOCKED',reason='DAY_PROCESSING_FAILED',diagnostic=failure_diagnostic(stage,exc))
     finally:
         if worker:worker.close()
 
@@ -400,7 +438,9 @@ def main(argv=None):
         if lock_held:
             with contextlib.suppress(Exception):
                 atomic_write(root/'job-status.json',json.dumps(dict(running=False,pid=os.getpid(),batch=batch,
-                    status=result.get('status'),reason=result.get('reason') or result.get('callback',{}).get('reason'),updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))
+                    status=result.get('status'),reason=result.get('reason') or result.get('callback',{}).get('reason'),
+                    diagnostic=result.get('diagnostic') or result.get('callback',{}).get('diagnostic'),
+                    updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))
             lock.__exit__(None,None,None)
 
 

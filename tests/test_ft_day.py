@@ -350,6 +350,27 @@ class ParentTransactionTests(unittest.TestCase):
         stack.enter_context(redirect_stdout(io.StringIO()))
         return stack
 
+    def test_download_failure_reports_redacted_stage_without_committing_a_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            with self.transaction_patches(root,cfg,info,calls), \
+                 patch.object(run,'download',side_effect=run.media.SampleError('HTTP',503)):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(result,dict(status='BLOCKED',reason='DAY_PROCESSING_FAILED',
+                diagnostic=dict(stage='DOWNLOAD',kind='MEDIA',code='HTTP',http_status=503)))
+            self.assertEqual(ds.read_ledger(root/'ledger.json')['cursor'],0)
+            self.assertEqual(calls,[])
+
+    def test_session_guard_error_reaches_the_existing_session_manager(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            def expired():raise run.SessionError('EXPIRED')
+            with self.transaction_patches(root,cfg,info,calls),self.assertRaises(run.SessionError) as caught:
+                run.run_selected('t','u',{},expired,root,path,'ref',1000)
+            self.assertEqual(caught.exception.code,'EXPIRED');self.assertEqual(calls,[])
+
     def test_report_failure_after_atomic_commit_keeps_the_new_cursor(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
@@ -464,6 +485,26 @@ class ParentTransactionTests(unittest.TestCase):
             self.assertEqual(raised.exception.code,reason)
 
 
+class FailureDiagnosticTests(unittest.TestCase):
+    def test_exception_messages_and_untrusted_attributes_never_become_diagnostics(self):
+        secret='SYNTHETIC_PRIVATE_PATH_AND_PASSWORD'
+        bad=run.media.SampleError('HTTP');bad.code=secret;bad.http_status=secret
+        errors=[Exception(secret),ValidationError(secret),OSError(2,secret,secret),
+                run.subprocess.TimeoutExpired([secret],1),bad]
+        for exc in errors:
+            result=run.failure_diagnostic(secret,exc)
+            self.assertNotIn(secret,json.dumps(result));self.assertEqual(result['stage'],'UNKNOWN')
+        self.assertEqual(run.failure_diagnostic('DOWNLOAD',bad),dict(stage='DOWNLOAD',kind='MEDIA',code='UNKNOWN'))
+        bad.code=[];bad.http_status=True
+        self.assertEqual(run.failure_diagnostic('DOWNLOAD',bad),dict(stage='DOWNLOAD',kind='MEDIA',code='UNKNOWN'))
+
+    def test_sd_and_local_failure_types_are_distinct_and_bounded(self):
+        result=run.failure_diagnostic('INVENTORY',sd.SdError('HTTP_ERROR',http_status=401))
+        self.assertEqual(result['kind'],'SD');self.assertEqual(result['http_status'],401)
+        self.assertIn(result['code'],sd.ERROR_CODES)
+        self.assertEqual(run.failure_diagnostic('COMMIT',OSError(28,'private')),dict(stage='COMMIT',kind='IO',code='ERROR',errno=28))
+
+
 class FiniteDriverTests(unittest.TestCase):
     def arguments(self,root,*extra):
         return ['--run','--root',str(root),'--config','synthetic-config','--reference','synthetic-reference',
@@ -490,6 +531,19 @@ class FiniteDriverTests(unittest.TestCase):
                     manager.return_value.command.return_value=error
                     self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','3')),2)
                     self.assertEqual(manager.return_value.command.call_count,1)
+
+    def test_terminal_status_preserves_safe_diagnostic_without_retry(self):
+        detail=dict(stage='DOWNLOAD',kind='MEDIA',code='INCOMPLETE')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
+                 patch.object(run,'check_space'),redirect_stdout(io.StringIO()):
+                manager.return_value.command.return_value=dict(status='SUCCESS',callback=dict(
+                    status='BLOCKED',reason='DAY_PROCESSING_FAILED',diagnostic=detail))
+                self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','3')),2)
+                self.assertEqual(manager.return_value.command.call_count,1)
+            status=json.loads((root/'job-status.json').read_text())
+            self.assertFalse(status['running']);self.assertEqual(status['diagnostic'],detail)
 
     def test_media_window_product_limit_is_checked_before_session_use(self):
         with tempfile.TemporaryDirectory() as tmp,patch.object(run,'SessionManager') as manager,redirect_stdout(io.StringIO()):
