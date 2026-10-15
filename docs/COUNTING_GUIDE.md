@@ -1,5 +1,7 @@
 # Local Fixed Lens counting pilot
 
+OD-59 current: daily acquisition/continuous counting and offline hourly/period/custom-filter report implemented. Real whole-day run is blocked before camera calls by REAUTH_REQUIRED; no complete-day figures. CPU180s replay preserves18accepted/5review/27pink and duplicate overlap produces0new events. CoreML changed counts and was rejected; CPU remains default. See [DAY_COUNTING.md](DAY_COUNTING.md) for bounds, midnight/resume semantics and remaining capacity/accuracy limits. Claude NOT_LOGGED_IN/no changes; PO owns final code/tests, NOT_RUN_BY_DEVELOPER. Numeric partial pilot only may be delivered to personal iCloud.
+
 For Owner-defined blue/pink zones and separate totals, use [ZONE_COUNTING](ZONE_COUNTING.md). The single-zone CLI remains supported.
 
 OD49 implements actual local inference on clips retrieved from shop SD through the vendor relay. Owner specifies the period in chat; PO operates the tools. No iPhone video forwarding, cloud inference, face recognition, database, server or scheduler.

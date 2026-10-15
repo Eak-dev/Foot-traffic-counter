@@ -1,5 +1,7 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
+OD-59 current: daily acquisition/continuous counting and offline hourly/period/custom-filter report implemented. Real whole-day run is blocked before camera calls by REAUTH_REQUIRED; no complete-day figures. CPU180s replay preserves18accepted/5review/27pink and duplicate overlap produces0new events. CoreML changed counts and was rejected; CPU remains default. See [DAY_COUNTING.md](DAY_COUNTING.md) for bounds, midnight/resume semantics and remaining capacity/accuracy limits. Claude NOT_LOGGED_IN/no changes; PO owns final code/tests, NOT_RUN_BY_DEVELOPER. Numeric partial pilot only may be delivered to personal iCloud.
+
 OD-58 current: keep the red gates. Track-box quality screening is active:18automatic accepted passages and5review candidates, pink27. Every prior23candidate is retained; review does not mean false and must not be silently added to accepted counts. Three old late ID/box ambiguities are in review. No detector/tracker change; see TRACK_CONTINUITY. Same trial revision only may go to personal iCloud.
 
 OD-57 current: Owner red oblique gates replace both vertical front-lane gates. Near17/far6/front23 are automated, pink27 unchanged. Three late table-occlusion events remain ambiguous; geometry completion is not accuracy PASS. Same existing trial revision may go to personal iCloud only. Read FRONT_LANES/current STATUS; do not restart acquisition/auth.

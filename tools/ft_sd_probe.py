@@ -120,6 +120,15 @@ def _validate_date(date):
     return date
 
 
+def _validate_day_date(date):
+    """Daily getter context only; legacy probes stay bound to FIXED_DATE."""
+    if not isinstance(date,str) or not _DATE_RE.fullmatch(date):raise SdError('INVALID_INPUT')
+    try:value=datetime.datetime.strptime(date,'%Y%m%d')
+    except ValueError:raise SdError('INVALID_INPUT') from None
+    if not 2000<=value.year<2100:raise SdError('INVALID_INPUT')
+    return date
+
+
 def _validate_device_id(device_id):
     if not isinstance(device_id, str) or not _DEVICE_ID_RE.fullmatch(device_id):
         raise SdError("INVALID_INPUT")
@@ -160,7 +169,24 @@ def _canonical_eq(a, b):
     return a == b
 
 
-def _expected_requests(batch, date, user_id):
+def _expected_requests(batch, date, user_id, page_index=None):
+    if batch in ('day-metadata','day-calendar'):
+        _validate_day_date(date)
+        if page_index is not None:raise SdError('INVALID_INPUT')
+        return _metadata_requests() if batch=='day-metadata' else _calendar_requests(date)
+    if batch == 'clip-day-page':
+        _validate_day_date(date)
+        if type(page_index) is not int or not 0 <= page_index < 200:
+            raise SdError('INVALID_INPUT')
+        requests = _clip_utc_requests(FIXED_DATE, user_id)
+        query = requests[0]['params']['playback']['search_video_with_utc']
+        start,end=_day_bounds_utc(date,'+07:00')
+        query['start_time'],query['end_time']=start,end-1
+        query['start_index'] = page_index * MAX_CLIP_ENTRIES
+        query['end_index'] = (page_index + 1) * MAX_CLIP_ENTRIES - 1
+        return requests
+    if page_index is not None:
+        raise SdError('INVALID_INPUT')
     if batch == "metadata":
         return _metadata_requests()
     if batch == "capability":
@@ -176,20 +202,19 @@ def _expected_requests(batch, date, user_id):
     raise SdError("INVALID_INPUT")
 
 
-def _validate_requests(requests, batch, date, user_id):
-    """Reject anything that is not byte-for-byte one of the four fixed
-    getter templates, before any connection is opened.
+def _validate_requests(requests, batch, date, user_id, page_index=None):
+    """Reject anything outside the exact getter template before connecting.
 
-    No setter, no nested/extra key, no extra param, and no channel/index/
-    date deviation can pass: the comparison is against the exact template
-    this module itself builds, using canonical (bool-excluded) equality.
+    Legacy contexts keep FIXED_DATE. Dedicated daily contexts validate a real
+    selected date and bounded page index; channel, methods and other fields
+    still must match canonically with boolean/integer distinctions preserved.
     """
-    if date != FIXED_DATE:
-        raise SdError("INVALID_INPUT")
-    if batch in ("clip", "clip-utc", "clip-noon"):
+    if batch in ('day-metadata','day-calendar','clip-day-page'):_validate_day_date(date)
+    elif date != FIXED_DATE:raise SdError("INVALID_INPUT")
+    if batch in ("clip", "clip-utc", "clip-noon", "clip-day-page"):
         if isinstance(user_id, bool) or not isinstance(user_id, int) or not (0 < user_id <= 2**63 - 1):
             raise SdError("INVALID_INPUT")
-    expected = _expected_requests(batch, date, user_id)
+    expected = _expected_requests(batch, date, user_id, page_index)
     if not _canonical_eq(requests, expected):
         raise SdError("INVALID_INPUT")
 
@@ -220,7 +245,7 @@ def _open_device_connection(budget):
     return conn
 
 
-def _device_request(budget, token, terminal_uuid, device_id, requests, batch, date, user_id=None):
+def _device_request(budget, token, terminal_uuid, device_id, requests, batch, date, user_id=None, page_index=None):
     """One bounded passthrough POST; closes the socket on every exit path.
 
     ``requests`` is validated against the exact fixed getter template for
@@ -228,7 +253,7 @@ def _device_request(budget, token, terminal_uuid, device_id, requests, batch, da
     input can never make a connection.
     """
     device_id = _validate_device_id(device_id)
-    _validate_requests(requests, batch, date, user_id)
+    _validate_requests(requests, batch, date, user_id, page_index)
     path = _device_path(device_id)
     body = _build_envelope(requests)
     budget.check_time()

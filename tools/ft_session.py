@@ -309,8 +309,10 @@ class SessionManager:
             "expires_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record["hard_expires_at"])),
             "refresh_available": record["refresh_token"] is not None}
 
-    def command(self, command, target=None, on_selected_camera=None):
+    def command(self, command, target=None, on_selected_camera=None, callback_with_guard=False):
         self.stage = None
+        if type(callback_with_guard) is not bool:
+            return {"status":"BLOCKED","reason":"INVALID_INPUT"}
         if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check", "media-check", "fixed-check"}:
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
         if command in {"start", "use", "refresh-check", "sd-check", "media-check", "fixed-check"} and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
@@ -373,7 +375,10 @@ class SessionManager:
                         extra["media_probe"] = sample_selected_device(record["token"], record["terminal_uuid"], selected,
                             session_guard=lease.check)
                     elif on_selected_camera is not None:
-                        extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected)
+                        if callback_with_guard:
+                            extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected, lease.check)
+                        else:
+                            extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected)
                     self._touch(record, lease)
                     result = self._public(record, "REFRESHED" if refreshed else "REUSED", lease)
                     result.update(extra)

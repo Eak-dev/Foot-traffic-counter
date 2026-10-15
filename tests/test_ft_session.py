@@ -70,6 +70,21 @@ class SessionTests(unittest.TestCase):
         self.prompt.assert_not_called()
         self.refresh.assert_not_called()
 
+    def test_guarded_callback_gets_lease_check_without_changing_old_callback_api(self):
+        called=[]
+        def callback(token,terminal,selected,guard):
+            guard();called.append(True);return {'status':'SAFE_CALLBACK'}
+        report=self.manager.command('use',TARGET,on_selected_camera=callback,callback_with_guard=True)
+        self.assertEqual(report['callback']['status'],'SAFE_CALLBACK');self.assertEqual(called,[True])
+        self.assertNotIn('SECRET',json.dumps(report))
+
+    def test_guarded_callback_rejects_expiry_and_nonboolean_option(self):
+        def callback(token,terminal,selected,guard):
+            self.now=173800;guard()
+        report=self.manager.command('use',TARGET,on_selected_camera=callback,callback_with_guard=True)
+        self.assertEqual(report['reason'],'EXPIRED')
+        self.assertEqual(self.manager.command('use',TARGET,callback_with_guard=1)['reason'],'INVALID_INPUT')
+
     def test_exact_expiry_no_network_and_delete(self):
         self.now = 173800
         self.assertEqual(self.call()["reason"], "EXPIRED")
