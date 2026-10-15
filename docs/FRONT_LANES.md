@@ -1,5 +1,9 @@
 # Front-shop near and far lane counting
 
+## Current quality revision: OD-58
+
+The red gates and lane polygons remain fixed. Opt-in `track_quality: bbox_continuity_v1` checks the existing candidate evidence against bounded anonymous bounding-box history.18candidates pass continuity screening (near14/far4);5remain visibly marked for review, including the3previous late ambiguities. All23candidate records are conserved by a canonical digest and the pink27report is byte-identical. This is uncertainty screening, not an independent accuracy result. See [TRACK_CONTINUITY](TRACK_CONTINUITY.md) for semantics, limits and evidence.
+
 ## Current geometry revision: OD-57
 
 The Owner moved both gates to the red oblique alignment shown on a zoomed and cropped review frame. PO registered the unchanged pink rectangle against normalized source coordinates and intersected the alignment with each unchanged near/far polygon. The small gap at the shared polygon edge comes from the existing distinct boundaries. Both gates are now red; outlines/labels retain blue and green. No detector, tracker, crop, anchor, sample rate or counter rule was changed.

@@ -1,5 +1,7 @@
 # หน้าที่ PO และผลลัพธ์ที่ Owner ต้องการ
 
+OD-58 current: keep the red gates. Track-box quality screening is active:18automatic accepted passages and5review candidates, pink27. Every prior23candidate is retained; review does not mean false and must not be silently added to accepted counts. Three old late ID/box ambiguities are in review. No detector/tracker change; see TRACK_CONTINUITY. Same trial revision only may go to personal iCloud.
+
 OD-57 current: Owner red oblique gates replace both vertical front-lane gates. Near17/far6/front23 are automated, pink27 unchanged. Three late table-occlusion events remain ambiguous; geometry completion is not accuracy PASS. Same existing trial revision may go to personal iCloud only. Read FRONT_LANES/current STATUS; do not restart acquisition/auth.
 
 OD-55 current: front-shop has blue near / green far corridors sharing one tracker, separate gates and lane subtotals. Current pilot near15/far21/front36, pink27. Source checks support four right-to-left far passages in a separate40s window, but full accuracy remains unverified. Read FRONT_LANES and current STATUS; preserve pink semantics and do not sum pink into unique people.

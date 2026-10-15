@@ -91,6 +91,13 @@ def render_review(source, root, zones, reports, deadline):
                     box = draw.textbbox((label_x,label_y), region['name'], font=small)
                     draw.rectangle((box[0]-4,box[1]-3,box[2]+4,box[3]+3), fill='#142128')
                     draw.text((label_x,label_y), region['name'], font=small, fill=color)
+                if zone.get('track_quality'):
+                    for event in report['review_events']:
+                        if -.001 <= t - event['time_seconds'] <= 1.2:
+                            x, y = event['evidence']['to'][0]*width, event['evidence']['to'][1]*height
+                            draw.ellipse((x-12,y-12,x+12,y+12), outline='#FFBB55', width=4)
+                            draw.text((x+14,y-20), 'รอตรวจ', font=small, fill='#FFBB55',
+                                      stroke_width=2, stroke_fill='#111B22')
             # Panel stays to the right of the camera's timestamp/lens overlay.
             panel_rows = []
             for zone,report in zip(zones,reports):
@@ -99,7 +106,11 @@ def render_review(source, root, zones, reports, deadline):
                     for lane in zone['lanes']:
                         subtotal = sum(e['time_seconds'] <= t + 1e-6 and e['lane_id'] == lane['id'] for e in report['events'])
                         panel_rows.append((f"{lane['name']}   {subtotal} ครั้ง", lane['color']))
-                    panel_rows.append((f"รวมหน้าร้าน (ข้ามเส้น)   {count} ครั้ง", zone['color']))
+                    caption = 'ผ่านเกณฑ์' if zone.get('track_quality') else 'ข้ามเส้น'
+                    panel_rows.append((f"รวมหน้าร้าน ({caption})   {count} ครั้ง", zone['color']))
+                    if zone.get('track_quality'):
+                        pending = sum(e['time_seconds'] <= t + 1e-6 for e in report['review_events'])
+                        panel_rows.append((f"หน้าร้าน รอตรวจ   {pending} จังหวะ", '#FFBB55'))
                 else:
                     method = "เข้าโซน" if zone.get("counter_mode") == "entries" else "ข้ามเส้น"
                     panel_rows.append((f"{zone['name']} ({method})   {count} ครั้ง", zone['color']))

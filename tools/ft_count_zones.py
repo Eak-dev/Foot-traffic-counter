@@ -56,10 +56,20 @@ def _zone_config_sha(zone):
     cfg = zone["config"]
     if zone.get("counter_mode") == "lanes":
         from tools import ft_lane_counter as lc
-        return _config_sha256({"config": cfg, "lanes": zone["lanes"], "counter_mode": "lanes",
+        definition = {"config": cfg, "lanes": zone["lanes"], "counter_mode": "lanes",
             "rules": [lc.ARM_CONSECUTIVE, lc.CONFIRM_CONSECUTIVE, lc.MIN_LANE_DISPLACEMENT,
-                      lc.LANE_COOLDOWN_S, lc.IMPLAUSIBLE_STEP, lc.IMPLAUSIBLE_STEP_WINDOW_S]})
+                      lc.LANE_COOLDOWN_S, lc.IMPLAUSIBLE_STEP, lc.IMPLAUSIBLE_STEP_WINDOW_S]}
+        if zone.get('track_quality'):
+            from tools.ft_track_quality import policy
+            definition['track_quality'] = policy()
+        return _config_sha256(definition)
     return _config_sha256(cfg if zone.get("counter_mode", "line") == "line" else {"config": cfg, "counter_mode": "entries"})
+
+
+def _candidate_digest(events):
+    fields = ('lane_id','track_id','time_seconds','direction','evidence')
+    records = [json.dumps({k:e[k] for k in fields},sort_keys=True,separators=(',',':')) for e in events]
+    return _config_sha256(sorted(records))
 
 
 def recount_lanes(zone, report, track_path):
@@ -75,6 +85,12 @@ def recount_lanes(zone, report, track_path):
     if "tracks_sha256" in report:
         _require(report["tracks_sha256"] == tracks_sha, "track hash mismatch")
     counter = LaneCrossingCounter(zone["lanes"], zone["config"].get("deadband", ft_count.DEFAULT_DEADBAND))
+    quality = None
+    accepted, review = [], []
+    if zone.get('track_quality'):
+        from tools.ft_track_quality import TrackEvidence, VERSION, MAX_REVIEW_EVENTS
+        _require(zone['track_quality'] == VERSION, 'invalid track quality mode')
+        quality = TrackEvidence()
     frames, previous, previous_frame = 0, -1, -1
     with open(track_path) as fh:
         while True:
@@ -92,15 +108,39 @@ def recount_lanes(zone, report, track_path):
                 tid = track["track_id"]
                 _require(isinstance(tid,(int,str)) and not isinstance(tid,bool) and tid not in seen, "duplicate/invalid track id")
                 seen.add(tid)
+                if quality:
+                    quality.observe(tid, track['foot'], t, track.get('box'))
+                before = len(counter.events)
                 counter.update(tid, track["foot"], t)
+                if quality:
+                    for event in counter.events[before:]:
+                        assessment = quality.assess(event)
+                        if assessment['reasons']:
+                            _require(len(review) < MAX_REVIEW_EVENTS, 'review queue capacity exceeded')
+                            review.append({**event, 'review_reasons': assessment['reasons'],
+                                           'quality_observations': assessment['observations']})
+                        else:
+                            accepted.append(event)
             previous, previous_frame = t, frame
             frames += 1
     _require(frames == report["frames_processed"], "lane track log incomplete")
-    events = sorted(counter.events, key=lambda e: e["time_seconds"])
-    return {**report, "counter_mode": "lanes", "config_sha256": _zone_config_sha(zone),
+    events = sorted(accepted if quality else counter.events, key=lambda e: e["time_seconds"])
+    result = {**report, "counter_mode": "lanes", "config_sha256": _zone_config_sha(zone),
             "tracks_sha256": tracks_sha, "replay_anchor_precision_decimals": 4,
-            "count": counter.count, "events": events, "lane_counts": counter.lane_counts,
+            "count": len(events), "events": events,
+            "lane_counts": {lane['id']: sum(e['lane_id'] == lane['id'] for e in events) for lane in zone['lanes']},
             "direction_counts": {d:sum(e["direction"] == d for e in events) for d in ("forward","backward")}}
+    if quality:
+        from tools.ft_track_quality import policy
+        result.update(track_quality_policy=policy(), candidate_count=counter.count,
+                      candidate_lane_counts=counter.lane_counts, review_count=len(review),
+                      review_events=sorted(review, key=lambda e:e['time_seconds']),
+                      candidate_events_sha256=_candidate_digest(counter.events))
+    else:
+        for key in ('track_quality_policy','candidate_count','candidate_lane_counts','review_count',
+                    'review_events','candidate_events_sha256'):
+            result.pop(key,None)
+    return result
 
 
 def recount_entries(zone, report, track_path):
@@ -163,10 +203,14 @@ def validate_zones_config(cfg):
     sample_fps_values = set()
     for zone in zones:
         _require(isinstance(zone, dict), "zone must be an object")
-        _require(set(zone) >= {"id", "name", "color", "config"} and set(zone) <= {"id", "name", "color", "config", "counter_mode", "lanes"}, "unknown zone field")
+        _require(set(zone) >= {"id", "name", "color", "config"} and set(zone) <= {"id", "name", "color", "config", "counter_mode", "lanes", "track_quality"}, "unknown zone field")
 
         _require(zone.get("counter_mode", "line") in ("line", "entries", "lanes"), "invalid counter mode")
         _require(("lanes" in zone) == (zone.get("counter_mode") == "lanes"), "lanes require lane mode")
+        if 'track_quality' in zone:
+            from tools.ft_track_quality import VERSION
+            _require(zone.get('counter_mode') == 'lanes' and zone['track_quality'] == VERSION,
+                     'invalid track quality mode')
         zid = zone.get("id")
         _require(isinstance(zid, str) and bool(ZONE_ID_RE.fullmatch(zid)), "invalid zone id")
         _require(zid not in ids, "duplicate zone id")
@@ -280,6 +324,43 @@ def merge_reports(zones, reports):
             _require(isinstance(lane_counts,dict) and set(lane_counts) == ids and all(type(v) is int and v >= 0 for v in lane_counts.values()), "invalid lane counts")
             _require(all(e.get("lane_id") in ids for e in events), "invalid event lane")
             _require(all(lane_counts[lid] == sum(e["lane_id"] == lid for e in events) for lid in ids), "lane count mismatch")
+            if zone.get('track_quality'):
+                from tools.ft_track_quality import policy, REASONS, MAX_REVIEW_EVENTS, HISTORY_UPDATES
+                _require(report.get('track_quality_policy') == policy(), 'track quality policy mismatch')
+                pending = report.get('review_events')
+                pending_count = report.get('review_count')
+                _require(isinstance(pending,list) and len(pending) <= MAX_REVIEW_EVENTS and type(pending_count) is int
+                         and pending_count == len(pending), 'invalid review queue')
+                candidate_count = report.get('candidate_count')
+                candidate_lanes = report.get('candidate_lane_counts')
+                _require(type(candidate_count) is int and candidate_count == count + pending_count,
+                         'candidate count mismatch')
+                _require(isinstance(candidate_lanes,dict) and set(candidate_lanes) == ids
+                         and all(type(v) is int and v >= 0 for v in candidate_lanes.values()), 'invalid candidate lanes')
+                for event in pending:
+                    _require(isinstance(event,dict), 'invalid review event')
+                    t = event.get('time_seconds')
+                    reasons = event.get('review_reasons')
+                    _require(type(t) in (int,float) and math.isfinite(t) and 0 <= t <= max_t
+                             and event.get('lane_id') in ids and event.get('direction') in ('forward','backward'),
+                             'invalid review event')
+                    _require(isinstance(reasons,list) and reasons and all(isinstance(r,str) and r in REASONS for r in reasons)
+                             and len(set(reasons)) == len(reasons), 'invalid review reasons')
+                    _require(type(event.get('quality_observations')) is int and 1 <= event['quality_observations'] <= HISTORY_UPDATES,
+                             'invalid quality observations')
+                for event in events + pending:
+                    _require(isinstance(event.get('track_id'),(int,str)) and not isinstance(event['track_id'],bool),
+                             'invalid candidate track')
+                    evidence = event.get('evidence')
+                    _require(isinstance(evidence,dict) and set(evidence) == {'from','to'}
+                             and all(ft_count._is_finite_point(p) and all(0 <= v <= 1 for v in p)
+                                     for p in evidence.values()), 'invalid candidate evidence')
+                _require(all(candidate_lanes[lid] == lane_counts[lid] + sum(e['lane_id'] == lid for e in pending)
+                             for lid in ids), 'candidate lane mismatch')
+                keys = [(e.get('lane_id'),str(e.get('track_id')),e['time_seconds']) for e in events + pending]
+                _require(len(keys) == len(set(keys)), 'candidate duplicated between accepted/review')
+                _require(report.get('candidate_events_sha256') == _candidate_digest(events + pending),
+                         'candidate evidence digest mismatch')
 
     first, second = reports
     for key in ("input_sha256", "model_sha256", "duration_seconds", "sample_fps", "frames_processed"):
@@ -301,6 +382,9 @@ def merge_reports(zones, reports):
         )
         if zone.get("counter_mode") == "lanes":
             zones_out[-1]["lane_counts"] = report["lane_counts"]
+            if zone.get('track_quality'):
+                for key in ('track_quality_policy','candidate_count','candidate_lane_counts','review_count','review_events','candidate_events_sha256'):
+                    zones_out[-1][key] = report[key]
 
     return {
         "schema_version": 2,
@@ -334,6 +418,7 @@ def _sanitize_stdout_report(merged):
                 "direction_counts": z["direction_counts"],
                 "config_sha256": z["config_sha256"],
                 **({"lane_counts": z["lane_counts"]} if "lane_counts" in z else {}),
+                **({"review_count": z["review_count"], "candidate_count": z["candidate_count"]} if "review_count" in z else {}),
             }
             for z in merged.get("zones", [])
         ],
@@ -375,13 +460,28 @@ def write_zones_page(root, zones, reports, combined=False):
         if zone.get("counter_mode") == "lanes":
             method = "เดินข้ามเส้นในช่องใกล้หรือช่องไกล ยอดหน้าร้านแยกจากโซนข้างร้าน"
             method += " · " + " / ".join(html.escape(lane["name"])+": "+str(report["lane_counts"][lane["id"]])+" ครั้ง" for lane in zone["lanes"])
+        review_html = ''
+        if zone.get('track_quality'):
+            method += ' · ยอดอัตโนมัติที่ผ่านเกณฑ์ความต่อเนื่อง ยังไม่ใช่ผลตรวจความแม่นยำครบคลิป'
+            reason_labels = {'missing_anchor':'หลักฐานก่อนข้ามไม่ครบ', 'observation_gap':'ช่วงภาพติดตามขาด',
+                             'box_shape_change':'ขนาดกรอบตัวคนเปลี่ยนฉับพลัน', 'center_jump':'ตำแหน่งติดตามกระโดด'}
+            pending_rows = []
+            for event in report['review_events']:
+                t = float(event['time_seconds'])
+                lane_name = next(lane['name'] for lane in zone['lanes'] if lane['id'] == event['lane_id'])
+                explanation = ' / '.join(reason_labels[r] for r in event['review_reasons'])
+                pending_rows.append('<tr><td><button data-time="%.2f" data-zone="%s">%.1f วินาที</button></td>'
+                                    '<td>%s</td><td>%s</td></tr>' % (t,html.escape(safe_id),t,html.escape(lane_name),html.escape(explanation)))
+            review_html = ('<h3>รอตรวจ %d จังหวะ · ยังไม่รวมในยอดอัตโนมัติ</h3>'
+                           '<p>รายการนี้อาจเป็นคนเดินจริงหรือการติดตามคลาดเคลื่อน ไม่ใช่ยอดคนเพิ่มที่ยืนยันแล้ว</p>'
+                           '<table><tr><th>เวลา</th><th>ช่อง</th><th>เหตุผล</th></tr>%s</table>') % (report['review_count'],''.join(pending_rows))
         color = html.escape(zone["color"])
         cards.append(
             '<section class="zone"><h2 style="color:%s">%s</h2>'
             '<div class="count">%d ครั้ง</div><p>%s</p>'
             '%s'
-            '<table><tr><th>Event</th><th>Clip time</th><th>Direction</th></tr>%s</table></section>'
-            % (color, name, int(report["count"]), method, video_tag, "".join(rows))
+            '<table><tr><th>Event</th><th>Clip time</th><th>Direction</th></tr>%s</table>%s</section>'
+            % (color, name, int(report["count"]), method, video_tag, "".join(rows),review_html)
         )
 
     page = (
