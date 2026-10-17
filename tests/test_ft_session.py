@@ -1,4 +1,4 @@
-"""Offline lease/rotation/privacy tests. No real Keychain, dialogs or network."""
+"""Offline vendor lifetime/rotation/privacy tests. No real Keychain or network."""
 import contextlib
 import copy
 import hashlib
@@ -19,10 +19,20 @@ FOUND = (1, 1, 0, 1, "EXACT", SELECTED)
 
 
 def record():
-    return {"schema_version": 1, "token": "SECRET_ACCESS", "refresh_token": "SECRET_REFRESH",
-        "terminal_uuid": "synthetic-uuid", "issued_at": 1000., "hard_expires_at": 173800.,
+    return {"schema_version": 3, "token": "SECRET_ACCESS", "refresh_token": "SECRET_REFRESH",
+        "terminal_uuid": "synthetic-uuid", "issued_at": 1000.,
+        "observation_started_at": 1000., "refresh_count": 0, "last_refresh_at": None,
+        "last_verified_at": 1100.,
         "last_seen": 1100., "target_digest": TARGET, "device_digest": hashlib.sha256(DEVICE.encode()).hexdigest(),
         "account_host": c.ACCOUNT_HOST, "revision": 1}
+
+
+def legacy_record(days=2):
+    value = {k: v for k, v in record().items() if k in s.FIELDS}
+    value.update(schema_version=1 if days == 2 else 2, hard_expires_at=1000+days*86400)
+    if days != 2:
+        value['lease_seconds'] = days*86400
+    return value
 
 
 class Store:
@@ -66,53 +76,87 @@ class SessionTests(unittest.TestCase):
         self.manager = self.make_manager()
         self.now += 120
         self.assertEqual(self.call()["session_state"], "REUSED")
-        self.assertEqual(self.store.value["hard_expires_at"], 173800)
+        self.assertNotIn('hard_expires_at', self.store.value)
         self.prompt.assert_not_called()
         self.refresh.assert_not_called()
 
-    def test_explicit_seven_day_retention_preserves_issue_time_and_never_logs_in(self):
-        result=self.manager.command('retain-7',TARGET)
-        self.assertEqual(result['session_state'],'LOCAL_POLICY_UPDATED')
-        self.assertEqual(self.store.value['issued_at'],1000)
-        self.assertEqual(self.store.value['hard_expires_at'],1000+7*86400)
-        self.assertEqual(self.store.value['lease_seconds'],7*86400)
-        self.assertNotIn('SECRET',json.dumps(result))
-        self.discovery.assert_not_called();self.refresh.assert_not_called();self.prompt.assert_not_called()
-        self.now=200000;self.manager=self.make_manager()
-        self.assertEqual(self.call()['status'],'SUCCESS')
-        self.assertEqual(self.store.value['hard_expires_at'],1000+7*86400)
+    def test_reuse_and_rotation_beyond_two_seven_thirty_days_across_restarts(self):
+        for day in (2, 7, 30, 61):
+            self.now = 1000 + day*86400
+            self.manager = self.make_manager()
+            self.discovery.side_effect = [c.ProbeError('AUTH_FAILED', 'AUTH_INVALID_HTTP401'), FOUND]
+            result = self.call()
+            self.assertEqual(result['status'], 'SUCCESS')
+            self.assertEqual(result['local_expiry_policy'], 'VENDOR_MANAGED')
+            self.assertIsNone(result['expires_at_utc'])
+            self.assertEqual(result['session_age_seconds'], day*86400)
+            self.assertEqual(self.store.value['issued_at'], 1000)
+            self.assertNotIn('hard_expires_at', self.store.value)
+        self.assertEqual(self.refresh.call_count, 4)
+        self.assertEqual(result['observed_refresh_count'], 4)
+        self.prompt.assert_not_called()
 
-    def test_explicit_thirty_day_retention_is_bounded_and_not_rolling(self):
-        self.manager.command('retain-30',TARGET);deadline=1000+30*86400
-        self.now+=100
-        self.manager.command('retain-30',TARGET)
-        self.assertEqual(self.store.value['hard_expires_at'],deadline)
-        self.manager.command('refresh-check',TARGET)
-        self.assertEqual(self.store.value['hard_expires_at'],deadline)
-        self.assertEqual(self.store.value['issued_at'],1000)
+    def test_legacy_migration_past_each_old_local_cap_preserves_credentials(self):
+        for day in (2, 7, 30):
+            with self.subTest(day=day):
+                self.store.value = legacy_record(day)
+                self.now = 1000+40*86400
+                self.manager = self.make_manager()
+                result = self.call('status')
+                self.assertEqual(result['status'], 'SUCCESS')
+                self.assertEqual(self.store.value['schema_version'], 3)
+                self.assertEqual(self.store.value['issued_at'], 1000)
+                self.assertEqual(self.store.value['token'], 'SECRET_ACCESS')
+                self.assertEqual(self.store.value['refresh_token'], 'SECRET_REFRESH')
+                self.assertEqual(self.store.value['observation_started_at'], self.now)
+                self.assertIsNone(result['last_verified_at_utc'])
+                self.assertEqual(result['observed_refresh_count'], 0)
+        self.discovery.assert_not_called(); self.refresh.assert_not_called(); self.prompt.assert_not_called()
 
-    def test_expired_session_cannot_be_revived_by_retention_change(self):
-        self.now=173800
-        result=self.manager.command('retain-7',TARGET)
-        self.assertEqual(result['reason'],'EXPIRED');self.assertIsNone(self.store.value)
-        self.discovery.assert_not_called();self.prompt.assert_not_called()
+    def test_retention_commands_cannot_reintroduce_local_caps(self):
+        for command in ('retain-7', 'retain-30'):
+            self.assertEqual(self.manager.command(command, TARGET)['reason'], 'INVALID_INPUT')
+        self.assertEqual(self.store.value, record())
+        self.discovery.assert_not_called(); self.refresh.assert_not_called()
 
-    def test_retention_schema_rejects_unbounded_float_boolean_and_unknown_fields(self):
-        self.manager.command('retain-7',TARGET)
-        original=copy.deepcopy(self.store.value)
-        for invalid in (31*86400,float(7*86400),True,0):
-            bad=copy.deepcopy(original);bad['lease_seconds']=invalid
-            with self.assertRaises(s.SessionError):s.validate(bad)
-        bad=copy.deepcopy(original);bad['password']='synthetic'
-        with self.assertRaises(s.SessionError):s.validate(bad)
-        self.now=original['hard_expires_at'];self.manager=self.make_manager()
-        self.assertEqual(self.call()['reason'],'EXPIRED')
+    def test_vendor_schema_strict_metadata_and_no_deadline_or_password_fields(self):
+        invalids = [('refresh_count', True), ('refresh_count', -1), ('refresh_count', 1.0),
+                    ('refresh_count', 1), ('observation_started_at', float('inf')),
+                    ('observation_started_at', 999), ('last_refresh_at', 1100),
+                    ('last_verified_at', 1200), ('last_verified_at', float('nan'))]
+        for key, value in invalids:
+            bad = dict(record(), **{key: value})
+            with self.subTest(key=key, value=value), self.assertRaises(s.SessionError):
+                s.validate(bad)
+        for key in ('password', 'hard_expires_at', 'lease_seconds'):
+            with self.assertRaises(s.SessionError): s.validate(dict(record(), **{key: 172800}))
 
-    def test_failed_retention_write_keeps_the_previous_policy(self):
-        self.store.fail_save=True
-        result=self.manager.command('retain-7',TARGET)
-        self.assertEqual(result['reason'],'STORE_DENIED')
-        self.assertEqual(self.store.value['hard_expires_at'],173800)
+    def test_legacy_migration_write_failure_preserves_old_record(self):
+        original = legacy_record()
+        self.store.value = copy.deepcopy(original); self.store.fail_save = True
+        self.now = 1000+40*86400
+        self.assertEqual(self.call()['reason'], 'STORE_DENIED')
+        self.assertEqual(self.store.value, original)
+        self.discovery.assert_not_called()
+
+    def test_legacy_schema_validation_precedes_migration_or_network(self):
+        for days in (2, 7, 30):
+            for key, value in [('hard_expires_at', float('nan')), ('revision', True),
+                               ('account_host', 'untrusted.invalid'), ('password', 'DO_NOT_STORE')]:
+                with self.subTest(days=days, key=key):
+                    original = dict(legacy_record(days), **{key: value})
+                    self.store.value = copy.deepcopy(original)
+                    self.assertEqual(self.call()['reason'], 'INVALID_SESSION')
+                    self.assertEqual(self.store.value['schema_version'], original['schema_version'])
+        self.discovery.assert_not_called(); self.refresh.assert_not_called()
+
+    def test_removed_retention_cli_rejected_before_reading_target_or_keychain(self):
+        with patch.object(s, 'load_target', side_effect=AssertionError('No target read')), \
+             patch.object(s, 'KeychainStore', side_effect=AssertionError('No store access')):
+            for op in ('retain-7', 'retain-30'):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out): self.assertEqual(s.main([op]), 2)
+                self.assertEqual(json.loads(out.getvalue())['reason'], 'INVALID_INPUT')
 
     def test_guarded_callback_gets_lease_check_without_changing_old_callback_api(self):
         called=[]
@@ -122,18 +166,18 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(report['callback']['status'],'SAFE_CALLBACK');self.assertEqual(called,[True])
         self.assertNotIn('SECRET',json.dumps(report))
 
-    def test_guarded_callback_rejects_expiry_and_nonboolean_option(self):
+    def test_guarded_callback_allows_old_deadlines_but_rejects_nonboolean_option(self):
         def callback(token,terminal,selected,guard):
-            self.now=173800;guard()
+            self.now=1000+40*86400;guard();return {'status':'SUCCESS'}
         report=self.manager.command('use',TARGET,on_selected_camera=callback,callback_with_guard=True)
-        self.assertEqual(report['reason'],'EXPIRED')
+        self.assertEqual(report['status'],'SUCCESS')
         self.assertEqual(self.manager.command('use',TARGET,callback_with_guard=1)['reason'],'INVALID_INPUT')
 
-    def test_exact_expiry_no_network_and_delete(self):
+    def test_old_exact_expiry_does_not_delete_tokens(self):
         self.now = 173800
-        self.assertEqual(self.call()["reason"], "EXPIRED")
-        self.assertIsNone(self.store.value)
-        self.discovery.assert_not_called()
+        self.assertEqual(self.call()['status'], 'SUCCESS')
+        self.assertIsNotNone(self.store.value)
+        self.assertEqual(self.store.deleted, 0)
 
     def test_before_expiry(self):
         self.now = 173799.9
@@ -142,18 +186,19 @@ class SessionTests(unittest.TestCase):
     def test_sleep_counts_after_restart(self):
         self.now = 174000
         self.manager = self.make_manager()
-        self.assertEqual(self.call()["reason"], "EXPIRED")
+        self.assertEqual(self.call()["status"], "SUCCESS")
 
     def test_saved_clock_rollback(self):
         self.now = 1099
         self.assertEqual(self.call()["reason"], "CLOCK_ROLLBACK")
         self.discovery.assert_not_called()
 
-    def test_in_process_monotonic_expiry(self):
+    def test_monotonic_elapsed_has_no_local_expiry_and_rejects_rollback(self):
         lease = s.Lease(record(), lambda: self.now, lambda: self.elapsed)
-        self.elapsed += 172800
-        with self.assertRaisesRegex(s.SessionError, "EXPIRED"):
-            lease.check()
+        self.elapsed += 40*86400
+        lease.check()
+        self.elapsed -= 1
+        with self.assertRaisesRegex(s.SessionError, 'CLOCK_ROLLBACK'): lease.check()
 
     def test_clock_rollback_between_calls(self):
         lease = s.Lease(record(), lambda: self.now, lambda: self.elapsed)
@@ -179,7 +224,7 @@ class SessionTests(unittest.TestCase):
         self.assertEqual(self.call()["reason"], "INVALID_SESSION")
         self.discovery.assert_not_called()
 
-    def test_401_refresh_once_rotation_keeps_deadline(self):
+    def test_401_refresh_once_rotation_preserves_auth_age_and_records_observation(self):
         self.discovery.side_effect = [c.ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401"), FOUND]
         report = self.call()
         self.assertEqual(report["session_state"], "REFRESHED")
@@ -187,11 +232,16 @@ class SessionTests(unittest.TestCase):
         self.refresh.assert_called_once()
         self.assertEqual(self.store.value["token"], "NEW_ACCESS")
         self.assertEqual(self.store.value["refresh_token"], "NEW_REFRESH")
-        self.assertEqual(self.store.value["hard_expires_at"], 173800)
+        self.assertEqual(self.store.value['issued_at'], 1000)
+        self.assertEqual(self.store.value['last_refresh_at'], self.now)
+        self.assertEqual(report['observed_refresh_count'], 1)
 
     def test_second_401_does_not_refresh_again(self):
         self.discovery.side_effect = c.ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401")
-        self.assertEqual(self.call()["reason"], "REAUTH_REQUIRED")
+        report = self.call()
+        self.assertEqual(report["reason"], "REAUTH_REQUIRED")
+        self.assertEqual(report['reauth_cause'], 'ACCESS_REJECTED_AFTER_REFRESH')
+        self.assertEqual(report['observation']['vendor_lifetime_status'], 'NOT_ESTABLISHED')
         self.refresh.assert_called_once()
         self.assertEqual(self.discovery.call_count, 2)
         self.assertIsNone(self.store.value)
@@ -205,29 +255,66 @@ class SessionTests(unittest.TestCase):
 
     def test_refresh_timeout_retains_old_session(self):
         self.refresh.side_effect = c.ProbeError("TIMEOUT")
-        self.assertEqual(self.call("refresh-check")["reason"], "TIMEOUT")
+        result = self.call('refresh-check')
+        self.assertEqual(result['reason'], 'TIMEOUT')
+        self.assertNotIn('reauth_cause', result)
+        self.assertEqual(result['observation']['vendor_lifetime_status'], 'NOT_ESTABLISHED')
+        self.assertEqual(self.store.value['last_verified_at'], 1100)
         self.assertEqual(self.store.value["token"], "SECRET_ACCESS")
 
-    def test_refresh_rejected_401_forgets(self):
-        self.refresh.side_effect = c.ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401")
-        self.assertEqual(self.call("refresh-check")["reason"], "REAUTH_REQUIRED")
+    def test_rejection_observation_bounds_last_vendor_success_and_redacts_identifiers(self):
+        self.now = 1000+7*86400
+        success = self.call()
+        self.now = 1000+31*86400
+        self.refresh.side_effect = c.ProbeError('AUTH_FAILED', 'AUTH_INVALID_HTTP401')
+        failure = self.call('refresh-check')
+        observation = failure['observation']
+        self.assertEqual(observation['last_verified_at_utc'], success['last_verified_at_utc'])
+        self.assertEqual(observation['session_age_seconds'], 31*86400)
+        self.assertIsNone(observation['expires_at_utc'])
+        for secret in ('SECRET', 'NEW_ACCESS', 'NEW_REFRESH', TARGET, DEVICE, 'synthetic-uuid'):
+            self.assertNotIn(secret, json.dumps(failure))
+
+    def test_legacy_migration_does_not_claim_vendor_acceptance(self):
+        self.store.value = legacy_record()
+        self.now = 1000+40*86400
+        self.discovery.side_effect = c.ProbeError('AUTH_FAILED', 'AUTH_INVALID_HTTP401')
+        self.refresh.side_effect = c.ProbeError('AUTH_FAILED', 'AUTH_INVALID_HTTP401')
+        result = self.call()
+        self.assertEqual(result['reason'], 'REAUTH_REQUIRED')
+        self.assertIsNone(result['observation']['last_verified_at_utc'])
+        self.assertEqual(result['observation']['observed_refresh_count'], 0)
         self.assertIsNone(self.store.value)
+
+    def test_refresh_rejected_401_forgets(self):
+        self.now = 1000+31*86400
+        self.refresh.side_effect = c.ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401")
+        result = self.call('refresh-check')
+        self.assertEqual(result['reason'], 'REAUTH_REQUIRED')
+        self.assertEqual(result['reauth_cause'], 'REFRESH_REJECTED')
+        self.assertEqual(result['observation']['session_age_seconds'], 31*86400)
+        self.assertEqual(result['observation']['vendor_lifetime_status'], 'REFRESH_REJECTED')
+        self.assertIsNone(self.store.value)
+        self.prompt.assert_not_called()
 
     def test_missing_refresh_requires_reauth_only_when_needed(self):
         self.store.value["refresh_token"] = None
         self.assertEqual(self.call()["status"], "SUCCESS")
         self.discovery.side_effect = c.ProbeError("AUTH_FAILED", "AUTH_INVALID_HTTP401")
-        self.assertEqual(self.call()["reason"], "REAUTH_REQUIRED")
+        result = self.call()
+        self.assertEqual(result["reason"], "REAUTH_REQUIRED")
+        self.assertEqual(result['reauth_cause'], 'NO_REFRESH_TOKEN')
+        self.assertEqual(result['observation']['vendor_lifetime_status'], 'NOT_ESTABLISHED')
         self.refresh.assert_not_called()
 
-    def test_expiry_during_refresh_never_persists_new_token(self):
+    def test_refresh_crossing_old_deadline_persists_rotated_token(self):
         def refresh(*args):
             self.now = 173800
             return {"token": "NEW_ACCESS", "refresh_token": "NEW_REFRESH"}
         self.refresh.side_effect = refresh
-        self.assertEqual(self.call("refresh-check")["reason"], "EXPIRED")
-        self.discovery.assert_not_called()
-        self.assertIsNone(self.store.value)
+        self.assertEqual(self.call("refresh-check")['status'], 'SUCCESS')
+        self.assertEqual(self.store.value['token'], 'NEW_ACCESS')
+        self.assertEqual(self.store.value['issued_at'], 1000)
 
     def test_rotation_storage_failure_is_not_success(self):
         def refresh(*args):
@@ -247,7 +334,11 @@ class SessionTests(unittest.TestCase):
             callback.assert_not_called()
 
     def test_status_forget_no_network(self):
-        self.assertEqual(self.call("status")["session_state"], "ACTIVE")
+        old_verified = self.store.value['last_verified_at']
+        result = self.call('status')
+        self.assertEqual(result['session_state'], 'ACTIVE')
+        self.assertEqual(result['vendor_lifetime_status'], 'NOT_ESTABLISHED')
+        self.assertEqual(self.store.value['last_verified_at'], old_verified)
         self.assertEqual(self.call("forget")["session_state"], "FORGOTTEN")
         self.discovery.assert_not_called()
         self.refresh.assert_not_called()
@@ -259,10 +350,13 @@ class SessionTests(unittest.TestCase):
                 self.assertEqual(report["status"], "BLOCKED")
                 self.assertNotIn("SECRET", json.dumps(report))
 
-    def test_expiry_cleanup_failure_is_explicit(self):
-        self.now = 173800
+    def test_vendor_rejection_cleanup_failure_does_not_claim_success(self):
+        self.refresh.side_effect = c.ProbeError('AUTH_FAILED', 'AUTH_INVALID_HTTP401')
         with patch.object(self.store, "delete", side_effect=s.SessionError("STORE_DENIED")):
-            self.assertEqual(self.call(), {"status": "BLOCKED", "reason": "EXPIRED", "cleanup_pending": True})
+            result = self.call('refresh-check')
+        self.assertEqual(result['reason'], 'STORE_DENIED')
+        self.assertEqual(result['reauth_cause'], 'REFRESH_REJECTED')
+        self.assertIsNotNone(self.store.value)
 
     def test_revision_conflict(self):
         with self.assertRaisesRegex(s.SessionError, "REVISION_CONFLICT"):
@@ -282,9 +376,11 @@ class SessionTests(unittest.TestCase):
             r = self.call("start")
         self.assertEqual(r["session_state"], "SESSION_CREATED")
         self.assertTrue(login.call_args.kwargs["refresh_token_needed"])
-        self.assertEqual(set(self.store.value), s.FIELDS)
+        self.assertEqual(set(self.store.value), s.VENDOR_FIELDS)
         self.assertNotIn("PASSWORD_SECRET", json.dumps(self.store.value))
-        self.assertEqual(self.store.value["hard_expires_at"], self.now + 172800)
+        self.assertEqual(self.store.value['schema_version'], 3)
+        self.assertIsNone(r['expires_at_utc'])
+        self.assertNotIn('48-hour', self.prompt.call_args_list[0].args[0])
 
     def test_no_double_start(self):
         self.assertEqual(self.call("start")["reason"], "SESSION_BUSY")
@@ -345,8 +441,8 @@ class SessionTests(unittest.TestCase):
     def test_sd_command_does_not_prompt_and_passes_live_deadline_guard(self):
         with patch("tools.ft_sd_probe.probe_selected_device", return_value={"status": "SUCCESS"}) as sd:
             self.assertEqual(self.call("sd-check")["status"], "SUCCESS")
-            self.now = 173800
-            with self.assertRaisesRegex(s.SessionError, "EXPIRED"):
+            self.now = 1099
+            with self.assertRaisesRegex(s.SessionError, "CLOCK_ROLLBACK"):
                 sd.call_args.kwargs["session_guard"]()
         self.prompt.assert_not_called()
 
@@ -361,7 +457,7 @@ class SessionTests(unittest.TestCase):
         with patch('tools.ft_sd_probe.probe_fixed_metadata', return_value={'status':'BLOCKED','reason':'MALFORMED_RESPONSE'}) as fixed:
             result=self.call('fixed-check')
             self.assertEqual(result['reason'],'SD_PROBE_BLOCKED')
-            self.now=173800
+            self.now=1099
             with self.assertRaises(s.SessionError): fixed.call_args.kwargs['session_guard']()
         self.prompt.assert_not_called()
 
@@ -369,7 +465,7 @@ class SessionTests(unittest.TestCase):
         with patch("tools.ft_media_probe.LIVE_TRIAL_ENABLED", True), patch("tools.ft_media_probe.sample_selected_device", return_value={"status":"BLOCKED", "reason":"QUOTA"}) as sample:
             result = self.call("media-check")
             self.assertEqual(result["reason"], "MEDIA_PROBE_BLOCKED")
-            self.now = 173800
+            self.now = 1099
             with self.assertRaises(s.SessionError):
                 sample.call_args.kwargs["session_guard"]()
         self.prompt.assert_not_called()

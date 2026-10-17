@@ -1,4 +1,4 @@
-"""Local Keychain-backed Tapo lease. Public reports never contain credentials.
+"""Keychain-backed Tapo session with vendor-managed lifetime.
 
 Run as ``python3 -m tools.ft_session status|start|use|sd-check|fixed-check|media-check|refresh-check|forget``.
 Only explicit start opens private native input. No daemon or automatic login.
@@ -19,8 +19,9 @@ import time
 
 from tools import ft_cloud_probe as cloud
 
-LEASE_SECONDS = 172800
-RETENTION_COMMANDS = {"retain-7": 7*86400, "retain-30": 30*86400}
+# Only for validating historical records before migration, never active limits.
+LEGACY_LEASE_SECONDS = 172800
+LEGACY_DURATIONS = {172800, 7*86400, 30*86400}
 APP_DIR = Path.home() / ".local/share/foot-traffic-counter"
 HELPER = APP_DIR / "bin/ft-keychain"
 ERRORS = frozenset({
@@ -32,6 +33,8 @@ ERRORS = frozenset({
 FIELDS = frozenset({"schema_version", "token", "refresh_token", "terminal_uuid",
     "issued_at", "hard_expires_at", "last_seen", "target_digest", "device_digest",
     "account_host", "revision"})
+VENDOR_FIELDS = (FIELDS - {"hard_expires_at"}) | {
+    "observation_started_at", "refresh_count", "last_refresh_at", "last_verified_at"}
 DIGEST = re.compile(r"[0-9a-f]{64}\Z")
 
 
@@ -139,13 +142,15 @@ def _number(value):
 
 
 def validate(record, target=None):
-    if not isinstance(record,dict) or type(record.get('schema_version')) is not int or record['schema_version'] not in (1,2):
+    if not isinstance(record,dict) or type(record.get('schema_version')) is not int or record['schema_version'] not in (1,2,3):
         raise SessionError('INVALID_SESSION')
-    fields=FIELDS if record['schema_version']==1 else FIELDS|{'lease_seconds'}
+    version = record['schema_version']
+    fields = VENDOR_FIELDS if version == 3 else FIELDS if version == 1 else FIELDS|{'lease_seconds'}
     if set(record)!=fields:raise SessionError('INVALID_SESSION')
-    duration=LEASE_SECONDS if record['schema_version']==1 else record['lease_seconds']
-    if type(duration) is not int or duration not in {LEASE_SECONDS,*RETENTION_COMMANDS.values()}:
-        raise SessionError('INVALID_SESSION')
+    if version != 3:
+        duration = LEGACY_LEASE_SECONDS if version == 1 else record['lease_seconds']
+        if type(duration) is not int or duration not in LEGACY_DURATIONS:
+            raise SessionError('INVALID_SESSION')
     if type(record["revision"]) is not int or not 1 <= record["revision"] <= 2**53:
         raise SessionError("INVALID_SESSION")
     if not _text(record["token"]) or not _text(record["refresh_token"], optional=True):
@@ -156,10 +161,28 @@ def validate(record, target=None):
         raise SessionError("INVALID_SESSION")
     if target is not None and record["target_digest"] != target:
         raise SessionError("TARGET_MISMATCH")
-    if any(not _number(record[k]) for k in ("issued_at", "hard_expires_at", "last_seen")):
+    if any(not _number(record[k]) for k in ("issued_at", "last_seen")):
         raise SessionError("INVALID_SESSION")
-    if record["hard_expires_at"] != record["issued_at"] + duration or not record["issued_at"] <= record["last_seen"] < record["hard_expires_at"]:
+    if record['last_seen'] < record['issued_at']:
         raise SessionError("INVALID_SESSION")
+    if version != 3:
+        if not _number(record['hard_expires_at']) or record["hard_expires_at"] != record["issued_at"] + duration or record['last_seen'] >= record['hard_expires_at']:
+            raise SessionError('INVALID_SESSION')
+    else:
+        started = record['observation_started_at']
+        if not _number(started) or not record['issued_at'] <= started <= record['last_seen']:
+            raise SessionError('INVALID_SESSION')
+        count = record['refresh_count']
+        if type(count) is not int or not 0 <= count <= 2**53:
+            raise SessionError('INVALID_SESSION')
+        for key in ('last_refresh_at', 'last_verified_at'):
+            value = record[key]
+            if value is not None and (not _number(value) or not started <= value <= record['last_seen']):
+                raise SessionError('INVALID_SESSION')
+        if (count == 0) != (record['last_refresh_at'] is None):
+            raise SessionError('INVALID_SESSION')
+        if record['last_refresh_at'] is not None and (record['last_verified_at'] is None or record['last_verified_at'] < record['last_refresh_at']):
+            raise SessionError('INVALID_SESSION')
     return record
 
 
@@ -168,15 +191,15 @@ class Lease:
         self.record, self.wall, self.mono = record, wall, mono
         self.initial_wall, self.initial_mono = wall(), mono()
         self.previous_wall = record["last_seen"]
+        self.previous_elapsed = 0
         self.check()
 
     def check(self):
         now, elapsed = self.wall(), self.mono() - self.initial_mono
-        if not _number(now) or elapsed < 0 or now < self.previous_wall:
+        if not _number(now) or not _number(elapsed) or elapsed < self.previous_elapsed or now < self.previous_wall:
             raise SessionError("CLOCK_ROLLBACK")
-        if max(now, self.initial_wall + elapsed) >= self.record["hard_expires_at"]:
-            raise SessionError("EXPIRED")
         self.previous_wall = now
+        self.previous_elapsed = elapsed
         return now
 
 
@@ -206,11 +229,32 @@ class SessionManager:
         if self.store.load() != record:
             raise SessionError("STORE_ERROR")
 
-    def _touch(self, record, lease):
+    def _vendor_record(self, record):
+        """Migrate only an existing, validated record; never recreate secrets."""
+        if record['schema_version'] == 3:
+            return record
+        now = self.wall()
+        if not _number(now) or now < record['last_seen']:
+            raise SessionError('CLOCK_ROLLBACK')
+        updated = {k: v for k, v in record.items() if k not in {'hard_expires_at', 'lease_seconds'}}
+        updated.update(schema_version=3, last_seen=now, observation_started_at=now,
+                       refresh_count=0, last_refresh_at=None, last_verified_at=None,
+                       revision=record['revision']+1)
+        self._save(updated, record['revision'])
+        return updated
+
+    def _touch(self, record, lease, verified=False):
         revision = record["revision"]
         record["last_seen"] = lease.check()
+        if verified:
+            record['last_verified_at'] = record['last_seen']
         record["revision"] += 1
         self._save(record, revision)
+
+    def _reauth(self, cause):
+        self.reauth_cause = cause
+        self.store.delete()
+        raise SessionError('REAUTH_REQUIRED')
 
     def _selected(self, budget, record):
         found = cloud._discover(budget, record["token"], record["terminal_uuid"], record["target_digest"])
@@ -229,21 +273,22 @@ class SessionManager:
 
     def _refresh(self, budget, record, lease):
         if record["refresh_token"] is None:
-            self.store.delete()
-            raise SessionError("REAUTH_REQUIRED")
+            self._reauth('NO_REFRESH_TOKEN')
         lease.check()
         try:
             result = cloud._refresh(budget, record["refresh_token"], record["terminal_uuid"])
         except cloud.ProbeError as exc:
             if exc.detail == "AUTH_INVALID_HTTP401":
-                self.store.delete()
-                raise SessionError("REAUTH_REQUIRED") from None
+                self._reauth('REFRESH_REJECTED')
             raise
         lease.check()
         updated = copy.deepcopy(record)
         updated.update(token=result.get("token"), refresh_token=result.get("refresh_token"))
         validate(updated)
         updated["last_seen"] = lease.check()
+        updated['last_refresh_at'] = updated['last_seen']
+        updated['last_verified_at'] = updated['last_seen']
+        updated['refresh_count'] += 1
         updated["revision"] += 1
         self._save(updated, record["revision"])
         record.update(updated)
@@ -269,7 +314,7 @@ class SessionManager:
         if self.store.load() is not None:
             raise SessionError("SESSION_BUSY")
         cloud._load_pinned_der()
-        email = self._input("Tapo account email (start 48-hour session):", "EMAIL_INPUT")
+        email = self._input("Tapo account email (automatic token refresh):", "EMAIL_INPUT")
         password = self._input("Tapo account password (not saved):", "PASSWORD_INPUT")
         budget = cloud._Budget()
         try:
@@ -290,9 +335,10 @@ class SessionManager:
         finally:
             password, email = None, None
         issued = self.wall()
-        record = {"schema_version": 1, "token": auth["token"], "refresh_token": auth.get("refresh_token") or None,
+        record = {"schema_version": 3, "token": auth["token"], "refresh_token": auth.get("refresh_token") or None,
             "terminal_uuid": auth["terminal_uuid"], "issued_at": issued, "last_seen": issued,
-            "hard_expires_at": issued + LEASE_SECONDS, "target_digest": target,
+            "observation_started_at": issued, "refresh_count": 0, "last_refresh_at": None,
+            "last_verified_at": None, "target_digest": target,
             "device_digest": "", "account_host": cloud.ACCOUNT_HOST, "revision": 1}
         # Validate credentials before discovery without inventing a selected device.
         validate(dict(record, device_digest="0" * 64))
@@ -302,24 +348,37 @@ class SessionManager:
         self.stage = "DISCOVERY"
         _, record["device_digest"] = self._selected(guarded, record)
         record["last_seen"] = lease.check()
+        record['last_verified_at'] = record['last_seen']
         self.stage = "SESSION_STORE"
         self._save(record, None)
         return self._public(record, "SESSION_CREATED", lease)
 
-    def _public(self, record, state, lease):
+    def _observation(self, record, lease):
         now = lease.check()
-        return {"status": "SUCCESS", "session_state": state,
-            "remaining_seconds": max(0, int(record["hard_expires_at"] - now)),
-            "expires_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(record["hard_expires_at"])),
+        def utc(value):
+            return None if value is None else time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(value))
+        return {'local_expiry_policy': 'VENDOR_MANAGED', 'remaining_seconds': None,
+            'expires_at_utc': None, 'issued_at_utc': utc(record['issued_at']),
+            'observed_at_utc': utc(now), 'session_age_seconds': int(now-record['issued_at']),
+            'observation_started_at_utc': utc(record['observation_started_at']),
+            'observed_refresh_count': record['refresh_count'],
+            'last_refresh_at_utc': utc(record['last_refresh_at']),
+            'last_verified_at_utc': utc(record['last_verified_at']),
+            'vendor_lifetime_status': 'NOT_ESTABLISHED'}
+
+    def _public(self, record, state, lease):
+        return {"status": "SUCCESS", "session_state": state, **self._observation(record, lease),
             "refresh_available": record["refresh_token"] is not None}
 
     def command(self, command, target=None, on_selected_camera=None, callback_with_guard=False):
         self.stage = None
+        self.current_record = self.current_lease = None
+        self.reauth_cause = None
         if type(callback_with_guard) is not bool:
             return {"status":"BLOCKED","reason":"INVALID_INPUT"}
-        if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check", "media-check", "fixed-check"} | set(RETENTION_COMMANDS):
+        if command not in {"status", "start", "use", "refresh-check", "forget", "sd-check", "media-check", "fixed-check"}:
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
-        if command in {"start", "use", "refresh-check", "sd-check", "media-check", "fixed-check"} | set(RETENTION_COMMANDS) and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
+        if command in {"start", "use", "refresh-check", "sd-check", "media-check", "fixed-check"} and (not isinstance(target, str) or not DIGEST.fullmatch(target)):
             return {"status": "BLOCKED", "reason": "INVALID_INPUT"}
         if command == "media-check":
             from tools.ft_media_probe import LIVE_TRIAL_ENABLED
@@ -327,97 +386,85 @@ class SessionManager:
                 return {"status": "BLOCKED", "reason": "MEDIA_TRIAL_NOT_ENABLED"}
         try:
             with self.lock():
+                if command == "forget":
+                    self.store.delete()
+                    return {"status": "SUCCESS", "session_state": "FORGOTTEN"}
+                if command == "start":
+                    return self._start(target)
+                record = self.store.load()
+                if record is None:
+                    raise SessionError("REAUTH_REQUIRED")
+                validate(record, target)
+                record = self._vendor_record(record)
+                lease = Lease(record, self.wall, self.mono)
+                self.current_record, self.current_lease = record, lease
+                self._touch(record, lease)
+                if command == "status":
+                    return self._public(record, "ACTIVE", lease)
+                budget = GuardBudget(lease)
+                refreshed = False
+                if command == "refresh-check":
+                    self._refresh(budget, record, lease)
+                    refreshed = True
                 try:
-                    if command == "forget":
-                        self.store.delete()
-                        return {"status": "SUCCESS", "session_state": "FORGOTTEN"}
-                    if command == "start":
-                        return self._start(target)
-                    record = self.store.load()
-                    if record is None:
-                        raise SessionError("REAUTH_REQUIRED")
-                    validate(record, target)
-                    lease = Lease(record, self.wall, self.mono)
-                    if command in RETENTION_COMMANDS:
-                        # Explicit Owner-selected LOCAL retention only. Keep the
-                        # original issue time; no vendor request or OTP bypass.
-                        duration=RETENTION_COMMANDS[command]
-                        if lease.check()>=record['issued_at']+duration:
-                            raise SessionError('INVALID_INPUT')
-                        updated=copy.deepcopy(record)
-                        updated.update(schema_version=2,lease_seconds=duration,
-                            hard_expires_at=record['issued_at']+duration,last_seen=lease.check(),revision=record['revision']+1)
-                        self._save(updated,record['revision'])
-                        return self._public(updated,'LOCAL_POLICY_UPDATED',Lease(updated,self.wall,self.mono))
-                    self._touch(record, lease)
-                    if command == "status":
-                        return self._public(record, "ACTIVE", lease)
-                    budget = GuardBudget(lease)
-                    refreshed = False
-                    if command == "refresh-check":
-                        self._refresh(budget, record, lease)
-                        refreshed = True
+                    selected, _ = self._selected(budget, record)
+                except cloud.ProbeError as exc:
+                    if exc.detail != "AUTH_INVALID_HTTP401":
+                        raise
+                    if refreshed:
+                        self._reauth('ACCESS_REJECTED_AFTER_REFRESH')
+                    self._refresh(budget, record, lease)
+                    refreshed = True
                     try:
                         selected, _ = self._selected(budget, record)
-                    except cloud.ProbeError as exc:
-                        if exc.detail != "AUTH_INVALID_HTTP401":
-                            raise
-                        if refreshed:
-                            self.store.delete()
-                            raise SessionError("REAUTH_REQUIRED") from None
-                        self._refresh(budget, record, lease)
-                        refreshed = True
-                        try:
-                            selected, _ = self._selected(budget, record)
-                        except cloud.ProbeError as retry_exc:
-                            if retry_exc.detail == "AUTH_INVALID_HTTP401":
-                                self.store.delete()
-                                raise SessionError("REAUTH_REQUIRED") from None
-                            raise
-                    self._touch(record, lease)
-                    extra = {}
-                    lease.check()
-                    if command == "sd-check":
-                        from tools.ft_sd_probe import probe_selected_device
-                        extra["sd_probe"] = probe_selected_device(record["token"], record["terminal_uuid"], selected,
-                            "20261012", session_guard=lease.check)
-                    elif command == "fixed-check":
-                        from tools.ft_sd_probe import probe_fixed_metadata
-                        extra["sd_probe"] = probe_fixed_metadata(record["token"], record["terminal_uuid"], selected,
-                            session_guard=lease.check)
-                    elif command == "media-check":
-                        from tools.ft_media_probe import sample_selected_device
-                        extra["media_probe"] = sample_selected_device(record["token"], record["terminal_uuid"], selected,
-                            session_guard=lease.check)
-                    elif on_selected_camera is not None:
-                        if callback_with_guard:
-                            extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected, lease.check)
-                        else:
-                            extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected)
-                    self._touch(record, lease)
-                    result = self._public(record, "REFRESHED" if refreshed else "REUSED", lease)
-                    result.update(extra)
-                    result["auth_requests"] = budget.requests
-                    if extra.get("sd_probe", {}).get("status") == "BLOCKED":
-                        result["status"] = "BLOCKED"
-                        result["reason"] = "SD_PROBE_BLOCKED"
-                    if extra.get("media_probe", {}).get("status") == "BLOCKED":
-                        result["status"] = "BLOCKED"
-                        result["reason"] = "MEDIA_PROBE_BLOCKED"
-                    return result
-                except SessionError as exc:
-                    if exc.code == "EXPIRED":
-                        try:
-                            self.store.delete()
-                        except SessionError:
-                            return {"status": "BLOCKED", "reason": "EXPIRED", "cleanup_pending": True}
-                    raise
+                    except cloud.ProbeError as retry_exc:
+                        if retry_exc.detail == "AUTH_INVALID_HTTP401":
+                            self._reauth('ACCESS_REJECTED_AFTER_REFRESH')
+                        raise
+                self._touch(record, lease, verified=True)
+                extra = {}
+                lease.check()
+                if command == "sd-check":
+                    from tools.ft_sd_probe import probe_selected_device
+                    extra["sd_probe"] = probe_selected_device(record["token"], record["terminal_uuid"], selected,
+                        "20261012", session_guard=lease.check)
+                elif command == "fixed-check":
+                    from tools.ft_sd_probe import probe_fixed_metadata
+                    extra["sd_probe"] = probe_fixed_metadata(record["token"], record["terminal_uuid"], selected,
+                        session_guard=lease.check)
+                elif command == "media-check":
+                    from tools.ft_media_probe import sample_selected_device
+                    extra["media_probe"] = sample_selected_device(record["token"], record["terminal_uuid"], selected,
+                        session_guard=lease.check)
+                elif on_selected_camera is not None:
+                    if callback_with_guard:
+                        extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected, lease.check)
+                    else:
+                        extra["callback"] = on_selected_camera(record["token"], record["terminal_uuid"], selected)
+                self._touch(record, lease)
+                result = self._public(record, "REFRESHED" if refreshed else "REUSED", lease)
+                result.update(extra)
+                result["auth_requests"] = budget.requests
+                if extra.get("sd_probe", {}).get("status") == "BLOCKED":
+                    result["status"] = "BLOCKED"
+                    result["reason"] = "SD_PROBE_BLOCKED"
+                if extra.get("media_probe", {}).get("status") == "BLOCKED":
+                    result["status"] = "BLOCKED"
+                    result["reason"] = "MEDIA_PROBE_BLOCKED"
+                return result
         except (SessionError, cloud.ProbeError) as exc:
             result = {"status": "BLOCKED", "reason": exc.code}
             if self.stage in cloud.STAGES | {"SESSION_STORE"}:
                 result["stage"] = self.stage
             if getattr(exc, "detail", None) in cloud.DETAIL_CODES:
                 result["detail"] = exc.detail
+            if self.current_record is not None:
+                with contextlib.suppress(SessionError, ValueError, OverflowError, OSError):
+                    result['observation'] = self._observation(self.current_record, self.current_lease)
+            if self.reauth_cause is not None:
+                result['reauth_cause'] = self.reauth_cause
+                if self.reauth_cause == 'REFRESH_REJECTED' and 'observation' in result:
+                    result['observation']['vendor_lifetime_status'] = 'REFRESH_REJECTED'
             return result
         except Exception:
             return {"status": "BLOCKED", "reason": "UNKNOWN_ERROR"}
@@ -447,7 +494,7 @@ def load_target():
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     try:
-        if len(args) != 1 or args[0] not in {"status", "start", "use", "sd-check", "media-check", "fixed-check", "refresh-check", "forget"} | set(RETENTION_COMMANDS):
+        if len(args) != 1 or args[0] not in {"status", "start", "use", "sd-check", "media-check", "fixed-check", "refresh-check", "forget"}:
             raise SessionError("INVALID_INPUT")
         target = load_target() if args[0] not in {"status", "forget"} else None
         report = SessionManager().command(args[0], target)
