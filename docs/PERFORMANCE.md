@@ -1,4 +1,4 @@
-# Offline throughput experiments (OD-68)
+# Offline throughput experiments (OD-68 / OD-69)
 
 Owner authorized experiments after the proposal to test smaller detectors,
 shared detection and INT8. This work uses retained local media, existing
@@ -268,3 +268,144 @@ for this research/screen. Production sources and the stopped day17 checkpoint
 remain unchanged. Research and temporary local probes are PO work;
 NOT_RUN_BY_DEVELOPER. New production behavior and manual accuracy remain
 NOT_VERIFIED; existing regression evidence above is not a test of a new backend.
+
+## Same-clip resource comparison (OD-69,2026-10-19)
+
+Owner requests an actual comparison for counting, speed and lighter computer
+load. The existing downloaded180s Fixed source is reused for all candidates;
+its source/config hashes and the production runtime are held constant. No new
+camera download, login or session change is needed for this one selected clip.
+
+`tools.ft_perf_compare` is a separate opt-in experiment runner. It creates one
+fresh deny-network process per candidate, reuses the5fps half-open loop and
+original tracker/counters/quality gates, and never loads a day checkpoint.
+The scoped constructor adapter creates only the chosen model session; smaller
+models are not charged for an unused baseline session. Actual pinned weights
+are checked before inference. Candidate output labels and preprocessing are
+recorded from their actual execution path, not the underlying baseline loop.
+
+```text
+python -m tools.ft_perf_compare --candidate coreml --input <local-fixed.mp4> \
+  --config <private-zones.json> --reference <local-fixed-reference.mp4> \
+  --output <fresh-private-output> --seconds 180
+```
+
+The comparison order is CPU baseline, CoreML MLProgram, YOLOX Nano, YOLOX Tiny,
+NanoDet, with60s rest before each. All use4ORT threads/one inter-op thread and
+the same preseeded private font cache; CoreML's compiled model cache is prepared
+during the short preflight. No OS cache purge, priority/power changes or
+concurrent inference/test jobs. Setup, processing and parent launch-to-exit
+times are reported separately. This is one sequential screening pass; machine
+load/order/thermal variation and long-term throughput are not controlled away.
+
+Worker CPU user+system deltas use the same interval as wall time, starting
+before inference-library imports. Average CPU100% means one logical CPU;
+CPU core-seconds measure accumulated processor work, not elapsed time.
+Darwin `ru_maxrss` is bytes and is reported as the fresh worker's lifetime
+peak MiB, never a subtraction of high-water marks. It excludes GPU/shared
+system-service memory. Parent launch-to-exit includes interpreter/sandbox/exit
+overhead; worker CPU interval excludes interpreter bootstrap. System load is
+recorded before/after. GPU activity, energy and temperature are NOT_MEASURED;
+CPU reductions alone cannot prove lower total machine power or heat.
+
+NanoDet uses [this pinned public asset](https://media.githubusercontent.com/media/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/object_detection_nanodet/object_detection_nanodet_2022nov.onnx),
+SHA256`4b82da9944b88577175ee23a459dce2e26e6e4be573def65b1055dc2d9720186`,
+3,800,954bytes, [Apache2.0](https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/object_detection_nanodet/LICENSE).
+Name it **OpenCV Zoo NanoDet416 FP32**: upstream labels/metric tables are not
+sufficient to bind an exact architecture/GFLOP claim to this binary. The actual
+ORT graph has six outputs at strides8/16/32: class widths80 and regression32,
+not four live scales. The independent adapter uses upstream RGB/centered black
+letterbox/mean-std and distance-distribution decoding, then person-only scores
+with the common0.1floor/0.5NMS and existing tracker thresholds. This intentionally
+differs from upstream all-class/top1000/default0.35/0.6 postprocessing. NanoDet
+unletterboxing clips to its source crop; YOLOX preserves its production
+full-image clipping. Confidence calibration differs between models. These are
+explicit experimental variants, not proof of network-only causal differences
+or identical confidence semantics. Sources: [input mapping](https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/object_detection_nanodet/demo.py),
+[distance decoder](https://raw.githubusercontent.com/opencv/opencv_zoo/47534e27c9851bb1128ccc0102f1145e27f23f98/models/object_detection_nanodet/nanodet.py).
+
+CoreML session availability/registration are checked and automatic runtime
+fallback is disabled. This still does not identify the CPU/GPU partition or
+prove every operator uses GPU. No candidate may be promoted automatically.
+All counting comparisons are against a fresh CPU algorithmic reference;
+matching it does not establish human-labeled accuracy.
+
+### Full-source results from the new resource comparison
+
+All six variants process900frames/1800detector calls from the same180s source.
+The first five have identical experimental recipe hashes as well as identical
+source/config/production-runtime/clock identities. After those processes end,
+the runner is explicitly extended for upstream NanoDet policy and a processing
+thread option; their later reports preserve their actual new recipe hashes.
+Default4thread processing behavior is unchanged by that extension.
+
+| Variant | Processing s | Launch-to-exit s | Worker CPU core-s | Average CPU % | Peak worker MiB | Matched / missing / extra |
+|---|---:|---:|---:|---:|---:|---:|
+| CPU baseline |367.904|370.710|1445.147|390.317|385.230|50 /0 /0|
+| CoreML MLProgram |345.883|351.072|157.947|45.149|439.469|50 /0 /0|
+| YOLOX Nano |47.295|50.407|209.950|420.126|293.246|14 /36 /13|
+| YOLOX Tiny |97.357|100.618|406.964|406.249|321.859|20 /30 /17|
+| NanoDet person-only0.1/0.5 |104.339|106.774|280.085|263.262|306.762|30 /20 /261|
+| NanoDet upstream0.35/0.6 |67.884|71.244|242.337|342.036|305.887|2 /48 /5|
+
+Matching uses0.4s tolerance, zone, lane and accepted/review status; the CoreML
+result also matches all50events at tolerance0with zero timestamp difference.
+CPU/CoreML both produce near14/far4/front18accepted/5review and side27accepted/
+0review. These50events include both zones and review, not50unique people.
+Nano's equal front total18does not establish compatibility: its lanes/status/
+timestamps and side entries differ substantially. Extra/missing here mean
+differences from the algorithmic reference, not human-labeled errors.
+
+The observed CoreML processing reduction is5.99%; total launch reduction5.30%.
+Measured worker CPU core-seconds fall89.07%, while peak RSS increases54.24MiB
+(14.08%). System load varies substantially: the CPU baseline's1/5/15minute
+load is8.01/10.92/11.96before and7.45/10.13/11.34after; CoreML's is8.62/9.88/
+11.15before and9.94/16.31/14.98after. This supports an observed one-pass timing
+comparison, not a stable6% speed advantage. It does show preservation of this
+reference with much less measured worker CPU and somewhat more worker RAM.
+External CoreML/GPU cost is unmeasured; do not call it the lowest-energy or
+lightest-whole-computer method. The faster small models do not pass the chosen
+reference-compatibility requirement, including NanoDet's upstream-policy
+confirmation, so speed does not justify substituting them.
+
+For NanoDet's upstream-policy confirmation, top1000perlevel and all-class
+maxscore/NMS0.35/0.6 are applied in416-space, then personclass0 is selected.
+There is no second NMS. Geometry stays float during unletterboxing rather than
+the demo visualization's integer cast; this explicit variant is not claimed
+bit-identical to the upstream visualization. Its actual graph and model hash
+are unchanged. Both threshold policies remain experimental; no human quality
+claim or model-family-wide verdict follows from this one overhead-camera clip.
+
+`--threads` accepts1/2/4 and controls ORT intra-op and OpenCV processing in the
+fresh experiment. Inter-op stays1; initial reference/ORB setup retains the
+production4thread setting. This is not an OS-wide CPU cap or power change.
+The supplemental1-versus4thread test uses only the same20s prefix and is
+reported separately, never as a full180s/day quality result.
+
+| Same20s prefix | Processing s | Worker CPU core-s | Average CPU % | Peak worker MiB | Exact reference matches |
+|---|---:|---:|---:|---:|---:|
+| CPU1thread |103.210|96.906|91.806|386.191|8 /8, zero missing/extra/time delta|
+| CPU4threads |32.298|128.980|371.600|386.328|8 /8, zero missing/extra/time delta|
+
+One-thread processing is3.20x slower on this matched prefix, with24.9% less
+worker CPU core-seconds and almost identical peak RSS. It lowers CPU occupancy,
+but does not support the requested faster daily turnaround. The20s screen
+does not prove full-source compatibility or provide a whole-day estimate.
+
+For the requested balance, CoreML is the preferred **experimental** choice
+among these runs that preserve the full reference and reduce measured worker
+CPU. It is not a stable overall speed/energy winner; the observed timing gain
+is modest, RAM increases, and GPU/system-service cost is unmeasured. No
+alternative is promoted to production. Processing the full180s source in346s
+still does not meet the under10h/day target.
+
+All benchmark processes ended. Production runtime and stopped64/503day17
+ledger hashes are rechecked unchanged, and follow-up10 remains PAUSED. No new
+camera/auth request, package or hardware; only one public3.8MBmodel was fetched.
+PO final regression875tests/17.561s:861PASS/14optionalSKIP. Isolated benchmark
+tests19PASS/0.332s cover all6numerical skips relevant to these tools; the other8
+skips concern unchanged production sources with earlier pinned-runtime evidence.
+Python3.9 parsing and diff checks pass. Independent read-only reviews covered
+resource units/lifecycle/provenance, native decoder mathematics and the final
+interpretation. Claude scoped task returned NOT_LOGGED_IN/childexit1/1.9s/no
+retained lock; PO audited processes and took over. NOT_RUN_BY_DEVELOPER.
