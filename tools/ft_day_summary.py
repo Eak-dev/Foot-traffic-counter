@@ -111,6 +111,17 @@ def owned_events(clips):
     return sorted(result,key=lambda e:(e['at'],e['ref']))
 
 
+def coverage_seconds(clips, start, end):
+    """Union of available footage inside the filter; gaps are not zero traffic."""
+    spans=[]
+    for clip in sorted(clips,key=lambda c:(c['start'],c['end'])):
+        a,b=max(start,clip['start']),min(end,clip['end'])
+        if a>=b:continue
+        if spans and a<=spans[-1][1]:spans[-1]=(spans[-1][0],max(spans[-1][1],b))
+        else:spans.append((a,b))
+    return sum(b-a for a,b in spans)
+
+
 def query(data, start=0, end=86400):
     _require(number(start) and number(end) and 0<=start<end<=86400,'invalid day filter')
     clips=validate_ledger(data)
@@ -126,10 +137,18 @@ def query(data, start=0, end=86400):
     processed=[c for c in expected if c['status'] in ('counted','covered')]
     verified=all(c.get('clock_verified') and c.get('lens_verified') for c in processed)
     status=('PARTIAL_INVENTORY' if not data['inventory_complete'] else
+            'NO_RECORDINGS' if not expected else
             'PARTIAL_PROCESSING' if len(processed)!=len(expected) else
             'UNVERIFIED_SOURCE' if not verified or data['boundary_mode']!='continuous_state' else 'COMPLETE_RECORDINGS')
+    recorded=coverage_seconds(expected,start,end)
+    counted=coverage_seconds(processed,start,end)
     return dict(date=data['date'],timezone='+07:00',start=start,end=end,totals=totals,
                 data_status=status,expected_clips=len(expected),processed_clips=len(processed),
+                unprocessed_clips=len(expected)-len(processed),
+                recorded_seconds=recorded,processed_seconds=counted,
+                unprocessed_recorded_seconds=recorded-counted,gap_seconds=end-start-recorded,
+                original_day_coverage='NOT_VERIFIED',original_day_complete=None,
+                complete_discovered_recordings=status=='COMPLETE_RECORDINGS',
                 full_day_complete=status=='COMPLETE_RECORDINGS' and start==0 and end==86400,
                 accuracy_status='NOT_VERIFIED',counts_are_partial=status!='COMPLETE_RECORDINGS')
 
@@ -139,8 +158,24 @@ def visible(q,key):
 
 
 def status_text(q):
+    if q['data_status']=='NO_RECORDINGS':return 'ไม่มีคลิปให้ยืนยันในช่วงนี้ · ไม่ใช่จำนวนคนเป็นศูนย์'
     return ('ประมวลผลรายการคลิปครบในช่วงนี้ · ความแม่นยำยังไม่ยืนยัน' if not q['counts_are_partial'] else
             'ข้อมูลยังไม่ครบหรือเวลา/เลนส์ยังไม่ยืนยัน · ตัวเลขนี้เป็นยอดบางส่วน ไม่ใช่ยอดครบวัน')
+
+
+def row_status(q):
+    return 'ไม่มีคลิปให้ยืนยัน' if q['data_status']=='NO_RECORDINGS' else 'รายการครบ' if not q['counts_are_partial'] else 'บางส่วน/ไม่ทราบ'
+
+
+def duration(seconds):
+    value=int(seconds)
+    return '%02d:%02d:%02d'%(value//3600,value//60%60,value%60)
+
+
+def coverage_text(q):
+    return ('คลิปที่พบ %d · ประมวลผลแล้ว %d · ยังไม่ประมวลผล %d · เวลาบันทึก %s · ประมวลผลแล้ว %s · ช่วงไม่มีคลิป %s' %
+            (q['expected_clips'],q['processed_clips'],q['unprocessed_clips'],duration(q['recorded_seconds']),
+             duration(q['processed_seconds']),duration(q['gap_seconds'])))
 
 
 def read_ledger(path):
@@ -178,11 +213,13 @@ def write_reports(root, data):
     rows=[('ทั้งวัน',0,86400)]+[(name,a,b) for _,name,a,b in PERIODS]
     rows += [(f'{h:02d}:00–{h+1:02d}:00',h*3600,(h+1)*3600) for h in range(24)]
     buf=io.StringIO();writer=csv.writer(buf)
-    writer.writerow(['date','period','start','end','near','far','front_auto','front_review','shop_side','shop_side_review','data_status'])
+    writer.writerow(['date','period','start','end','near','far','front_auto','front_review','shop_side','shop_side_review','data_status',
+                     'expected_clips','processed_clips','unprocessed_clips','recorded_seconds','processed_seconds','gap_seconds','original_day_coverage'])
     for name,a,b in rows:
         q=query(data,a,b);t=q['totals']
         writer.writerow([data['date'],name,f'{a//3600:02d}:{a%3600//60:02d}',f'{b//3600:02d}:{b%3600//60:02d}',
-                         *[visible(q,k) for k in ('near','far','front','front_review','shop_side','shop_side_review')],q['data_status']])
+                         *[visible(q,k) for k in ('near','far','front','front_review','shop_side','shop_side_review')],q['data_status'],
+                         *[q[k] for k in ('expected_clips','processed_clips','unprocessed_clips','recorded_seconds','processed_seconds','gap_seconds','original_day_coverage')]])
     atomic_write(Path(root)/'summary.csv','\ufeff'+buf.getvalue())
     public=dict(date=data['date'],inventory_complete=data['inventory_complete'],boundary_mode=data['boundary_mode'],
                 clips=[{k:c.get(k) for k in ('start','end','status','clock_verified','lens_verified')} for c in clips],
@@ -194,10 +231,10 @@ def write_reports(root, data):
         q=query(data,h*3600,(h+1)*3600)
         initial_rows.append('<tr><td>%02d:00–%02d:00</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' %
                             (h,h+1,visible(q,'front'),visible(q,'front_review'),visible(q,'shop_side'),
-                             'รายการครบ' if not q['counts_are_partial'] else 'บางส่วน/ไม่ทราบ'))
+                             row_status(q)))
     for marker,value in [('__FRONT__',visible(whole,'front')),('__REVIEW__',visible(whole,'front_review')),
                          ('__SIDE__',visible(whole,'shop_side')),('__LANES__','ช่องใกล้ '+visible(whole,'near')+' / ช่องไกล '+visible(whole,'far')),
-                         ('__STATUS__',status_text(whole)),('__HOURS__',''.join(initial_rows))]:
+                         ('__STATUS__',status_text(whole)),('__COVERAGE__',coverage_text(whole)),('__HOURS__',''.join(initial_rows))]:
         page=page.replace(marker,value)
     atomic_write(Path(root)/'summary.html',page)
     atomic_write(Path(root)/'summary.json',json.dumps(whole,ensure_ascii=False,indent=2))
@@ -210,16 +247,18 @@ HTML='''<!doctype html><html lang="th"><meta charset="utf-8"><meta name="viewpor
 <main><h1>จำนวนคนเดินผ่าน · __DATE__</h1><p>เวลาไทย · แยกโซน · นับครั้งที่เดินผ่าน ไม่ใช่จำนวนคนไม่ซ้ำ</p>
 <section><label>ช่วงเวลา <select id="preset"><option value="0,86400">ทั้งวัน</option><option value="21600,39600">เช้า 06–11 น.</option><option value="39600,54000">กลางวัน 11–15 น.</option><option value="54000,86400">เย็น/ค่ำ 15–24 น.</option><option value="0,21600">กลางคืน 00–06 น.</option><option value="custom">กำหนดเอง</option></select></label><br>
 <label>เริ่ม <input id="start" type="time" value="00:00"></label><label>ถึง <input id="end" type="time" value="23:59"></label><label><input id="midnight" type="checkbox" checked>ถึงสิ้นวัน (24:00)</label><button id="apply">ดูช่วงนี้</button>
-<p id="range">00:00 – 24:00 น.</p><div id="status" class="warn">__STATUS__</div></section>
+<p id="range">00:00 – 24:00 น.</p><div id="status" class="warn">__STATUS__</div><p id="coverage">__COVERAGE__</p></section>
 <section class="cards"><div class="card">หน้าร้าน ผ่านเกณฑ์<div class="n" id="front">__FRONT__</div><small id="lanes">__LANES__</small></div><div class="card">หน้าร้าน รอตรวจ<div class="n" id="review">__REVIEW__</div></div><div class="card">ข้างร้าน<div class="n" id="side">__SIDE__</div></div></section>
 <section><h2>แยกชั่วโมง</h2><div class="scroll"><table><thead><tr><th>เวลา</th><th>หน้าร้าน</th><th>รอตรวจ</th><th>ข้างร้าน</th><th>ข้อมูล</th></tr></thead><tbody id="hours">__HOURS__</tbody></table></div></section>
-<section><p>รอตรวจยังไม่รวมในยอดผ่านเกณฑ์ อาจเป็นคนเดินจริงหรือการติดตามคลาดเคลื่อน ไม่รวมยอดสองโซนเป็นคนไม่ซ้ำ</p><p>“รายการครบ” หมายถึงประมวลผลคลิปที่พบครบ ไม่ใช่ยืนยันความแม่นยำของการนับ ช่องว่างที่ไม่มีคลิปใช้เงื่อนไขกล้องบันทึกเมื่อมีคนตามที่เจ้าของยืนยัน</p><small>รายงานนี้ทำงานในเครื่อง ไม่มีการเชื่อมต่อภายนอก หากแอปมือถือไม่เปิดปุ่มโต้ตอบ ตัวเลขทั้งวันและตารางยังดูได้ หรือใช้ไฟล์ CSV คู่กัน</small></section>
+<section><p>รอตรวจยังไม่รวมในยอดผ่านเกณฑ์ อาจเป็นคนเดินจริงหรือการติดตามคลาดเคลื่อน ไม่รวมยอดสองโซนเป็นคนไม่ซ้ำ</p><p>“รายการครบ” หมายถึงประมวลผลคลิปที่พบครบ ไม่ยืนยันว่าต้นฉบับทั้งวันยังอยู่ครบหรือการนับแม่นยำ ช่วงไม่มีคลิปไม่มีข้อมูลให้ยืนยัน ไม่ใช่จำนวนคนเป็นศูนย์</p><small>รายงานนี้ทำงานในเครื่อง ไม่มีการเชื่อมต่อภายนอก หากแอปมือถือไม่เปิดปุ่มโต้ตอบ ตัวเลขทั้งวันและตารางยังดูได้ หรือใช้ไฟล์ CSV คู่กัน</small></section>
 <noscript><section class="warn">แอปนี้ไม่เปิด JavaScript โปรดเปิด summary.csv เพื่อดูตัวเลขและช่วงเวลา</section></noscript>
 <script type="application/json" id="data">__DATA__</script><script>
 const D=JSON.parse(document.getElementById('data').textContent), $=x=>document.getElementById(x);
-function q(a,b){let x={near:0,far:0,front:0,review:0,side:0};for(const e of D.events){if(e.at<a||e.at>=b)continue;if(e.zone==='front_shop'){if(e.status==='review')x.review++;else{x.front++;x[e.lane]++;}}else if(e.status==='accepted')x.side++;}let clips=D.clips.filter(c=>c.start<b&&c.end>a),done=clips.filter(c=>['counted','covered'].includes(c.status));x.hasData=done.length>0;x.complete=D.inventory_complete&&clips.length===done.length&&done.every(c=>c.clock_verified&&c.lens_verified)&&D.boundary_mode==='continuous_state';return x;}
+function covered(clips,a,b){let spans=[];for(const c of [...clips].sort((x,y)=>x.start-y.start||x.end-y.end)){let lo=Math.max(a,c.start),hi=Math.min(b,c.end);if(lo>=hi)continue;let last=spans[spans.length-1];if(last&&lo<=last[1])last[1]=Math.max(last[1],hi);else spans.push([lo,hi]);}return spans.reduce((n,v)=>n+v[1]-v[0],0);}
+function q(a,b){let x={near:0,far:0,front:0,review:0,side:0};for(const e of D.events){if(e.at<a||e.at>=b)continue;if(e.zone==='front_shop'){if(e.status==='review')x.review++;else{x.front++;x[e.lane]++;}}else if(e.status==='accepted')x.side++;}let clips=D.clips.filter(c=>c.start<b&&c.end>a),done=clips.filter(c=>['counted','covered'].includes(c.status));x.hasData=done.length>0;x.noRecordings=D.inventory_complete&&clips.length===0;x.expected=clips.length;x.processed=done.length;x.recordedSeconds=covered(clips,a,b);x.processedSeconds=covered(done,a,b);x.gapSeconds=b-a-x.recordedSeconds;x.complete=clips.length>0&&D.inventory_complete&&clips.length===done.length&&done.every(c=>c.clock_verified&&c.lens_verified)&&D.boundary_mode==='continuous_state';return x;}
 function hh(t){return String(Math.floor(t/3600)).padStart(2,'0')+':'+String(Math.floor(t%3600/60)).padStart(2,'0');}
-function draw(a,b){if(!(a>=0&&a<b&&b<=86400)){$('status').textContent='ช่วงเวลาไม่ถูกต้อง กรุณาให้เวลาเริ่มน้อยกว่าเวลาสิ้นสุด';return;}let x=q(a,b),n=k=>(x.complete||x.hasData)?x[k]:'—';$('range').textContent=hh(a)+' – '+hh(b)+' น. (ไม่รวมเวลาปลายช่วง)';$('front').textContent=n('front');$('review').textContent=n('review');$('side').textContent=n('side');$('lanes').textContent='ช่องใกล้ '+n('near')+' / ช่องไกล '+n('far');$('status').textContent=x.complete?'ประมวลผลรายการคลิปครบในช่วงนี้ · ความแม่นยำยังไม่ยืนยัน':'ข้อมูลยังไม่ครบหรือเวลา/เลนส์ยังไม่ยืนยัน · ตัวเลขนี้เป็นยอดบางส่วน ไม่ใช่ยอดครบวัน';let rows='';for(let h=Math.floor(a/3600);h<Math.ceil(b/3600);h++){let lo=Math.max(a,h*3600),hi=Math.min(b,(h+1)*3600),v=q(lo,hi);let n=k=>(v.complete||v.hasData)?v[k]:'—';rows+='<tr><td>'+hh(lo)+'–'+hh(hi)+'</td><td>'+n('front')+'</td><td>'+n('review')+'</td><td>'+n('side')+'</td><td>'+(v.complete?'รายการครบ':'บางส่วน/ไม่ทราบ')+'</td></tr>';}$('hours').innerHTML=rows;}
+function dur(s){s=Math.floor(s);return String(Math.floor(s/3600)).padStart(2,'0')+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function draw(a,b){if(!(a>=0&&a<b&&b<=86400)){$('status').textContent='ช่วงเวลาไม่ถูกต้อง กรุณาให้เวลาเริ่มน้อยกว่าเวลาสิ้นสุด';return;}let x=q(a,b),n=k=>(x.complete||x.hasData)?x[k]:'—';$('range').textContent=hh(a)+' – '+hh(b)+' น. (ไม่รวมเวลาปลายช่วง)';$('front').textContent=n('front');$('review').textContent=n('review');$('side').textContent=n('side');$('lanes').textContent='ช่องใกล้ '+n('near')+' / ช่องไกล '+n('far');$('status').textContent=x.noRecordings?'ไม่มีคลิปให้ยืนยันในช่วงนี้ · ไม่ใช่จำนวนคนเป็นศูนย์':x.complete?'ประมวลผลรายการคลิปครบในช่วงนี้ · ความแม่นยำยังไม่ยืนยัน':'ข้อมูลยังไม่ครบหรือเวลา/เลนส์ยังไม่ยืนยัน · ตัวเลขนี้เป็นยอดบางส่วน ไม่ใช่ยอดครบวัน';$('coverage').textContent='คลิปที่พบ '+x.expected+' · ประมวลผลแล้ว '+x.processed+' · ยังไม่ประมวลผล '+(x.expected-x.processed)+' · เวลาบันทึก '+dur(x.recordedSeconds)+' · ประมวลผลแล้ว '+dur(x.processedSeconds)+' · ช่วงไม่มีคลิป '+dur(x.gapSeconds);let rows='';for(let h=Math.floor(a/3600);h<Math.ceil(b/3600);h++){let lo=Math.max(a,h*3600),hi=Math.min(b,(h+1)*3600),v=q(lo,hi);let n=k=>(v.complete||v.hasData)?v[k]:'—';rows+='<tr><td>'+hh(lo)+'–'+hh(hi)+'</td><td>'+n('front')+'</td><td>'+n('review')+'</td><td>'+n('side')+'</td><td>'+(v.noRecordings?'ไม่มีคลิปให้ยืนยัน':v.complete?'รายการครบ':'บางส่วน/ไม่ทราบ')+'</td></tr>';}$('hours').innerHTML=rows;}
 function sec(id){let parts=$(id).value.split(':').map(Number);return parts.length===2?parts[0]*3600+parts[1]*60:NaN;}
 $('preset').onchange=()=>{if($('preset').value==='custom')return;let [a,b]=$('preset').value.split(',').map(Number);$('start').value=hh(a);$('end').value=b===86400?'23:59':hh(b);$('midnight').checked=b===86400;draw(a,b);};$('apply').onclick=()=>{$('preset').value='custom';draw(sec('start'),$('midnight').checked?86400:sec('end'));};draw(0,86400);
 </script></main></html>'''

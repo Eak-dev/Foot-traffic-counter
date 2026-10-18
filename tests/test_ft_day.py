@@ -1,5 +1,6 @@
 """Synthetic day, boundary, inventory and resumable-parent contracts; no camera."""
 import copy
+import csv
 import io
 import json
 import os
@@ -108,12 +109,49 @@ class DailySummaryTests(unittest.TestCase):
             self.assertFalse(ds.query(data)['full_day_complete'])
         data=ledger([clip()]);data['boundary_mode']='unverified';self.assertFalse(ds.query(data)['full_day_complete'])
 
-    def test_no_recording_gaps_are_zero_only_after_complete_inventory(self):
+    def test_no_recording_gaps_are_unknown_even_after_complete_inventory(self):
         data=ledger([clip(36000,36180,[event(36001)])])
-        self.assertEqual(ds.query(data,0,3600)['totals']['front'],0)
-        self.assertFalse(ds.query(data,0,3600)['counts_are_partial'])
+        q=ds.query(data,0,3600)
+        self.assertEqual(q['data_status'],'NO_RECORDINGS')
+        self.assertEqual(ds.visible(q,'front'),'—')
+        self.assertIn('ไม่มีคลิปให้ยืนยัน',ds.status_text(q))
+        self.assertFalse(q['complete_discovered_recordings'])
+        self.assertEqual(q['gap_seconds'],3600)
         data['inventory_complete']=False
-        self.assertEqual(ds.visible(ds.query(data,0,3600),'front'),'—')
+        q=ds.query(data,0,3600)
+        self.assertEqual(q['data_status'],'PARTIAL_INVENTORY')
+        self.assertEqual(ds.visible(q,'front'),'—')
+
+    def test_empty_day_cannot_claim_full_day_complete(self):
+        for complete in (False,True):
+            q=ds.query(ledger(complete=complete))
+            self.assertFalse(q['full_day_complete'])
+            self.assertIsNone(q['original_day_complete'])
+            self.assertEqual(ds.visible(q,'front'),'—')
+
+    def test_union_coverage_separates_recorded_processed_pending_and_gaps(self):
+        data=ledger([clip(0,100),clip(90,200,status='pending'),clip(300,400)])
+        q=ds.query(data,50,350)
+        self.assertEqual((q['expected_clips'],q['processed_clips'],q['unprocessed_clips']),(3,2,1))
+        self.assertEqual((q['recorded_seconds'],q['processed_seconds'],q['unprocessed_recorded_seconds'],q['gap_seconds']),(200,100,100,100))
+        self.assertFalse(q['full_day_complete'])
+        self.assertEqual(q['original_day_coverage'],'NOT_VERIFIED')
+        complete=ds.query(ledger([clip()]))
+        self.assertTrue(complete['complete_discovered_recordings'])
+        self.assertIsNone(complete['original_day_complete'])
+
+    def test_csv_static_report_show_empty_hours_as_unknown_and_explicit_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            ds.write_reports(root,ledger([clip(36000,36180)]))
+            rows=list(csv.DictReader((root/'summary.csv').read_text(encoding='utf-8-sig').splitlines()))
+            row=next(r for r in rows if r['period']=='00:00–01:00')
+            self.assertEqual((row['data_status'],row['front_auto'],row['shop_side']),('NO_RECORDINGS','—','—'))
+            self.assertEqual((rows[0]['expected_clips'],rows[0]['processed_clips'],rows[0]['recorded_seconds']),('1','1','180'))
+            self.assertEqual(rows[0]['original_day_coverage'],'NOT_VERIFIED')
+            page=(root/'summary.html').read_text()
+            self.assertIn('<td>00:00–01:00</td><td>—</td><td>—</td><td>—</td><td>ไม่มีคลิปให้ยืนยัน</td>',page)
+            self.assertIn('id="coverage">คลิปที่พบ 1 · ประมวลผลแล้ว 1',page)
 
     def test_invalid_numbers_clock_and_config_are_rejected(self):
         for value in (True,float('nan'),float('inf'),-1,180):
@@ -271,6 +309,35 @@ class InventoryTests(unittest.TestCase):
                 return da.inventory('t','u',dict(model_kind='EXACT',thing_name='synthetic',app_server=None),lambda:None)
         info,_,_=exercise(False);self.assertEqual(info['requests'],6)
         with self.assertRaisesRegex(da.DayError,'UNSTABLE_INVENTORY'):exercise(True)
+
+    def test_503_sources_survive_short_middle_pages_into_pending_ledger(self):
+        pages=[];offset=0
+        day,_=sd._day_bounds_utc(sd.FIXED_DATE,'+07:00')
+        for n in [20,20,18]+[20]*22+[5]:
+            page=self.result(n)
+            for i,row in enumerate(page['playback']['search_video_results']):
+                _,item=sd._single_index_entry(row);a=day+(offset+i)*160
+                item.update(startTime=a,endTime=a+60,chn_times={'1':{'event_start_time':a},'2':{'event_start_time':a}})
+            pages.append(page);offset+=n
+        pages.append(self.result(0));visited=[]
+        def sender(budget,token,terminal,device,requests,batch,date,uid=None,page_index=None):
+            sd._validate_requests(requests,batch,date,uid,page_index)
+            budget.use_request();return batch,page_index
+        def parse(raw,methods):
+            batch,index=raw
+            if batch=='day-metadata':return dict(getDeviceInfo={},getTimezone={},getSdCardStatus={})
+            if batch=='day-calendar':return dict(getUserID={},searchDateWithVideo={})
+            visited.append(index);return dict(searchVideoWithUTC=pages[index])
+        with patch.object(sd,'_device_request',side_effect=sender),patch.object(sd,'_parse_responses',side_effect=parse),patch.object(sd,'_read_device_model'),patch.object(sd,'_read_timezone_offset',return_value='+07:00'),patch.object(sd,'_read_sd_status',return_value='NORMAL'),patch.object(sd,'_read_calendar',return_value=True),patch.object(sd,'_read_user_id',return_value=7),patch.object(da.cloud,'_validate_canonical_app_server',return_value=True):
+            info,_,_=da.inventory('t','u',dict(model_kind='EXACT',thing_name='synthetic',app_server=None),lambda:None)
+        self.assertEqual(visited,list(range(len(pages)))*2)
+        self.assertEqual(len(info['clips']),503)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            data=run.prepare_ledger(root,info,config(),sd.FIXED_DATE)
+            q=ds.query(data)
+            self.assertEqual((q['expected_clips'],q['processed_clips'],q['unprocessed_clips']),(503,0,503))
+            self.assertFalse(q['full_day_complete'])
 
 
 class ContinuousStateTests(unittest.TestCase):

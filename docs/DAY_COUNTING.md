@@ -1,5 +1,10 @@
 # นับคนย้อนหลังรายวัน (OD-59)
 
+OD-67: completeness audit distinguishes discovery, sequential processing and original-day retention. OD66 fixes the confirmed acquisition bug (short nonempty page was treated as terminal); actual date17 discovery is503Fixed intervals/63929s after two empty-terminated sweeps. The job downloads and validates one listed source, processes and atomically commits it, then deletes that staged media before the next source. Having only the current file on disk is not evidence that503sources were dropped or already downloaded. Existing unsupported/lens/clock/download/checkpoint errors stop with committed sources preserved; they cannot advance the cursor or produce a complete report. Synthetic503source inventory-to-ledger coverage guards against the original58-prefix regression.
+
+Reports now label an empty expected range NO_RECORDINGS and display no confirmed count, including CSV, static HTML and custom JavaScript filters. Empty ledgers cannot claim full_day_complete. Expected/processed/unprocessed clips and union recorded/processed/gap seconds are explicit; overlaps are not summed twice. COMPLETE_RECORDINGS/complete_discovered_recordings still means the returned sources were processed, while original_day_complete remains unknown and original_day_coverage=NOT_VERIFIED. The legacy full_day_complete field is retained only for API compatibility; it does not prove24hours of source retention, unique people or manual accuracy. Runtime fingerprint sources/counting rules are unchanged by this reporting correction.
+
+
 OD-66: a nonempty short API page is not a terminal page. The device returned18rows on page2 and20on page3, so stopping at fewer than20 hid later recordings. Continue until an explicitly empty page within the same200page/410request/900s/4000clip bounds; reject repeated nonempty page fingerprints, including short/nonadjacent repeats. Two matching fully terminated sweeps are required. Actual date17 inventory after the fix is503Fixed intervals/63929s/166groups,00:04:05–23:51:53Bangkok, matching the Owner app count. The old58-prefix ledger is separate and must not be resumed with the corrected inventory proof. Original retention/unique people/manual accuracy are not established by matching inventory. Targeted57/full852test evidence is in STATUS.
 
 OD-61: exact per-clip JSON checkpoints and atomic ledger commits are implemented, with finite cached-auth execution and whole-group daytime priority. Final regression839tests/30.551s:831PASS/8SKIP;11isolated runtime tests/5.503s cover all8skips. Real-detection replay at5boundaries and a new process preserves every event/state (18accepted/5review/27pink).
@@ -16,7 +21,7 @@ Owner ขอขยายจากคลิปเที่ยงเป็นว�
 - `summary.csv`: UTF-8 BOM เปิดใน Numbers/Excel ได้ มีทั้งวัน สี่ช่วง และ24ชั่วโมง. `summary.json` เป็นสรุปทั้งวัน.
 - หน้าร้าน = ครั้งข้ามเส้นแดง แยกช่องใกล้/ไกล; ข้างร้าน = ครั้งเข้ากรอบชมพูจากด้านใดก็ได้. รักษา OD-58 zones/quality. ไม่รวมสองโซนเป็นคนไม่ซ้ำ และไม่นำรายการรอตรวจไปรวมยอดผ่านเกณฑ์.
 - เวลาเป็นช่วงครึ่งเปิด เช่น11:00รวม แต่15:00ไปอยู่ช่วงถัดไป. รายการรอตรวจยังอาจเป็นคนเดินจริง ไม่ใช่การยืนยันว่าเป็นผลผิด.
-- `COMPLETE_RECORDINGS`/`full_day_complete` หมายถึงรายการ SD ที่พบผ่านการตรวจและประมวลผลครบตามขอบเขตวัน ไม่ใช่การรับรองความแม่นยำ. `accuracy_status` ยังเป็น `NOT_VERIFIED` เสมอ. ช่วงไม่มีคลิปอาศัยคำยืนยัน Owner ว่ากล้องบันทึกเมื่อมีคนเดิน ไม่พิสูจน์ว่าฮาร์ดแวร์ไม่เคยพลาดเหตุการณ์.
+- `COMPLETE_RECORDINGS`/`full_day_complete` หมายถึงรายการ SD ที่พบผ่านการตรวจและประมวลผลครบตามขอบเขตวัน ไม่ใช่การรับรองความแม่นยำ. `accuracy_status` ยังเป็น `NOT_VERIFIED` เสมอ. ช่วงไม่มีคลิปไม่มีข้อมูลให้ยืนยัน ไม่แสดงเป็นจำนวนคนศูนย์ และไม่พิสูจน์ว่าต้นฉบับทั้งวันยังอยู่ครบ.
 - รายการ SD ยังไม่ครบ/ไฟล์ยังไม่ประมวลผล/เลนส์หรือเวลาไม่ยืนยัน จะแสดงยอดบางส่วน. ช่วงที่ไม่ทราบไม่มีคลิปจะแสดง “—” ไม่แปลงเป็นศูนย์.
 
 ## เส้นทางงาน
