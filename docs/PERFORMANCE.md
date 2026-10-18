@@ -139,3 +139,132 @@ system Python. Existing8counting-runtime skips concern unchanged sources with
 prior pinned-runtime evidence. Python3.9 syntax and diff whitespace checks pass.
 Claude scoped invocation returned NOT_LOGGED_IN (exit1/2.0s), with no changes or
 retained lock; final implementation/review/tests are PO, NOT_RUN_BY_DEVELOPER.
+
+## Additional research and backend screen (2026-10-18)
+
+Owner requested further research after authorizing offline experiments. Three
+independent read-only reviews covered execution backends, alternative person
+detectors and temporal filtering. The table ranks practical work on the current
+Intel Mac; it does not authorize packages or claim a production replacement.
+
+| Approach | Practical evidence / next gate | Main limitation |
+|---|---|---|
+| CoreML MLProgram with the original FP32 YOLOX_s | Installed ORT supports this separate format; bounded local numeric screen succeeds. Compare full events before any integration. | Small numerical errors can change thresholds/tracks; full-day quality and throughput remain unverified. |
+| Motion gating per zone, then optical flow between detector frames | Existing OpenCV can screen whether enough detector work could be omitted; begin in shadow mode. | Event recordings may contain little idle time; missed triggers, small people and drift can lose crossings. |
+| NanoDet-Plus-m-1.5x416 | Official OpenCV Zoo FP32 ONNX/adapter is available; no new inference runtime is necessary in principle. Different architecture from tested YOLOX Nano/Tiny. | Not downloaded or measured here; COCO scores are not counting accuracy at this store. |
+| Retail/person-specialized MobileNet SSD | retail-0013:544x320/2.30GFLOPs; person-0202:512x512/3.143GFLOPs. | Official assets are OpenVINO IR, not drop-in ONNX. Current OpenVINO no longer supports Intel macOS; older runtime setup is separate work. |
+| ncnn FP32/Vulkan through MoltenVK | Possible macOS x86 build path for existing model family. | Requires new toolchain/runtime/conversion and actual GPU compatibility proof; no local experiment performed. |
+
+### Why another CoreML test is different
+
+The retained scripts for the earlier rejected CoreML trial explicitly selected
+`ModelFormat=NeuralNetwork`, including its CPU-only diagnostic. They did not
+test `MLProgram`. Apple documents that NeuralNetwork intermediate precision
+depends on execution hardware, whereas MLProgram explicitly types intermediate
+tensors and can execute a float32-typed model on GPU without reducing precision.
+This makes MLProgram a distinct candidate; it does not prove precision caused
+the earlier counting differences. See [Apple typed execution](https://apple.github.io/coremltools/docs-guides/source/typed-execution.html).
+
+The installed ORT1.23.2 exposes the needed options without coremltools or a
+package change. The screen selects `MLProgram`, `CPUAndGPU`, static shapes and
+`AllowLowPrecisionAccumulationOnGPU=0`, using the original hash-verified FP32
+ONNX model and a new private cache bound to the model/options. Source:
+[pinned ORT options](https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/include/onnxruntime/core/providers/coreml/coreml_provider_factory.h),
+[pinned model builder](https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/onnxruntime/core/providers/coreml/builders/model_builder.cc),
+[provider/cache documentation](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html).
+
+One retained source frame, the same crop as the previous backend screen, five
+repeated calls per provider, inside a deny-network subprocess with180s limit:
+
+| Provider | Session initialization | First prediction | Warm predictions, four calls |
+|---|---:|---:|---:|
+| CPU,2threads |0.244s|0.298s|0.266–0.286s|
+| CoreML MLProgram |4.277s|9.703s|0.090–0.105s|
+
+The output tensors are float32, maximum absolute difference0.00002563,
+mean absolute difference0.00000006083; all values satisfy `rtol=atol=1e-4`,
+but are not bit-identical. ORT profiling records five CoreML-provider execution
+events. This proves execution through that provider, not which CPU/GPU units
+CoreML dispatches internally. No complete intermediate-dtype audit was done.
+Single-frame similarity and warm latency are screening evidence only, not an
+event-compatibility, sustained speed or human-accuracy result. Setup and first
+prediction must be included when assessing shorter jobs.
+
+The subsequent full retained180s source completes900sampled frames and1800
+detector calls in344.033s processing, with3.235s session/engine setup.
+Detection/pre/postprocessing accounts for314.241s of that processing time.
+The unchanged crops,5fps, model, tracker and gates produce near14/far4,
+front18accepted/5review and side27accepted/0review. All50reference events match
+one-to-one with **zero timestamp difference**, zero missing and zero extra at
+tolerance0. The source clock is rebased from the stored reference origin;
+source/config hashes match the earlier full reference and fresh CPU prefix.
+
+This is the first alternative in these trials to preserve every reference
+event on the full retained source. It is still only one noon clip and an
+algorithmic reference, not manual accuracy validation. The old CPU full-source
+measurement454.595s was a separate run under variable load: no controlled
+full-source speed ratio is claimed. The full-clip344.033s result supersedes
+using the roughly3x warm single-frame improvement as a throughput prediction.
+Processing180s of footage in344s does not meet the necessary10h/day budget.
+Combining it with validated temporal savings or another detector requires a
+new measured experiment; no speed factors may be multiplied without evidence.
+
+Both bounded probe processes ended successfully. The saved full report names
+the candidate `coreml_mlprogram_fp32` and explicitly records provider options,
+experimental override, original runtime source digest and ineligible production
+status. No production backend or checkpoint has been changed. Reuse the
+measurement path only as a separate offline experiment; any future production
+integration must bind provider/options into its runtime identity and resolve
+state compatibility explicitly.
+
+### Temporal filtering needs a measured savings budget
+
+First measure per-zone retained detector-call fractions without changing any
+tracking input. Keep5fps during active windows, include full warm-up and union
+pre/post-roll windows, and assess necessary track history rather than merely
+one retained frame near each event. Missing a reference event window rejects a
+threshold; absent context evidence is UNKNOWN. The50reference events include
+review and two zones; they are not50independent human-labeled people.
+
+For illustration, if detection consumes96% of runtime, keeping one call in five
+has an ideal ceiling of `1/(0.04+0.96/5)=4.31x` before filtering/flow overhead.
+Exceeding5x would require retaining less than one sixth of detector cost.
+Do not equate unweighted frame/call reduction with measured wall-time gain.
+The actual10h target for63929recorded seconds at5fps requires more than
+8.879sampled frames/s. With two detector calls per frame, the average budget
+is below56.3ms per call including other processing. This is a necessary
+throughput budget, not an extrapolated completion promise.
+
+ByteTrack marks existing tracks that remain unmatched after association as
+lost; deliberately skipping a detector cannot simply feed an empty result into
+the existing tracker. A
+separate prediction/flow path must record observed versus propagated evidence.
+OpenCV optical flow requires drift checks and renewed features; MOG2 can absorb
+stationary foreground into background. References: [ByteTrack source](https://github.com/FoundationVision/ByteTrack/blob/main/yolox/tracker/byte_tracker.py),
+[optical flow](https://docs.opencv.org/4.x/d4/dee/tutorial_optical_flow.html),
+[MOG2](https://docs.opencv.org/4.x/d7/d7b/classcv_1_1BackgroundSubtractorMOG2.html).
+[Reducto](https://www.cs.princeton.edu/~ravian/publications/reducto_sigcomm20.pdf)
+and [NoScope](https://arxiv.org/abs/1703.02529) support content-specific filtering
+as a research direction; their published speedups are not measurements of this
+crossing counter. Blacking out pixels in a fixed-size dense CNN input does not
+automatically eliminate computation.
+
+### Alternative model and platform sources
+
+- [NanoDet upstream](https://github.com/RangiLyu/nanodet) and
+  [OpenCV Zoo ONNX/adapter](https://github.com/opencv/opencv_zoo/blob/main/models/object_detection_nanodet/README.md).
+- [retail-0013](https://docs.openvino.ai/2023.3/omz_models_model_person_detection_retail_0013.html)
+  assumes upright people, occlusion below50% and at least100px height on1080p;
+  overhead/far/partially visible people need explicit validation.
+- [person-0202](https://docs.openvino.ai/2023.3/omz_models_model_person_detection_0202.html),
+  [OpenVINO2026.0 x86 macOS support removal](https://github.com/openvinotoolkit/openvino/releases/tag/2026.0.0),
+  [platform requirements](https://docs.openvino.ai/2026/about-openvino/release-notes-openvino/system-requirements.html)
+  and [2024.6 Intel macOS CPU archive](https://docs.openvino.ai/2024/get-started/install-openvino/install-openvino-archive-macos.html).
+- [ncnn macOS build](https://github.com/Tencent/ncnn/wiki/how-to-build) and
+  [MoltenVK requirements](https://github.com/KhronosGroup/MoltenVK/blob/main/Docs/MoltenVK_Runtime_UserGuide.md).
+
+No alternative weights, packages, camera requests or authentication were used
+for this research/screen. Production sources and the stopped day17 checkpoint
+remain unchanged. Research and temporary local probes are PO work;
+NOT_RUN_BY_DEVELOPER. New production behavior and manual accuracy remain
+NOT_VERIFIED; existing regression evidence above is not a test of a new backend.
