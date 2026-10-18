@@ -63,18 +63,21 @@ def parse_page(result,date):
 
 
 def collect_sweep(fetch_page,check=lambda:None):
-    clips={};pages=[];previous=None
+    clips={};pages=[];seen=set()
     for index in range(MAX_PAGES):
         check();page=fetch_page(index);check()
         count=page['raw_count']
-        if count==20 and page['fingerprint']==previous:raise DayError('STALLED_PAGE')
-        if count==20:previous=page['fingerprint']
+        # The device may merge lens events within a requested index window,
+        # returning fewer than20 rows even though subsequent pages still exist.
+        # Only an explicitly empty page terminates this bounded sweep.
+        if count and page['fingerprint'] in seen:raise DayError('STALLED_PAGE')
+        if count:seen.add(page['fingerprint'])
         pages.append(page['fingerprint'])
         for clip in page['clips']:
             if clip['ref'] in clips and clips[clip['ref']]!=clip:raise DayError('INVALID_SOURCE')
             clips[clip['ref']]=clip
         if len(clips)>4000:raise DayError('DAY_QUOTA')
-        if count<20:
+        if count==0:
             ordered=sorted(clips.values(),key=lambda c:(c['start'],c['end'],c['ref']))
             return ordered,digest(dict(pages=pages,clips=ordered))
     raise DayError('INCOMPLETE_INVENTORY')

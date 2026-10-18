@@ -181,10 +181,44 @@ class InventoryTests(unittest.TestCase):
 
     def test_paginated_terminal_page_and_stall_or_budget(self):
         page0=da.parse_page(self.result(20),sd.FIXED_DATE);page1=da.parse_page(self.result(1,3600),sd.FIXED_DATE)
-        clips,_=da.collect_sweep(lambda i:[page0,page1][i]);self.assertEqual(len(clips),21)
+        empty=da.parse_page(self.result(0),sd.FIXED_DATE)
+        clips,_=da.collect_sweep(lambda i:[page0,page1,empty][i]);self.assertEqual(len(clips),21)
         with self.assertRaisesRegex(da.DayError,'STALLED_PAGE'):da.collect_sweep(lambda _:page0)
         with patch.object(da,'MAX_PAGES',1),self.assertRaisesRegex(da.DayError,'INCOMPLETE_INVENTORY'):
             da.collect_sweep(lambda _:page0)
+
+    def test_short_middle_page_does_not_hide_later_full_or_late_pages(self):
+        pages=[da.parse_page(self.result(n,offset),sd.FIXED_DATE)
+               for n,offset in [(20,0),(18,3600),(20,7200),(6,80000),(0,0)]]
+        visited=[]
+        def fetch(index):visited.append(index);return pages[index]
+        clips,proof=da.collect_sweep(fetch)
+        self.assertEqual(visited,[0,1,2,3,4])
+        self.assertEqual(len(clips),64)
+        self.assertEqual(max(c['end'] for c in clips),81080)
+        self.assertEqual(proof,da.collect_sweep(lambda i:pages[i])[1])
+
+    def test_short_nonempty_pages_cannot_claim_terminal_at_page_budget(self):
+        pages=[da.parse_page(self.result(18,0),sd.FIXED_DATE),
+               da.parse_page(self.result(6,3600),sd.FIXED_DATE)]
+        with patch.object(da,'MAX_PAGES',2),self.assertRaisesRegex(da.DayError,'INCOMPLETE_INVENTORY'):
+            da.collect_sweep(lambda i:pages[i])
+
+    def test_repeated_short_or_nonadjacent_nonempty_page_is_stalled(self):
+        a=da.parse_page(self.result(18),sd.FIXED_DATE)
+        b=da.parse_page(self.result(1,3600),sd.FIXED_DATE)
+        for pages in ([a,a],[a,b,a]):
+            with self.subTest(length=len(pages)),self.assertRaisesRegex(da.DayError,'STALLED_PAGE'):
+                da.collect_sweep(lambda i:pages[i])
+
+    def test_nonempty_pt_only_page_continues_to_later_fixed_recordings(self):
+        pt=self.result(1)
+        del pt['playback']['search_video_results'][0]['0']['chn_times']['1']
+        pages=[da.parse_page(pt,sd.FIXED_DATE),
+               da.parse_page(self.result(1,3600),sd.FIXED_DATE),
+               da.parse_page(self.result(0),sd.FIXED_DATE)]
+        clips,_=da.collect_sweep(lambda i:pages[i])
+        self.assertEqual(len(clips),1);self.assertEqual(clips[0]['start'],3600)
 
     def test_readonly_page_shape_rejects_mutation_before_connection(self):
         req=sd._expected_requests('clip-day-page',sd.FIXED_DATE,7,1)
@@ -229,11 +263,13 @@ class InventoryTests(unittest.TestCase):
                 batch,page=raw
                 if batch=='day-metadata':return dict(getDeviceInfo={},getTimezone={},getSdCardStatus={})
                 if batch=='day-calendar':return dict(getUserID={},searchDateWithVideo={})
-                sweep[0]+=1
-                return dict(searchVideoWithUTC=self.result(1,180 if changed and sweep[0]==2 else 0))
+                if page==0:
+                    sweep[0]+=1
+                    return dict(searchVideoWithUTC=self.result(1,180 if changed and sweep[0]==2 else 0))
+                return dict(searchVideoWithUTC=self.result(0))
             with patch.object(sd,'_device_request',side_effect=sender),patch.object(sd,'_parse_responses',side_effect=parse),patch.object(sd,'_read_device_model'),patch.object(sd,'_read_timezone_offset',return_value='+07:00'),patch.object(sd,'_read_sd_status',return_value='NORMAL'),patch.object(sd,'_read_calendar',return_value=True),patch.object(sd,'_read_user_id',return_value=7),patch.object(da.cloud,'_validate_canonical_app_server',return_value=True):
                 return da.inventory('t','u',dict(model_kind='EXACT',thing_name='synthetic',app_server=None),lambda:None)
-        info,_,_=exercise(False);self.assertEqual(info['requests'],4)
+        info,_,_=exercise(False);self.assertEqual(info['requests'],6)
         with self.assertRaisesRegex(da.DayError,'UNSTABLE_INVENTORY'):exercise(True)
 
 
