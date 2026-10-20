@@ -26,7 +26,7 @@ import time
 from types import SimpleNamespace
 
 from tools import ft_perf
-from tools.ft_perf_kernel import YoloXDecoder, contiguous_blob
+from tools.ft_perf_kernel import YoloXDecoder, contiguous_blob, two_crop_blob
 from tools.ft_perf_metrics import summarize_resource
 
 BACKENDS = ("ort", "coreml", "coreml_nn", "openvino")
@@ -198,7 +198,7 @@ def publish_derived(serialized, cache):
     return destination, derived_sha
 
 
-def derived_model(model, cache, person_output, batch_size):
+def derived_model(model, cache, person_output, batch_size, precision="fp32"):
     import onnx
     from tools.ft_perf_projection import project_person_output, make_two_crop_batch
     from tools.ft_count import _file_sha256
@@ -207,26 +207,36 @@ def derived_model(model, cache, person_output, batch_size):
         raise ValueError("projection requires pinned original model")
     original = onnx.load(str(model), load_external_data=False)
     projected = (make_two_crop_batch(onnx, original, person_output=person_output) if batch_size == 2
-                 else project_person_output(onnx, original))
+                 else project_person_output(onnx, original) if person_output else original)
+    conversion = None
+    if precision == "fp16":
+        from onnxruntime.transformers.float16 import convert_float_to_float16
+        from tools.ft_perf_precision import make_fp16_model, CONVERSION_POLICY
+        projected = make_fp16_model(onnx, projected, convert_float_to_float16)
+        conversion = dict(CONVERSION_POLICY)
     serialized = projected.SerializeToString()
     destination, derived_sha = publish_derived(serialized, cache)
     return destination, dict(transform=("two_crop_batch_v1" if batch_size == 2 else "single_crop_v1"),
                              person_output=person_output, original_sha256=source_sha,
                              derived_sha256=derived_sha, output_columns=6 if person_output else 85,
                              batch_size=batch_size,
+                             precision=precision, conversion_policy=conversion,
                              adapter="zero-fill unused columns6:85" if person_output else "none",
                              onnx_version=onnx.__version__)
 
 
-def create_session(backend, model, threads, cache, factory=None, person_output=False, batch_size=1):
+def create_session(backend, model, threads, cache, factory=None, person_output=False, batch_size=1,
+                   precision="fp32"):
     if backend not in BACKENDS or threads not in (1, 2, 4, 8) or batch_size not in (1, 2):
         raise ValueError("invalid backend options")
+    if precision not in ("fp32", "fp16") or precision == "fp16" and backend != "coreml":
+        raise ValueError("FP16 experiment requires CoreML MLProgram")
     provenance = None
-    if person_output or batch_size == 2:
-        model, provenance = derived_model(model, cache, person_output, batch_size)
+    if person_output or batch_size == 2 or precision == "fp16":
+        model, provenance = derived_model(model, cache, person_output, batch_size, precision)
     session, info = native_session(backend, model, threads, cache, factory,
                                    columns=6 if person_output else 85, batch_size=batch_size)
-    info.update(batch_size=batch_size, output_columns=6 if person_output else 85)
+    info.update(batch_size=batch_size, output_columns=6 if person_output else 85, precision=precision)
     if provenance:
         info["derivation"] = provenance
     return (PersonOutputSession(session, batch_size) if person_output else session), info
@@ -305,6 +315,64 @@ def measured_detect(engine, image, cfg, kernel, decoder, stages, zone):
     return result
 
 
+def measured_batch_detect(engine, image, zones, kernel, decoder, stages):
+    """Same-frame two-zone batch: one shared pack/model call, independent decode/NMS.
+
+    ``zones`` must be exactly 2 zone dicts (as in a zones config, each with
+    an ``id`` and a ``config``). Preparation (crop/letterbox) is measured
+    per zone; packing and the single ``net.run`` call are measured once
+    under the ``"shared"`` stage key so residual time is not subtracted
+    twice. Decode/NMS/Detections construction remain independent per zone,
+    matching two separate ``measured_detect`` calls applied to one batch-2
+    model output. Returns the two Detections in the same order as ``zones``.
+    """
+    from tools import ft_count as f
+    cv, np = engine.cv, engine.np
+    if len(zones) != 2:
+        raise ValueError("batch detector requires exactly 2 zones")
+
+    prepared = []
+    h, w = image.shape[:2]
+    for zone in zones:
+        stamp = time.perf_counter()
+        crop = zone["config"].get("crop", [0, 0, 1, 1])
+        x, y, x2, y2 = int(crop[0] * w), int(crop[1] * h), int(crop[2] * w), int(crop[3] * h)
+        rgb = cv.cvtColor(image[y:y2, x:x2], cv.COLOR_BGR2RGB)
+        canvas, scale = f._letterbox(cv, np, rgb)
+        stages.add(zone["id"], "prepare", time.perf_counter() - stamp)
+        prepared.append((canvas, scale, x, y, zone["id"]))
+
+    stamp = time.perf_counter()
+    blob = two_crop_blob(np, [item[0] for item in prepared])
+    now = time.perf_counter(); stages.add("shared", "blob", now - stamp); stamp = time.perf_counter()
+    raw = engine.net.run(None, {engine.input_name: blob})[0]
+    stages.add("shared", "model", time.perf_counter() - stamp)
+    if raw.dtype != np.float32 or raw.shape != (2, 8400, 85) or not np.isfinite(raw).all():
+        raise ValueError("invalid batch model output")
+
+    results = []
+    for item_index, (canvas, scale, x, y, zone_id) in enumerate(prepared):
+        stamp = time.perf_counter()
+        boxes, scores = (decoder.decode(raw[item_index:item_index + 1], scale) if kernel == "cached" else
+                         f._decode_yolox(np, raw[item_index:item_index + 1], scale))
+        now = time.perf_counter(); stages.add(zone_id, "decode", now - stamp); stamp = time.perf_counter()
+        boxes[:, [0, 2]] += x
+        boxes[:, [1, 3]] += y
+        if len(boxes):
+            boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]], 0, w)
+            boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]], 0, h)
+            ids = cv.dnn.NMSBoxes(np.column_stack((boxes[:, :2], boxes[:, 2:] - boxes[:, :2])).tolist(),
+                                  scores.tolist(), f.DET_SCORE_FLOOR, f.NMS_IOU)
+            ids = np.array(ids).reshape(-1) if len(ids) else np.array([], dtype=int)
+            boxes, scores = boxes[ids], scores[ids]
+        now = time.perf_counter(); stages.add(zone_id, "nms", now - stamp); stamp = time.perf_counter()
+        detections = engine.sv.Detections(xyxy=boxes.astype(np.float32), confidence=scores.astype(np.float32),
+                                          class_id=np.zeros(len(boxes), dtype=int))
+        stages.add(zone_id, "detections", time.perf_counter() - stamp)
+        results.append(detections)
+    return results
+
+
 def identity(backend, kernel):
     repo = Path(__file__).resolve().parent.parent
     versions = {}
@@ -319,7 +387,8 @@ def identity(backend, kernel):
                  machine=platform.machine(), os=platform.mac_ver()[0], packages=versions,
                  imported_cv2_version=getattr(sys.modules.get("cv2"), "__version__", None),
                  sources={name: hashlib.sha256((repo / "tools" / name).read_bytes()).hexdigest()
-                          for name in ("ft_perf_accel.py", "ft_perf_kernel.py", "ft_perf_projection.py", "ft_perf.py",
+                          for name in ("ft_perf_accel.py", "ft_perf_kernel.py", "ft_perf_projection.py",
+                                       "ft_perf_precision.py", "ft_perf.py",
                                        "ft_perf_metrics.py", "ft_count.py", "ft_day_count.py",
                                        "ft_day_state.py", "ft_state_codec.py", "ft_count_zones.py",
                                        "ft_lane_counter.py", "ft_track_quality.py", "ft_zone_entries.py",
@@ -329,8 +398,6 @@ def identity(backend, kernel):
 
 def run_worker(args):
     ft_perf._verify_network_denied()  # Before imports, model/media reads or caches.
-    if args.batch_size != 1 and not args.synthetic:
-        raise ValueError("batch2 is synthetic-only until video integration is validated")
     args.source_snapshot = identity({}, args.kernel)[0]["sources"]
     # OpenVINO/OVC honors disable_in_ci=True. No persistent consent-file changes.
     os.environ["CI"] = "true"
@@ -373,7 +440,8 @@ def run_worker(args):
                 if Path(requested).resolve() != model.resolve():
                     raise ValueError("unexpected constructor model")
                 result, info = create_session(args.backend, model, args.threads, cache, factory,
-                                             person_output=args.person_output)
+                                             person_output=args.person_output, batch_size=args.batch_size,
+                                             precision=args.precision)
                 backend.update(info)
                 return result
             ort.InferenceSession = selected_session
@@ -381,7 +449,7 @@ def run_worker(args):
                 super().__init__(*a, **kw)
             finally:
                 ort.InferenceSession = factory
-            if self.net.get_inputs()[0].shape != [1, 3, 640, 640]:
+            if self.net.get_inputs()[0].shape != [args.batch_size, 3, 640, 640]:
                 raise ValueError("unexpected input shape")
             self.cv.setNumThreads(args.threads)
             self.decoder = YoloXDecoder(self.np)
@@ -390,6 +458,9 @@ def run_worker(args):
         def detect(self, image, zcfg):
             return measured_detect(self, image, zcfg, args.kernel, self.decoder,
                                    stages, self.zone_ids[id(zcfg)])
+
+    def batch_detect(engine, image, zones):
+        return measured_batch_detect(engine, image, zones, args.kernel, engine.decoder, stages)
 
     def save_report(path, content):
         value = json.loads(content)
@@ -405,7 +476,8 @@ def run_worker(args):
     try:
         with contextlib.redirect_stdout(io.StringIO()):
             ft_perf._run(SimpleNamespace(candidate="baseline", input=args.input, config=args.config,
-                                        reference=args.reference, output=args.output, seconds=args.seconds))
+                                        reference=args.reference, output=args.output, seconds=args.seconds),
+                        batch_detector=batch_detect if args.batch_size == 2 else None)
         value = json.loads((output / "experiment.json").read_text())
         print(json.dumps({k: value[k] for k in ("candidate", "frames", "elapsed_seconds", "totals",
                                               "whole_worker", "stage_timings")}), flush=True)
@@ -422,9 +494,13 @@ def enrich(value, args, backend, started, before, load_before):
     if source["sources"] != args.source_snapshot:
         raise ValueError("experiment source changed during execution")
     source["baseline_runtime_sha256"] = value.get("baseline_runtime_sha256")
+    source["reference_sha256"] = value.get("reference_sha256")
     digest = digest_json(source)
-    value.update(candidate=args.backend + "-" + args.kernel + ("-person6" if args.person_output else ""),
+    value.update(candidate=args.backend + "-" + args.kernel + ("-person6" if args.person_output else "") +
+                 ("-batch2" if args.batch_size == 2 else "") +
+                 ("-fp16" if args.precision == "fp16" else ""),
                  backend=backend, kernel=args.kernel, batch_size=args.batch_size,
+                 precision=args.precision,
                  network_denied=True, experiment_only=True, production_eligible=False,
                  checkpoint_compatible=False, accuracy_status="NOT_VERIFIED",
                  experiment_identity=source, experiment_runtime_sha256=digest,
@@ -441,7 +517,8 @@ def run_synthetic(args, model, cache, started, before, load_before):
     from tools import ft_count as f
     from tools.ft_day_summary import atomic_write
     session, backend = create_session(args.backend, model, args.threads, cache,
-                                     person_output=args.person_output, batch_size=args.batch_size)
+                                     person_output=args.person_output, batch_size=args.batch_size,
+                                     precision=args.precision)
     decoder = YoloXDecoder(np)
     rng = np.random.RandomState(70)
     checker = ((np.indices((640, 640)).sum(axis=0) // 32 % 2) * 255).astype(np.uint8)
@@ -452,12 +529,14 @@ def run_synthetic(args, model, cache, started, before, load_before):
     name = session.get_inputs()[0].name
     output = Path(args.output)
     def make_blob(index):
-        parts = []
-        for j in range(args.batch_size):
-            canvas = canvases[(index * args.batch_size + j) % len(canvases)]
-            parts.append(contiguous_blob(np, canvas) if args.kernel == "cached" else
-                         canvas.transpose(2, 0, 1)[None].astype(np.float32))
-        return parts[0] if args.batch_size == 1 else np.concatenate(parts, axis=0)
+        batch = [canvases[(index * args.batch_size + j) % len(canvases)]
+                 for j in range(args.batch_size)]
+        if args.batch_size == 1:
+            canvas = batch[0]
+            return (contiguous_blob(np, canvas) if args.kernel == "cached" else
+                    canvas.transpose(2, 0, 1)[None].astype(np.float32))
+        return (two_crop_blob(np, batch) if args.kernel == "cached" else
+                np.concatenate([c.transpose(2, 0, 1)[None].astype(np.float32) for c in batch], axis=0))
     warmup_started = time.monotonic()
     for _ in range(3):
         session.run(None, {name: make_blob(0)})
@@ -510,8 +589,10 @@ def main(argv=None):
     parser.add_argument("--kernel", choices=KERNELS, default="legacy")
     parser.add_argument("--person-output", action="store_true",
                         help="derive a separate model outputting only coords/objectness/person")
+    parser.add_argument("--precision", choices=("fp32", "fp16"), default="fp32",
+                        help="experimental CoreML FP16 internals with FP32 input/output; changes numerical results")
     parser.add_argument("--batch-size", type=int, choices=(1, 2), default=1,
-                        help="batch2 currently available only for synthetic screening")
+                        help="batch2 packs two zones' crops into one same-frame model call")
     parser.add_argument("--threads", type=int, choices=(1, 2, 4, 8), default=4)
     parser.add_argument("--output", required=True)
     parser.add_argument("--synthetic", action="store_true")
@@ -521,12 +602,12 @@ def main(argv=None):
         parser.add_argument("--" + key)
     parser.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    if args.precision == "fp16" and args.backend != "coreml":
+        parser.error("FP16 requires the CoreML MLProgram backend")
     if not args.synthetic and not all((args.input, args.config, args.reference)):
         parser.error("video mode requires input, config and reference")
     if args.synthetic and any((args.input, args.config, args.reference)):
         parser.error("synthetic mode does not accept media/config arguments")
-    if args.batch_size != 1 and not args.synthetic:
-        parser.error("batch2 is synthetic-only until video integration is validated")
     if args.worker:
         try:
             run_worker(args)

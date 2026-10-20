@@ -7,21 +7,41 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from tools import ft_perf_accel as accel
 
 
 class AccelControlTests(unittest.TestCase):
+    def test_fp16_rejects_other_backends_before_model_access(self):
+        for backend in ("ort", "coreml_nn", "openvino"):
+            with patch.object(accel, "derived_model") as derive:
+                with self.assertRaisesRegex(ValueError, "CoreML MLProgram"):
+                    accel.create_session(backend, Path("absent"), 4, Path("absent"), precision="fp16")
+                derive.assert_not_called()
+
+    def test_precision_is_passed_to_derivation_and_bound_to_backend(self):
+        info = {"name": "coreml"}
+        with patch.object(accel, "derived_model", return_value=(Path("derived"), {"precision": "fp16"})) as derive, \
+                patch.object(accel, "native_session", return_value=(object(), info)):
+            _, result = accel.create_session("coreml", Path("original"), 4, Path("cache"),
+                                             precision="fp16")
+        self.assertEqual(derive.call_args.args[-1], "fp16")
+        self.assertEqual(result["precision"], "fp16")
+        self.assertEqual(result["derivation"]["precision"], "fp16")
+
     def test_worker_denies_before_any_path_or_model_read(self):
         with patch.object(accel.ft_perf, "_verify_network_denied", side_effect=ValueError("denied")):
             with self.assertRaisesRegex(ValueError, "denied"):
                 accel.run_worker(SimpleNamespace())
 
-    def test_worker_rejects_batch2_video_before_model_access(self):
-        with patch.object(accel.ft_perf, "_verify_network_denied", return_value=None):
-            with self.assertRaisesRegex(ValueError, "synthetic-only"):
-                accel.run_worker(SimpleNamespace(batch_size=2, synthetic=False))
+    def test_worker_rejects_fresh_output_reuse_before_model_access(self):
+        with patch.object(accel.ft_perf, "_verify_network_denied", return_value=None), \
+                TemporaryDirectory() as tmp:
+            existing = Path(tmp).resolve() / "already-there"
+            existing.mkdir()
+            with self.assertRaisesRegex(ValueError, "fresh output directory"):
+                accel.run_worker(SimpleNamespace(kernel="legacy", output=str(existing)))
 
     def test_cache_publication_is_complete_and_never_overwrites_corruption(self):
         with TemporaryDirectory() as tmp:
@@ -152,6 +172,93 @@ class DetectorParityTests(unittest.TestCase):
                 np.testing.assert_array_equal(expected.class_id, actual.class_id)
                 np.testing.assert_array_equal(blobs[-1], blobs[-2])
                 self.assertEqual(set(stages.report()["front"]), set(accel.STAGES))
+
+    def test_measured_batch_detect_matches_two_independent_detect_calls(self):
+        from tools.ft_day_count import Engine
+        np = self.np
+        rng = np.random.RandomState(702)
+        image = rng.randint(0, 256, (419, 733, 3)).astype(np.uint8)
+
+        raw_a = np.zeros((1, 8400, 85), dtype=np.float32)
+        for row, x, score in ((10, .1, .8), (11, -.9, .7), (6399, .1, .1), (8100, -.2, .15)):
+            raw_a[0, row, :4] = [x, .2, 2, 2]
+            raw_a[0, row, 4:6] = [1, score]
+        raw_b = np.zeros((1, 8400, 85), dtype=np.float32)
+        for row, x, score in ((20, .3, .9), (6402, .4, .9), (8200, -.1, .1)):
+            raw_b[0, row, :4] = [x, .1, 3, 3]
+            raw_b[0, row, 4:6] = [1, score]
+        engine = SimpleNamespace(cv=self.cv, np=np, sv=self.sv, input_name="images")
+        batch_calls = []
+        single_calls = []
+
+        def infer(names, feed):
+            blob = feed["images"]
+            if blob.shape[0] == 2:
+                batch_calls.append(blob.copy())
+                outputs = []
+                for item in blob:
+                    matches = [i for i, reference in enumerate(single_calls)
+                               if np.array_equal(item, reference[0])]
+                    self.assertEqual(len(matches), 1)
+                    outputs.append((raw_a, raw_b)[matches[0]].copy())
+                return [np.concatenate(outputs, axis=0)]
+            single_calls.append(blob.copy())
+            return [(raw_a if len(single_calls) == 1 else raw_b).copy()]
+
+        engine.net = SimpleNamespace(run=infer)
+
+        zone_a = dict(id="front", config={"crop": [.1, .1, .6, .9]})
+        zone_b = dict(id="side", config={"crop": [.55, .05, .95, .95]})
+        # Independent reference calls, in this fixed order (one per model call
+        # from single_calls), each exercising a different crop aspect/offset.
+        expected_a = Engine.detect(engine, image, zone_a["config"])
+        expected_b = Engine.detect(engine, image, zone_b["config"])
+        expected_by_id = {"front": expected_a, "side": expected_b}
+
+        for kernel in accel.KERNELS:
+            for zones in ([zone_a, zone_b], [zone_b, zone_a]):
+                batch_calls.clear()
+                stages = accel.Stages()
+                results = accel.measured_batch_detect(engine, image, zones, kernel,
+                                                       accel.YoloXDecoder(np), stages)
+                self.assertEqual(len(batch_calls), 1)
+                self.assertEqual(len(results), 2)
+                for zone, result in zip(zones, results):
+                    expected = expected_by_id[zone["id"]]
+                    np.testing.assert_array_equal(expected.xyxy, result.xyxy)
+                    np.testing.assert_array_equal(expected.confidence, result.confidence)
+                    np.testing.assert_array_equal(expected.class_id, result.class_id)
+                report = stages.report()
+                self.assertEqual(set(report["shared"]), {"blob", "model"})
+                self.assertTrue(all(v["calls"] == 1 for v in report["shared"].values()))
+                for zone in zones:
+                    self.assertEqual(set(report[zone["id"]]), {"prepare", "decode", "nms", "detections"})
+
+    def test_measured_batch_detect_requires_exactly_two_zones(self):
+        engine = SimpleNamespace(cv=self.cv, np=self.np, sv=self.sv, input_name="images")
+        with self.assertRaises(ValueError):
+            accel.measured_batch_detect(engine, self.np.zeros((4, 4, 3), dtype=self.np.uint8),
+                                        [{"id": "front", "config": {}}], "legacy", None, accel.Stages())
+
+    def test_measured_batch_detect_rejects_invalid_model_output_before_decoding(self):
+        np = self.np
+        image = np.zeros((20, 20, 3), dtype=np.uint8)
+        engine = SimpleNamespace(cv=self.cv, np=np, sv=self.sv, input_name="images")
+        zones = [dict(id="front", config={}), dict(id="side", config={})]
+
+        for bad_raw in (np.zeros((1, 8400, 85), dtype=np.float32),  # wrong batch dim
+                        np.zeros((2, 8400, 85), dtype=np.float64),  # wrong dtype
+                        (lambda r: (r.__setitem__((0, 0, 0), np.nan), r)[1])(
+                            np.zeros((2, 8400, 85), dtype=np.float32))):  # non-finite
+            engine.net = SimpleNamespace(run=lambda names, feed, r=bad_raw: [r])
+            for kernel in accel.KERNELS:
+                decoder = Mock()
+                with patch('tools.ft_count._decode_yolox') as legacy:
+                    with self.assertRaises(ValueError):
+                        accel.measured_batch_detect(engine, image, zones, kernel,
+                                                    decoder, accel.Stages())
+                    legacy.assert_not_called()
+                    decoder.decode.assert_not_called()
 
     def test_openvino_adapter_requests_owned_output(self):
         np = self.np

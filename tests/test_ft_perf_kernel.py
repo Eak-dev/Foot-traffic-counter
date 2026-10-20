@@ -314,5 +314,82 @@ class ContiguousBlobParityTests(unittest.TestCase):
         self.assertTrue(got.flags["C_CONTIGUOUS"])
 
 
+@unittest.skipUnless(HAVE_NUMPY, "numpy required for two-crop blob parity tests")
+class TwoCropBlobParityTests(unittest.TestCase):
+    def setUp(self):
+        import numpy as np
+
+        self.np = np
+
+    def _noncontiguous_canvas(self, seed, reverse=False):
+        np = self.np
+        rng = np.random.RandomState(seed)
+        base = rng.randint(0, 256, size=(640, 640, 6)).astype(np.uint8)
+        canvas = base[:, :, ::2]  # non-contiguous HWC view, still (640, 640, 3)
+        return canvas[::-1, ::-1, :] if reverse else canvas
+
+    def test_two_distinct_noncontiguous_canvases_match_manual_transpose(self):
+        np = self.np
+        a = self._noncontiguous_canvas(21)
+        b = self._noncontiguous_canvas(22, reverse=True)
+        self.assertFalse(a.flags["C_CONTIGUOUS"])
+        self.assertFalse(b.flags["C_CONTIGUOUS"])
+        before_a, before_b = a.copy(), b.copy()
+
+        got = fpk.two_crop_blob(np, [a, b])
+        want = np.concatenate([
+            a.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32),
+            b.transpose(2, 0, 1)[np.newaxis, ...].astype(np.float32),
+        ], axis=0)
+
+        np.testing.assert_array_equal(got, want)
+        self.assertEqual(got.dtype, np.float32)
+        self.assertEqual(got.shape, (2, 3, 640, 640))
+        self.assertTrue(got.flags["C_CONTIGUOUS"])
+        np.testing.assert_array_equal(a, before_a)
+        np.testing.assert_array_equal(b, before_b)
+
+    def test_item_order_is_preserved_not_sorted(self):
+        np = self.np
+        a = np.full((640, 640, 3), 1, dtype=np.uint8)
+        b = np.full((640, 640, 3), 2, dtype=np.uint8)
+        got = fpk.two_crop_blob(np, [a, b])
+        self.assertTrue((got[0] == 1).all())
+        self.assertTrue((got[1] == 2).all())
+        got_reversed = fpk.two_crop_blob(np, [b, a])
+        self.assertTrue((got_reversed[0] == 2).all())
+        self.assertTrue((got_reversed[1] == 1).all())
+
+    def test_invalid_item_count_rejected(self):
+        np = self.np
+        canvas = np.zeros((640, 640, 3), dtype=np.uint8)
+        for bad in ([canvas], [canvas, canvas, canvas], [], tuple(), canvas, None):
+            with self.assertRaises(fpk.KernelValidationError):
+                fpk.two_crop_blob(np, bad)
+
+    def test_invalid_dtype_rejected(self):
+        np = self.np
+        a = np.zeros((640, 640, 3), dtype=np.uint8)
+        b = np.zeros((640, 640, 3), dtype=np.float32)
+        with self.assertRaises(fpk.KernelValidationError):
+            fpk.two_crop_blob(np, [a, b])
+
+    def test_invalid_shape_rejected(self):
+        np = self.np
+        a = np.zeros((640, 640, 3), dtype=np.uint8)
+        wrong_size = np.zeros((320, 640, 3), dtype=np.uint8)
+        with self.assertRaises(fpk.KernelValidationError):
+            fpk.two_crop_blob(np, [a, wrong_size])
+        wrong_channels = np.zeros((640, 640, 4), dtype=np.uint8)
+        with self.assertRaises(fpk.KernelValidationError):
+            fpk.two_crop_blob(np, [a, wrong_channels])
+
+    def test_non_ndarray_item_rejected(self):
+        np = self.np
+        a = np.zeros((640, 640, 3), dtype=np.uint8)
+        with self.assertRaises(fpk.KernelValidationError):
+            fpk.two_crop_blob(np, [a, [[1, 2, 3]]])
+
+
 if __name__ == "__main__":
     unittest.main()

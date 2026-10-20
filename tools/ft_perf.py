@@ -132,7 +132,16 @@ def _verify_network_denied():
         probe.close()
 
 
-def _run(args):
+def _run(args, *, batch_detector=None):
+    """``batch_detector``, if given, replaces per-zone detection for one frame.
+
+    It must be ``callback(engine, image, cfg['zones']) -> [Detections, Detections]``,
+    called at most once per valid sampled frame, after the lens/sample_time
+    checks and before any tracker update for that frame. Results are mapped
+    back to zones by the order of the ``cfg['zones']`` list passed to the
+    callback (so a reversed zone order in config is handled automatically).
+    Only the ``baseline`` candidate with exactly 2 unique zones may use this.
+    """
     _verify_network_denied()  # Also reject direct use of the private worker flag.
     from tools import ft_count as f
     from tools.ft_count_zones import load_zones_config
@@ -149,6 +158,14 @@ def _run(args):
     cfg = load_zones_config(args.config)
     if any(z['config'].get('sample_fps', 5) != 5 for z in cfg['zones']):
         raise ValueError('experiments require unchanged 5fps')
+    zone_ids = [z['id'] for z in cfg['zones']]
+    if batch_detector is not None:
+        if not callable(batch_detector):
+            raise ValueError('batch detector must be callable')
+        if args.candidate != 'baseline':
+            raise ValueError('batch detector requires the baseline candidate')
+        if len(zone_ids) != 2 or len(set(zone_ids)) != 2:
+            raise ValueError('batch detector requires exactly 2 unique zones')
     root.mkdir(mode=0o700)
     os.chmod(root, 0o700)
     os.umask(0o077)
@@ -169,19 +186,22 @@ def _run(args):
         options.inter_op_num_threads = 1
         engine.net = ort.InferenceSession(str(model), sess_options=options, providers=['CPUExecutionProvider'])
         engine.input_name = engine.net.get_inputs()[0].name
-    if engine.net.get_inputs()[0].shape != [1, 3, size, size]:
+    expected_shape = [2, 3, size, size] if batch_detector is not None else [1, 3, size, size]
+    if engine.net.get_inputs()[0].shape != expected_shape:
         raise ValueError('candidate input contract mismatch')
     setup_s = time.monotonic() - begin
     cv, np, sv = engine.cv, engine.np, engine.sv
     inference_s = 0.0
     calls = 0
+    images = 0
 
     def detect(image, zcfg):
-        nonlocal inference_s, calls
+        nonlocal inference_s, calls, images
         start = time.monotonic()
         if args.candidate in ('baseline', 'joint', 'int8', 'int8bq'):
             detections = engine.detect(image, zcfg)
             calls += 1
+            images += 1
         else:
             h, w = image.shape[:2]
             crop = zcfg.get('crop', [0, 0, 1, 1])
@@ -204,6 +224,7 @@ def _run(args):
                 blob = np.ascontiguousarray(canvas.transpose(2, 0, 1)[None], dtype=np.float32)
                 boxes, scores = _decode(np, engine.net.run(None, {engine.input_name: blob})[0], scale, size)
                 calls += 1
+                images += 1
                 boxes[:, [0, 2]] = np.clip(boxes[:, [0, 2]] + x, 0, w)
                 boxes[:, [1, 3]] = np.clip(boxes[:, [1, 3]] + y, 0, h)
                 all_boxes.append(boxes)
@@ -251,9 +272,35 @@ def _run(args):
             if at is None:
                 break
             h, w = image.shape[:2]
-            shared = detect(image, {'crop': union}) if args.candidate == 'joint' else None
+            zone_detections = None
+            shared = None
+            if batch_detector is not None:
+                hook_start = time.monotonic()
+                results = batch_detector(engine, image, cfg['zones'])
+                inference_s += time.monotonic() - hook_start
+                calls += 1
+                images += 2
+                if not isinstance(results, list) or len(results) != 2:
+                    raise ValueError('batch detector must return exactly 2 detections')
+                for result in results:
+                    if not isinstance(result, sv.Detections):
+                        raise ValueError('batch detector must return Detections')
+                    n = len(result.xyxy)
+                    if (result.xyxy.shape != (n, 4) or result.confidence is None
+                            or result.confidence.shape != (n,)
+                            or result.class_id is None or result.class_id.shape != (n,)
+                            or not np.isfinite(result.xyxy).all()
+                            or not np.isfinite(result.confidence).all()
+                            or not ((result.confidence >= 0) & (result.confidence <= 1)).all()
+                            or not (result.class_id == 0).all()):
+                        raise ValueError('invalid batch detections')
+                zone_detections = dict(zip(zone_ids, results))
+            else:
+                shared = detect(image, {'crop': union}) if args.candidate == 'joint' else None
             for zone in cfg['zones']:
-                if shared is None:
+                if zone_detections is not None:
+                    detections = zone_detections[zone['id']]
+                elif shared is None:
                     detections = detect(image, zone['config'])
                 else:
                     c = zone['config'].get('crop', [0, 0, 1, 1])
@@ -279,7 +326,9 @@ def _run(args):
                   accuracy_status='NOT_VERIFIED', candidate=args.candidate, model_sha256=model_hash,
                   preprocessing='upstream_raw_bgr' if args.candidate in ('nano', 'nano_tiles', 'tiny') else 'pinned_zoo_rgb',
                   input_sha256=source_hash, config_sha256=config_digest(cfg), runtime_sha256=engine.runtime_digest,
+                  reference_sha256=engine.reference_sha256,
                   seconds=min(args.seconds, count / fps), frames=frames, inference_calls=calls,
+                  inference_images=images,
                   setup_seconds=round(setup_s, 6), elapsed_seconds=round(elapsed, 6),
                   inference_seconds=round(inference_s, 6), totals=event_totals(events), events=events)
     atomic_write(root / 'experiment.json', json.dumps(report, allow_nan=False, separators=(',', ':')) + '\n')

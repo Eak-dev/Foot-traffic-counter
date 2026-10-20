@@ -1,6 +1,192 @@
 # Offline throughput experiments (OD-68 / OD-69 / OD-70)
 
-## OD-70: same-Mac acceleration checkpoint, 2026-10-20
+## OD-70 continuation: real-video validation, 2026-10-20
+
+Owner subsequently approved the bounded sample request. Six date17 Fixed clips
+were downloaded using the existing session: 858seconds total, 131877042bytes.
+The earlier source/reference hashes could not be recovered identically; the
+new noon source is a separately hash-bound reference. Original-reference
+continuity remains UNVERIFIED. All six pass the existing static-lens check
+relative to that reference; local OSD recognition supports Fixed Lens, but
+does not verify every date/time. No image, video, config or state was uploaded.
+
+The isolated video experiment now supports same-frame two-zone batch2. Both
+results are validated before either tracker advances; original5fps clocks,
+zone order, separate trackers and counting gates are preserved. The report
+and identity include the reference SHA. Production sources/checkpoints stay
+frozen. The completed full-source comparison below supersedes short-screen
+and synthetic speed estimates.
+
+Claude delivered partial source before a600second timeout. A second test-only
+call delivered tests but reported FAILED/RESULT_PERMISSION_DENIALS for shell
+commands outside its approved command list. PO corrected test doubles and
+expanded timing/anchor/empty-zone/atomic-failure coverage. Independent static
+review finds no remaining blocker. Numerical tests pass after those corrections;
+final regression and media evidence will be recorded below.
+
+### Completed 20second screen on newly acquired source
+
+Four sequential100sampled-frame runs retained the same5 events exactly,
+including lane/status/time/review reasons. A later FP16 run also matched those
+5 events, but was slower and used more CPU than FP32 CoreML. These short runs
+are screening evidence, not whole-day throughput or manually labeled accuracy.
+
+| Variant | Processing seconds | Whole-worker CPU core-seconds | Peak worker MiB |
+|---|---:|---:|---:|
+| CPU4 / legacy |32.775566|132.138398|383.766|
+| CPU4 / cached kernel |35.340016|143.868109|384.871|
+| CoreML / person6 / batch1 |20.218651|10.058597|405.770|
+| CoreML / person6 / batch2 / FP32 |18.728128|8.800403|424.156|
+| CoreML / person6 / batch2 / FP16 |28.239077|108.620323|540.785|
+
+FP32 batch2 reduced processing time42.859% relative to the CPU screen. Timing
+varies with system load; worker CPU excludes GPU/system-service work and does
+not establish reduced whole-machine energy. The six full-source paired runs below used alternating order and60second rests.
+Their aggregate gain is smaller; the short-screen42.859% is not the selected
+performance claim.
+
+FP16 is separately opt-in (`--precision fp16`, CoreML MLProgram only). The
+original weights are immutable; a hashed derivative retains FP32 I/O. The
+helper rejects unsupported/external/sparse/nonfinite graphs, preserves exact
+I/O names/shapes, sorts converter-added Cast nodes and uses full ONNX type
+checking. ORT1.23.2 requires minimum nonzero clamp5.96e-08;23 source values are
+below this threshold, no source value exceeds65504, and no source weight is
+nonfinite. This is approximate conversion, not natural underflow or exact
+weights. Finite activations and real-event compatibility require separate
+checks. Low-precision accumulation remains disabled. No new package was
+needed. The FP16 candidate is not selected for the full comparison because
+its screen was worse than FP32 on both wall time and measured worker CPU.
+After the full comparison was frozen and independently verified, final hardening
+of this unselected helper added explicit unsupported tensor-type rejection and
+finite scalar/list attribute checks before and after conversion. That source
+change creates a new experiment fingerprint; historical timing reports retain
+their original identities. It does not change the selected FP32 computation.
+The native worker validation below uses the final source identity.
+
+References: [pinned ORT converter](https://github.com/microsoft/onnxruntime/blob/v1.23.2/onnxruntime/python/tools/transformers/float16.py),
+[CoreML typed execution](https://apple.github.io/coremltools/docs-guides/source/typed-execution.html),
+[ONNX checker](https://github.com/onnx/onnx/blob/v1.19.1/onnx/checker.py).
+
+### Completed full-source comparison
+
+Six distinct local sources total857.861decoded seconds (858inventory seconds),
+4290sampled frames per backend. Twelve runs completed in alternating order,
+one inference worker at a time, with60second rests. Exact one-to-one comparison
+preserves all143events, their zone/lane/status/time and review reasons, with
+zero missing, extra or shifted events. Input/config/reference/model/source/
+package/environment identities agree across each pair. Opaque event reference
+hashes are excluded from the semantic comparison. These are isolated clips
+with fresh trackers, not an uninterrupted daily run or human-labeled accuracy.
+
+| Source sample | CPU seconds | CoreML FP32 batch2 seconds | Exact events |
+|---|---:|---:|---:|
+| Noon |457.324|431.322|29|
+| Morning |471.334|391.821|39|
+| Late morning |545.099|460.780|35|
+| Afternoon |855.016|485.408|30|
+| Evening |267.055|140.742|8|
+| Night |139.687|116.083|2|
+| Total |2735.515|2026.157|143|
+
+Observed summed processing time falls25.931% (1.350x), from45m35.515s to33m46.157s.
+Including worker setup/cleanup gives25.527% reduction. Per-pair reductions range
+5.686–47.299%; system load was not controlled or constant, so these are measured
+sample results, not a guaranteed sustained speedup or an under10hour daily SLA.
+The afternoon CPU run's load average rose substantially; this does not establish
+which process or thermal condition caused its timing. No whole-day extrapolation
+is accepted from this experiment.
+
+Summed worker CPU time falls from10380.292 to719.858core-seconds (93.065% less).
+This measures the worker's user+system CPU, excluding GPU and system-service work;
+whole-machine energy, temperature and GPU operator coverage remain NOT_MEASURED.
+Peak worker RSS rises from387.484 to419.285MiB (+31.801MiB,8.207%). Model calls
+halve from8580 to4290 while images inferred stay8580; batch2 does not halve image
+compute. Sample observations are near40/far36/front76accepted/10review and
+side57accepted/0review. They are passage events, not unique people or a day total.
+
+### Opt-in offline worker
+
+`tools.ft_day_count_accel` reuses the original streaming process, frame clock,
+trackers, counters and checkpoint codec. Only inference is replaced by
+CoreML FP32 person6 batch2. Both zone results must validate before either
+tracker advances. The per-frame cache is consumed in zone order and timing
+samples are bounded per clip, not accumulated for a whole day.
+
+This worker requires a fresh private offline root with no day ledger. Existing
+snapshots require explicit resume; a repeated source reference is rejected
+before counting can change state or overwrite its snapshot. Its runtime
+identity binds the original CPU runtime, reference, backend options, derived
+model, source, packages and platform. CPU checkpoints cannot be migrated into
+this lineage. Network denial and original file/lens/clock checks remain active.
+
+Claude delivered the initial worker and tests. Its launcher ended
+`FAILED / RESULT_PERMISSION_DENIALS` after an unapproved compile command;
+developer tests are `NOT_RUN_BY_DEVELOPER`. PO reviewed and corrected identity
+binding, test doubles, clip timing quotas, strict result validation and root
+reuse guards. Independent static review passes. Native resume and continuity validation passes on the final source identity.
+
+The new module is an offline worker, not a selectable backend in the existing
+daily downloader/driver. No day job, scheduler or old checkpoint is switched.
+
+Native validation uses the first20seconds of the morning source:300decoded
+frames, losslessly re-encoded as one20second file and two10second files. All
+300BGR frame hashes match the original, and every sampled timestamp matches
+at the existing3decimal precision despite the source's fractional average fps.
+The original5fps stride is retained. The larger40second lossless fixture hit
+the100MiB file cap and was discarded; the accepted fixtures and original six
+sources together occupy277833748bytes, below350MiB.
+
+Four actual deny-network runs cover A=one file, B=two files in one process,
+C=two files with clean process exit/restart and explicit resume, D=CPU two-file
+control. Each processes100sampled frames and emits5matching event semantics.
+An independent comparison also matches all 5 events to the original full-clip
+CPU result over [0,20), at zero timestamp tolerance and with identical review reasons.
+B and C match every raw event field and both checkpoint files byte-for-byte,
+including encoded tracker/counter/quality state. The midpoint contains active
+tracker state, so this is not an empty-scene resume test. A/B final state is
+identical after normalizing only the expected clip-boundary `clock.owned_begin`;
+outer source references and their event hashes intentionally differ. CPU and
+accelerated checkpoints are rejected by the opposite worker with exit2 and
+`CHECKPOINT_MISMATCH`, before ready/counting, with snapshot bytes unchanged.
+This validates the tested20second sequence, not all future gaps/overlaps or a
+complete day's accuracy.
+
+Final PO regression:1047tests in12.691s (911PASS/136optional-runtimeSKIP);
+196dependency-backed tests in19.479s PASS with no skips, covering every skipped
+module. Python3.9 syntax, diff hygiene and independent static reviews pass.
+The original counting runtime, model, stopped64/503day ledger and all six source
+hashes remain unchanged. No new package installation was required in this
+continuation. Whole-day completion below10hours remains NOT_ACHIEVED and
+human-labeled accuracy remains NOT_VERIFIED.
+
+
+Use the isolated environment and an explicitly selected local clip:
+
+```text
+python -m tools.ft_perf_accel --backend coreml --kernel cached \
+  --person-output --batch-size 2 --precision fp32 --threads 4 \
+  --input <local-fixed.mp4> --config <private-zones.json> \
+  --reference <selected-fixed-reference.mp4> \
+  --seconds <up-to-180> --output <new-private-output>
+```
+
+The streaming worker is a separate opt-in process:
+
+```text
+sandbox-exec -p '(version 1)(allow default)(deny network*)' \
+  python -m tools.ft_day_count_accel --worker \
+  --root <fresh-private-offline-root> --config <private-zones.json> \
+  --model <pinned-original-model.onnx> --reference <selected-fixed-reference.mp4>
+```
+
+Its controller uses the existing JSON-lines protocol: stage a private local
+input at `work/fixed.mp4`, provide its hash and a unique source reference with
+integer start/end seconds and the correct reset flag, and wait for a completed
+checkpoint before replacing the input. EOF closes the worker. Resume requires
+the exact saved `--resume-json` descriptor in the same private root, and must
+not mix CPU or old-day snapshots. One worker owns a root at a time.
+
+## Earlier OD-70 synthetic checkpoint, 2026-10-20
 
 Owner authorizes necessary free libraries and development with Claude. The
 verified machine is an Intel i7-4870HQ MacBookPro11,5, 16 GiB RAM, macOS14.8.9,
@@ -31,8 +217,8 @@ granted and no lock remains. Do not describe all four launcher results as PASS.
   columns as zero for the existing decoder. Original weights remain unchanged.
 - A separate batch2 derivative processes two independent640x640 inputs together.
   Three validated head Reshapes copy the input batch dimension. This reduces
-  calls, not image compute. **Batch2 is synthetic-only**, enforced both at CLI
-  and worker entry; it is not connected to video tracking or the day job.
+  calls, not image compute. At that earlier checkpoint batch2 was synthetic-only.
+  The continuation above adds isolated video integration; the day job remains unchanged.
 - Experiment identities bind backend options, derived/original model hashes,
   package versions, machine/OS and source hashes. Source changes during a run
   reject the report. Derived files are atomically published in a private cache.
@@ -106,7 +292,7 @@ it detects cross-image mixups but does not establish real-video accuracy.
 Reports must be keyed by batch size and experiment identity as well as
 `candidate`, whose label alone does not distinguish batch1 from batch2.
 
-### Reproduction and remaining gate
+### Historical reproduction and gate at the synthetic checkpoint
 
 Use the isolated experiment Python with the pinned original local model:
 
@@ -128,17 +314,17 @@ python -m tools.ft_perf_accel --backend coreml --kernel cached --person-output \
   --seconds 180 --output <new-private-output>
 ```
 
-The old temporary180second source and reference video are absent from their
+At that checkpoint, the old temporary180second source and reference video were absent from their
 recorded locations and the task-owned temporary folders checked. Retained
 numeric reports and the private configuration are not substitutes for footage.
-An Owner question is pending for up to6 date17 Fixed clips, total18minutes,
-or an explicitly supplied local backup. No download or authentication starts
-while that scope is pending.
+The pending request for up to6 date17 Fixed clips, total18minutes, was subsequently
+approved and fulfilled by the continuation above. It is no longer an open Owner
+question.
 
-Next: run repeatable real-clip comparisons including far-lane pedestrians,
+The next step at that checkpoint was repeatable real-clip comparison including far-lane pedestrians,
 crowds/occlusion and different light; compare all events and review reasons at
-zero tolerance, then obtain human-labeled evidence. If batch2 remains promising,
-integrate it into the isolated video experiment before considering production.
+zero tolerance, then obtain human-labeled evidence. The current continuation
+implements batch2 in the isolated video experiment and validates it above.
 Keep all trackers and event clocks separate. Only representative evidence can
 justify a new production backend and fresh state lineage.
 

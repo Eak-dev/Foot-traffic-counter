@@ -173,3 +173,32 @@ def contiguous_blob(np_module, canvas):
 
     transposed = canvas.transpose(2, 0, 1)[np.newaxis, ...]
     return np.ascontiguousarray(transposed, dtype=np.float32)
+
+
+def two_crop_blob(np_module, canvases):
+    """Build one batch-2 onnxruntime input blob from two letterboxed canvases.
+
+    ``canvases`` must be a list/tuple of exactly two uint8 HWC (640, 640, 3)
+    arrays; item order is preserved (``canvases[0]`` becomes batch row 0).
+    Neither input array is mutated. The result is a single C-contiguous
+    float32 (2, 3, 640, 640) allocation, equivalent to transposing/casting
+    each canvas separately and concatenating the two (1, 3, 640, 640)
+    results along axis 0, but built with one allocation instead of three.
+    """
+    np = np_module
+
+    if not isinstance(canvases, (list, tuple)) or len(canvases) != 2:
+        raise KernelValidationError("canvases must be a list/tuple of exactly 2 arrays")
+
+    out = np.empty((2, 3, INPUT_SIZE, INPUT_SIZE), dtype=np.float32)
+    for index, canvas in enumerate(canvases):
+        if not isinstance(canvas, np.ndarray):
+            raise KernelValidationError("each canvas must be an ndarray")
+        if canvas.dtype != np.uint8:
+            raise KernelValidationError("each canvas must be uint8")
+        if canvas.shape != (INPUT_SIZE, INPUT_SIZE, 3):
+            raise KernelValidationError(
+                f"each canvas must have shape ({INPUT_SIZE}, {INPUT_SIZE}, 3)"
+            )
+        out[index] = canvas.transpose(2, 0, 1)
+    return out
