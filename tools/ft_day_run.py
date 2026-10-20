@@ -18,7 +18,7 @@ from tools import ft_count as f, ft_media_probe as media, ft_sd_probe as sd
 from tools.ft_count_zones import load_zones_config
 from tools.ft_day_acquire import inventory, groups, DayError
 from tools.ft_day_count import config_digest
-from tools.ft_day_summary import atomic_write, read_ledger, write_reports, digest
+from tools.ft_day_summary import atomic_write, read_ledger, write_reports, digest, HEX
 from tools.ft_session import SessionManager, SessionError, load_target
 from tools.ft_day_state import read_checkpoint, StateError
 
@@ -27,6 +27,8 @@ JOB_SECONDS=36*3600
 DRIVER_SECONDS=48*3600
 REFERENCE_SHA256='2fef18ff159658903c9d6b0fce96d9e62c873fb40107fb2ee8aebc5dc0785d6c'
 REPO=Path(__file__).resolve().parent.parent
+BACKEND_ENV={'cpu':dict(python=REPO/'.venv/ft-counting/bin/python',module='tools.ft_day_count'),
+             'coreml':dict(python=REPO/'.venv/ft-accel/bin/python',module='tools.ft_day_count_accel')}
 FAILURE_STAGES=frozenset(('CONFIG','INVENTORY','PREPARE','GUARD','WORKER_START',
     'DOWNLOAD','COUNT','CHECKPOINT','COMMIT','CLEANUP'))
 MEDIA_CODES=frozenset(('TIMEOUT','QUOTA','DISK_SPACE','STORAGE','SAMPLE_EXISTS',
@@ -126,20 +128,25 @@ def clean_work(root):
 
 
 class Worker:
-    def __init__(self,root,config,reference,checkpoint=None):
+    def __init__(self,root,config,reference,backend='cpu',checkpoint=None):
+        if backend not in BACKEND_ENV:raise DayError('WORKER_FAILED')
         self.buffer=b'';self.selector=selectors.DefaultSelector()
+        env=BACKEND_ENV[backend]
         cmd=['/usr/bin/sandbox-exec','-p','(version 1)(allow default)(deny network*)',
-             str(REPO/'.venv/ft-counting/bin/python'),'-m','tools.ft_day_count','--worker',
+             str(env['python']),'-m',env['module'],'--worker',
              '--root',str(root),'--config',str(config),'--model',str(REPO/'.venv/ft-models/yolox_s.onnx'),
              '--reference',str(reference)]
+        if backend=='coreml':cmd+=['--day-ledger']
         if checkpoint is not None:cmd+=['--resume-json',json.dumps(checkpoint,separators=(',',':'))]
-        self.proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
-                                   cwd=str(REPO),bufsize=0,env={'PATH':'/usr/bin:/bin','LANG':'en_US.UTF-8','PYTHONDONTWRITEBYTECODE':'1'})
-        self.selector.register(self.proc.stdout,selectors.EVENT_READ)
         try:
+            self.proc=subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                                       cwd=str(REPO),bufsize=0,env={'PATH':'/usr/bin:/bin','LANG':'en_US.UTF-8','PYTHONDONTWRITEBYTECODE':'1'})
+            self.selector.register(self.proc.stdout,selectors.EVENT_READ)
             ready=self.receive(120)
             if isinstance(ready,dict) and ready.get('reason')=='CHECKPOINT_MISMATCH':raise DayError('CHECKPOINT_MISMATCH')
             if not isinstance(ready,dict) or ready.get('status')!='ready':raise DayError('WORKER_FAILED')
+            if any(not isinstance(ready.get(k),str) or not HEX.fullmatch(ready[k])
+                   for k in ('config_sha256','runtime')):raise DayError('WORKER_FAILED')
         except Exception:
             self.close();raise
         self.config_hash=ready.get('config_sha256');self.runtime=ready.get('runtime')
@@ -190,11 +197,31 @@ def prefix_coverage_end(clips,cursor):
     return max(c.get('capture_end',c['end']) for c in clips[:cursor] if c['ref'] in refs)
 
 
-def prepare_ledger(root,info,config,date):
+def identity_mismatch(data,backend,expected_reference):
+    """Legacy ledgers carry no backend/reference fields; they mean cpu/legacy only."""
+    stored_backend=data.get('count_backend');stored_reference=data.get('reference_sha256')
+    if not any(k in data for k in ('count_backend','reference_sha256','count_runtime')):
+        return backend!='cpu' or expected_reference!=REFERENCE_SHA256
+    return stored_backend!=backend or stored_reference!=expected_reference
+
+
+def expected_reference_hash(backend,reference_sha256):
+    if backend=='coreml':
+        if not isinstance(reference_sha256,str) or not HEX.fullmatch(reference_sha256):
+            raise DayError('CHECKPOINT_MISMATCH')
+        return reference_sha256
+    if backend!='cpu' or reference_sha256 not in (None,REFERENCE_SHA256):
+        raise DayError('CHECKPOINT_MISMATCH')
+    return REFERENCE_SHA256
+
+
+def prepare_ledger(root,info,config,date,backend='cpu',expected_reference=REFERENCE_SHA256):
     iso=date[:4]+'-'+date[4:6]+'-'+date[6:]
     existing=Path(root)/'ledger.json';hash_=config_digest(config)
-    if existing.exists():
+    if os.path.lexists(existing):
+        validate_existing_identity(root,backend,expected_reference,config=config,date=date)
         data=read_ledger(existing)
+        if identity_mismatch(data,backend,expected_reference):raise DayError('CHECKPOINT_MISMATCH')
         if data['config_sha256']!=hash_ or data['inventory_digest']!=info['inventory_digest'] or data['date']!=iso:
             raise DayError('CHECKPOINT_MISMATCH')
         keys=('ref','start','end','capture_start','capture_end')
@@ -218,7 +245,7 @@ def prepare_ledger(root,info,config,date):
                 raise DayError('CHECKPOINT_MISMATCH')
             try:
                 proof=read_checkpoint(root,cp)
-                if proof['config_sha256']!=hash_ or proof['reference_sha256']!=REFERENCE_SHA256:
+                if proof['config_sha256']!=hash_ or proof['reference_sha256']!=expected_reference:
                     raise DayError('CHECKPOINT_MISMATCH')
             except (StateError,OSError,ValueError):raise DayError('CHECKPOINT_MISMATCH') from None
         elif cp is not None:raise DayError('CHECKPOINT_MISMATCH')
@@ -230,6 +257,7 @@ def prepare_ledger(root,info,config,date):
     return dict(schema_version=1,date=iso,timezone='+07:00',config_sha256=hash_,
                 inventory_complete=True,inventory_digest=info['inventory_digest'],boundary_mode='continuous_state',
                 completed_groups=[],cursor=0,checkpoint=None,checkpoint_mode='exact_json_v1',
+                count_backend=backend,reference_sha256=expected_reference,count_runtime=None,
                 clips=[dict(c,status='pending',events=[]) for c in info['clips']])
 
 
@@ -238,18 +266,39 @@ def save(root,data):
     return write_reports(root,data)
 
 
-def run_selected(token,terminal,selected,guard,root,config_path,reference,max_clips,date=sd.FIXED_DATE,daytime_first=False):
+def run_selected(token,terminal,selected,guard,root,config_path,reference,max_clips,date=sd.FIXED_DATE,
+                  daytime_first=False,backend='cpu',expected_reference=REFERENCE_SHA256):
     started=time.monotonic();worker=None;stage='CONFIG'
     try:
+        expected_reference=expected_reference_hash(backend,expected_reference)
         config=load_zones_config(config_path)
         f._validate_input_file(reference)
-        if f._file_sha256(reference)!=REFERENCE_SHA256:raise DayError('LENS_OR_CLOCK_UNVERIFIED')
+        if f._file_sha256(reference)!=expected_reference:raise DayError('LENS_OR_CLOCK_UNVERIFIED')
+        validate_existing_identity(root,backend,expected_reference,config=config,date=date)
         stage='INVENTORY';info,device,uid=inventory(token,terminal,selected,guard,date)
         if daytime_first:info=prioritize_daytime(info)
         stage='PREPARE'
-        data=prepare_ledger(root,info,config,date);save(root,data)
-        processed=0;prune_checkpoints(root,data['checkpoint'])
+        data=prepare_ledger(root,info,config,date,backend=backend,expected_reference=expected_reference)
+        if not os.path.lexists(Path(root)/'ledger.json'):
+            # A fresh explicit lineage is needed by the CoreML worker guard.
+            # No prior ledger/snapshot is overwritten, and no count is committed.
+            atomic_write(Path(root)/'ledger.json',json.dumps(data,ensure_ascii=False,allow_nan=False))
+        stage='WORKER_START'
+        worker=Worker(root,config_path,reference,backend,data['checkpoint'])
+        if worker.config_hash!=data['config_sha256']:raise DayError('CHECKPOINT_MISMATCH')
+        if not isinstance(worker.runtime,str) or not HEX.fullmatch(worker.runtime):raise DayError('CHECKPOINT_MISMATCH')
+        if data.get('count_runtime') is None:
+            if data['checkpoint'] is not None and data['checkpoint'].get('runtime')!=worker.runtime:
+                raise DayError('CHECKPOINT_MISMATCH')
+            data['count_runtime']=worker.runtime
+        elif data['count_runtime']!=worker.runtime:raise DayError('CHECKPOINT_MISMATCH')
+        data.update(count_backend=backend,reference_sha256=expected_reference)
+        # Only a chosen worker that has accepted the resumed checkpoint and whose
+        # bound runtime matches the persisted binding may prune/recover/commit.
+        recover_parts(root);clean_work(root)
         atomic_write(Path(root)/'count-config.json',json.dumps(config,ensure_ascii=False))
+        save(root,data)
+        processed=0;prune_checkpoints(root,data['checkpoint'])
         planned_groups=groups(info['clips'])
         memberships={c['ref']:g['ref'] for g in planned_groups for c in g['clips']}
         prior_group=memberships[data['clips'][data['cursor']-1]['ref']] if data['cursor'] else None
@@ -270,8 +319,6 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
             try:
                 stage='CLEANUP'
                 clean_work(root)
-                stage='WORKER_START'
-                if worker is None:worker=Worker(root,Path(root)/'count-config.json',reference,data['checkpoint'])
                 stage='DOWNLOAD'
                 input_hash=download(token,terminal,device,uid,clip,root,guard,date=date)
                 stage='COUNT'
@@ -282,7 +329,8 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
                         or cp.get('input_sha256')!=input_hash or cp.get('coverage_end')!=coverage_end):
                     raise DayError('CHECKPOINT_MISMATCH')
                 proof=read_checkpoint(root,cp)
-                if proof['config_sha256']!=data['config_sha256'] or proof['reference_sha256']!=REFERENCE_SHA256:
+                if (proof['config_sha256']!=data['config_sha256'] or proof['reference_sha256']!=expected_reference
+                        or proof['runtime']!=data['count_runtime']):
                     raise DayError('CHECKPOINT_MISMATCH')
                 clip.update(status='counted' if result['frames'] else 'covered',events=result['events'],
                             input_sha256=input_hash,config_sha256=result['config_sha256'],
@@ -354,7 +402,51 @@ def prune_checkpoints(root,active):
         if name!=keep:path.unlink()
 
 
-def deliver_reports(root,destination,date,complete):
+def validate_existing_identity(root,backend,expected_reference,config=None,date=None):
+    """Structural check only; the live worker runtime binding is proven later."""
+    path=Path(root)/'ledger.json'
+    if not os.path.lexists(path):
+        folder=Path(root)/'checkpoints'
+        if os.path.lexists(folder):
+            st=folder.lstat()
+            if (not stat.S_ISDIR(st.st_mode) or st.st_uid!=os.getuid()
+                    or st.st_mode&0o077 or next(folder.iterdir(),None) is not None):
+                raise DayError('CHECKPOINT_MISMATCH')
+        return
+    st=path.lstat()
+    if not stat.S_ISREG(st.st_mode) or st.st_nlink!=1:raise DayError('CHECKPOINT_MISMATCH')
+    data=read_ledger(path)
+    if identity_mismatch(data,backend,expected_reference):raise DayError('CHECKPOINT_MISMATCH')
+    if config is not None and data['config_sha256']!=config_digest(config):raise DayError('CHECKPOINT_MISMATCH')
+    if date is not None and data['date']!=date[:4]+'-'+date[4:6]+'-'+date[6:]:
+        raise DayError('CHECKPOINT_MISMATCH')
+    cursor=data.get('cursor')
+    if (type(cursor) is not int or not 0<=cursor<=len(data['clips'])
+            or data.get('checkpoint_mode')!='exact_json_v1'):raise DayError('CHECKPOINT_MISMATCH')
+    runtime=data.get('count_runtime')
+    explicit='count_backend' in data
+    if explicit and (runtime is None and cursor or runtime is not None
+                     and (not isinstance(runtime,str) or not HEX.fullmatch(runtime))):
+        raise DayError('CHECKPOINT_MISMATCH')
+    checkpoint=data.get('checkpoint')
+    if bool(cursor)!=(checkpoint is not None):raise DayError('CHECKPOINT_MISMATCH')
+    if checkpoint is not None:
+        if not isinstance(checkpoint,dict) or explicit and checkpoint.get('runtime')!=runtime:
+            raise DayError('CHECKPOINT_MISMATCH')
+        folder=Path(root)/'checkpoints'
+        if not folder.is_dir() or folder.is_symlink():raise DayError('CHECKPOINT_MISMATCH')
+        try:
+            proof=read_checkpoint(root,checkpoint)
+        except (StateError,OSError,ValueError):raise DayError('CHECKPOINT_MISMATCH') from None
+        if (proof['reference_sha256']!=expected_reference or proof['config_sha256']!=data['config_sha256']
+                or checkpoint.get('source_ref')!=data['clips'][cursor-1]['ref']
+                or checkpoint.get('input_sha256')!=data['clips'][cursor-1].get('input_sha256')
+                or checkpoint.get('coverage_end')!=prefix_coverage_end(data['clips'],cursor)):
+            raise DayError('CHECKPOINT_MISMATCH')
+
+
+def deliver_reports(root,destination,date,complete,backend='cpu'):
+    if backend not in BACKEND_ENV:raise DayError('CHECKPOINT_MISMATCH')
     folder=Path(destination)
     f._outside_repo(folder)
     folder.mkdir(mode=0o700,parents=False,exist_ok=True)
@@ -363,7 +455,8 @@ def deliver_reports(root,destination,date,complete):
         source=Path(root)/('summary.'+extension)
         st=source.lstat()
         f._require(stat.S_ISREG(st.st_mode) and st.st_uid==os.getuid() and not st.st_mode&0o077 and st.st_nlink==1,'private numeric report required')
-        atomic_write(folder/('FootTraffic-Day-'+date+'-'+label+'.'+extension),source.read_text())
+        tag='-COREML' if backend=='coreml' else ''
+        atomic_write(folder/('FootTraffic-Day-'+date+tag+'-'+label+'.'+extension),source.read_text())
 
 
 def main(argv=None):
@@ -373,26 +466,36 @@ def main(argv=None):
     p.add_argument('--daytime-first',action='store_true');p.add_argument('--keep-awake',action='store_true')
     p.add_argument('--delivery-dir',default=None,help='owner-approved numeric-only report folder')
     p.add_argument('--date',default=None,help='completed Bangkok date YYYYMMDD; default yesterday')
+    p.add_argument('--backend',choices=('cpu','coreml'),default='cpu')
+    p.add_argument('--reference-sha256',default=None,help='explicit expected hash of --reference; required for coreml')
     args=p.parse_args(argv);awake=None;root=None;lock=None;lock_held=False;result=dict(status='BLOCKED',reason='DAY_START_FAILED')
-    started=time.monotonic();batch=0
+    started=time.monotonic();batch=0;date=None;expected_reference=None
     def interrupted(signum,frame):raise KeyboardInterrupt
     previous_term=signal.signal(signal.SIGTERM,interrupted)
     try:
         f._require(args.run and 1<=args.max_clips<=1000 and 1<=args.max_batches<=64
                    and args.max_clips*args.max_batches<=1000,'explicit bounded run required')
+        expected_reference=expected_reference_hash(args.backend,args.reference_sha256)
         today=dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).date()
         date=args.date or (today-dt.timedelta(days=1)).strftime('%Y%m%d')
         sd._validate_day_date(date)
         f._require(dt.datetime.strptime(date,'%Y%m%d').date()<today,'completed date required')
         root=Path(args.root).resolve();f._outside_repo(root)
+        validate_existing_identity(root,args.backend,expected_reference,date=date)
+        if args.backend=='coreml' or os.path.lexists(root/'ledger.json'):
+            config=load_zones_config(args.config)
+            validate_existing_identity(root,args.backend,expected_reference,config=config,date=date)
+            f._validate_input_file(args.reference)
+            if f._file_sha256(args.reference)!=expected_reference:raise DayError('LENS_OR_CLOCK_UNVERIFIED')
         root.mkdir(mode=0o700,parents=False,exist_ok=True)
         st=root.lstat();f._require(stat.S_ISDIR(st.st_mode) and st.st_uid==os.getuid() and not st.st_mode&0o077,'private job root required')
         work=root/'work';work.mkdir(mode=0o700,exist_ok=True)
         f._require(not work.is_symlink() and work.stat().st_uid==os.getuid() and not work.stat().st_mode&0o077,'private work folder required')
         lock=job_lock(root);lock.__enter__();lock_held=True
-        recover_parts(root);clean_work(root)
-        if (root/'ledger.json').exists():prune_checkpoints(root,read_ledger(root/'ledger.json').get('checkpoint'))
-        else:prune_checkpoints(root,None)
+        # Identity (backend/reference/checkpoint metadata) is validated before any
+        # snapshot recovery/pruning and before the session/network is touched; the
+        # live worker runtime binding can only be proven later, inside run_selected.
+        validate_existing_identity(root,args.backend,expected_reference)
         check_space(root)
         if args.keep_awake:
             awake=subprocess.Popen(['/usr/bin/caffeinate','-i','-w',str(os.getpid()),'-t',str(DRIVER_SECONDS)],
@@ -402,13 +505,15 @@ def main(argv=None):
             if time.monotonic()-started>=DRIVER_SECONDS:
                 result=dict(status='PARTIAL',reason='DRIVER_TIME_BUDGET');break
             atomic_write(root/'job-status.json',json.dumps(dict(running=True,pid=os.getpid(),batch=batch,
-                date=date,updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))
+                date=date,backend=args.backend,reference_sha256=expected_reference,
+                updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))
             def run_batch(token,terminal,selected,lease_guard):
                 def guarded():
                     lease_guard()
                     if time.monotonic()-started>=DRIVER_SECONDS:raise DayError('DAY_TIMEOUT')
                 return run_selected(token,terminal,selected,guarded,root,args.config,args.reference,
-                    args.max_clips,date=date,daytime_first=args.daytime_first)
+                    args.max_clips,date=date,daytime_first=args.daytime_first,
+                    backend=args.backend,expected_reference=expected_reference)
             result=SessionManager().command('use',target,on_selected_camera=run_batch,callback_with_guard=True)
             authenticated=result.get('status')=='SUCCESS'
             callback=result.get('callback',{})
@@ -416,7 +521,8 @@ def main(argv=None):
             if args.delivery_dir and (root/'summary.html').exists():
                 try:
                     iso=date[:4]+'-'+date[4:6]+'-'+date[6:]
-                    deliver_reports(root,args.delivery_dir,iso,authenticated and callback.get('status')=='SUCCESS')
+                    deliver_reports(root,args.delivery_dir,iso,authenticated and callback.get('status')=='SUCCESS',
+                                    backend=args.backend)
                     result['delivery']='COPIED_NUMERIC_REPORTS'
                 except Exception:result['delivery']='DELIVERY_FAILED_LOCAL_REPORTS_RETAINED'
             if not authenticated or callback.get('status')!='PARTIAL' or callback.get('reason')!='INVOCATION_BUDGET':break
@@ -425,6 +531,9 @@ def main(argv=None):
         return 0 if result.get('callback',{}).get('status')=='SUCCESS' and not result.get('delivery','').startswith('DELIVERY_FAILED') else 2
     except KeyboardInterrupt:
         result=dict(status='INTERRUPTED',reason='CHECKPOINT_RETAINED');print(json.dumps(result));return 130
+    except (DayError,StateError) as exc:
+        result=dict(status='BLOCKED',reason=exc.code if isinstance(exc,DayError) else 'CHECKPOINT_MISMATCH')
+        print(json.dumps(result));return 2
     except Exception:
         result=dict(status='BLOCKED',reason='DAY_START_FAILED');print(json.dumps(result));return 2
     finally:
@@ -438,6 +547,7 @@ def main(argv=None):
         if lock_held:
             with contextlib.suppress(Exception):
                 atomic_write(root/'job-status.json',json.dumps(dict(running=False,pid=os.getpid(),batch=batch,
+                    date=date,backend=args.backend,reference_sha256=expected_reference,
                     status=result.get('status'),reason=result.get('reason') or result.get('callback',{}).get('reason'),
                     diagnostic=result.get('diagnostic') or result.get('callback',{}).get('diagnostic'),
                     updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))

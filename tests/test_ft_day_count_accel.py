@@ -453,6 +453,12 @@ class ProcessIdentityRecheckTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_day_ledger_requires_explicit_boolean_flag(self):
+        with patch.object(accel, "worker_main", return_value=0) as worker:
+            self.assertEqual(accel.main(["--worker", "--root", "r", "--config", "c",
+                                        "--model", "m", "--reference", "ref", "--day-ledger"]), 0)
+        worker.assert_called_once_with("r", "c", "m", "ref", None, day_ledger=True)
+
     def test_worker_opt_in_is_required(self):
         with patch.object(accel, "worker_main") as worker, patch("sys.stderr"):
             with self.assertRaises(SystemExit):
@@ -515,6 +521,88 @@ class CliTests(unittest.TestCase):
             cache.assert_not_called()
             engine.assert_not_called()
             self.assertIs(ft_day_count.Engine, original)
+
+
+class DayLineageTests(unittest.TestCase):
+    def setup_day(self, root):
+        from tests.test_ft_day import config
+        from tools import ft_day_run as run
+        cfg = config()
+        reference = root / "reference.mp4"
+        reference.write_bytes(b"synthetic-reference")
+        reference.chmod(0o600)
+        info = dict(clips=[dict(ref="a" * 64, start=0, end=10)], inventory_digest="b" * 64)
+        ref = hashlib.sha256(reference.read_bytes()).hexdigest()
+        data = run.prepare_ledger(root, info, cfg, "20010101", "coreml", ref)
+        run.save(root, data)
+        return cfg, reference, data
+
+    def test_fresh_day_allows_orphan_without_mutating_it_and_rejects_wrong_resume(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            cfg, ref, data = self.setup_day(root)
+            folder = root / "checkpoints"
+            folder.mkdir(mode=0o700)
+            orphan = folder / ("c" * 64 + ".json")
+            orphan.write_bytes(b"uncommitted-snapshot")
+            before = (root / "ledger.json").read_bytes()
+            self.assertIsNone(accel._require_day_lineage(root, cfg, ref, None))
+            with self.assertRaises(accel.StateError):
+                accel._require_day_lineage(root, cfg, ref, {})
+            self.assertEqual(orphan.read_bytes(), b"uncommitted-snapshot")
+            self.assertEqual((root / "ledger.json").read_bytes(), before)
+
+    def test_wrong_backend_reference_config_and_incomplete_identity_rejected_unchanged(self):
+        from tools.ft_day_summary import atomic_write
+        for field, value in (("count_backend", "cpu"), ("reference_sha256", "c" * 64),
+                             ("config_sha256", "d" * 64), ("count_runtime", "bad")):
+            with self.subTest(field=field), TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                cfg, ref, data = self.setup_day(root)
+                data[field] = value
+                atomic_write(root / "ledger.json", json.dumps(data))
+                before = (root / "ledger.json").read_bytes()
+                with self.assertRaises(accel.StateError):
+                    accel._require_day_lineage(root, cfg, ref, None)
+                self.assertEqual((root / "ledger.json").read_bytes(), before)
+                self.assertFalse((root / "coreml-cache").exists())
+
+    def test_committed_resume_descriptor_must_match_all_fields(self):
+        from tests.test_ft_day import fake_checkpoint_runtime
+        from tools import ft_day_run as run
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            cfg, ref, data = self.setup_day(root)
+            refhash = data["reference_sha256"]
+            source = data["clips"][0]
+            message = dict(source_ref=source["ref"], input_sha256="e" * 64, end=10)
+            cp = fake_checkpoint_runtime(root, message, cfg, "f" * 64, refhash)
+            source.update(status="counted", input_sha256="e" * 64, config_sha256=data["config_sha256"],
+                          clock_verified=True, lens_verified=True)
+            data.update(cursor=1, checkpoint=cp, count_runtime="f" * 64,
+                        completed_groups=[g["ref"] for g in run.groups(data["clips"])])
+            run.save(root, data)
+            self.assertEqual(accel._require_day_lineage(root, cfg, ref, cp), "f" * 64)
+            for bad in (None, dict(cp, coverage_end=9), dict(cp, extra=True)):
+                with self.assertRaises(accel.StateError):
+                    accel._require_day_lineage(root, cfg, ref, bad)
+
+    def test_live_runtime_mismatch_prevents_ready_without_changing_ledger(self):
+        from tools.ft_day_summary import atomic_write
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            cfg, ref, data = self.setup_day(root)
+            data["count_runtime"] = "a" * 64
+            atomic_write(root / "ledger.json", json.dumps(data))
+            before = (root / "ledger.json").read_bytes()
+            def construct(root, config, model, reference, resume=None):
+                return ft_day_count.Engine(root, config, model, reference)
+            with patch.object(ft_day_count, "worker_main", side_effect=construct), \
+                    patch.object(accel, "_private_cache_dir", return_value=root), \
+                    patch.object(accel, "AcceleratedEngine", return_value=SimpleNamespace(runtime_digest="b" * 64)):
+                with self.assertRaises(accel.StateError):
+                    accel.worker_main(root, cfg, "model", ref, day_ledger=True)
+            self.assertEqual((root / "ledger.json").read_bytes(), before)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,31 @@ from tools import ft_day_job as job
 
 
 class WholeJobTests(unittest.TestCase):
+    def test_invalid_coreml_reference_rejected_before_cursor_or_spawn(self):
+        with patch.object(job,'cursor') as cursor,patch.object(job.subprocess,'Popen') as popen,redirect_stdout(io.StringIO()):
+            self.assertEqual(job.main(self.args('unused')+['--backend','coreml']),2)
+        cursor.assert_not_called();popen.assert_not_called()
+
+    def test_coreml_identity_preserved_across_budget_cycles_and_mismatch_stops(self):
+        for reference in ('a'*64,'b'*64):
+            with tempfile.TemporaryDirectory() as tmp:
+                commands=[]
+                def create(command,**kwargs):
+                    child=Mock(pid=100+len(commands));commands.append(command)
+                    def wait(**kw):
+                        (Path(tmp)/'job-status.json').write_text(json.dumps(dict(running=False,pid=child.pid,
+                            date='20010101',backend='coreml',reference_sha256=reference,
+                            status='PARTIAL',reason='DRIVER_TIME_BUDGET')))
+                        return 0 if len(commands)==2 else 2
+                    child.wait.side_effect=wait;return child
+                with patch.object(job,'cursor',return_value=0),patch.object(job.subprocess,'Popen',side_effect=create),redirect_stdout(io.StringIO()):
+                    result=job.main(self.args(tmp)+['--backend','coreml','--reference-sha256','a'*64])
+                self.assertEqual(result,0 if reference=='a'*64 else 2)
+                self.assertEqual(len(commands),2 if reference=='a'*64 else 1)
+                for command in commands:
+                    self.assertEqual(command[command.index('--backend')+1],'coreml')
+                    self.assertEqual(command[command.index('--reference-sha256')+1],'a'*64)
+
     def args(self,root):
         return ['--run','--date','20010101','--root',str(root),'--config','synthetic','--reference','synthetic']
 
@@ -21,6 +46,7 @@ class WholeJobTests(unittest.TestCase):
                 child=Mock(pid=100+len(processes))
                 def wait(**unused):
                     (Path(tmp)/'job-status.json').write_text(json.dumps(dict(running=False,pid=child.pid,
+                        date='20010101',backend='cpu',reference_sha256=job.expected_reference_hash('cpu',None),
                         status='PARTIAL',reason='DRIVER_TIME_BUDGET')))
                     return 2
                 child.wait.side_effect=wait;processes.append(command)
@@ -55,6 +81,7 @@ class WholeJobTests(unittest.TestCase):
             def wait(**kwargs):
                 if kwargs['timeout']!=30:raise job.subprocess.TimeoutExpired('synthetic',1)
                 (Path(tmp)/'job-status.json').write_text(json.dumps(dict(running=False,pid=100,
+                    date='20010101',backend='cpu',reference_sha256=job.expected_reference_hash('cpu',None),
                     status='INTERRUPTED',reason='CHECKPOINT_RETAINED')))
                 return 130
             first.wait.side_effect=wait

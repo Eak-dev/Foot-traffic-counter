@@ -1,4 +1,4 @@
-"""Opt-in offline CoreML day-counting worker reusing the pinned CPU pipeline.
+"""Opt-in local CoreML day-counting worker reusing the pinned CPU pipeline.
 
 This module never changes ``tools.ft_day_count``/``tools.ft_day_state``: it
 adds a subclass that replaces only the inference session with a two-zone
@@ -9,9 +9,10 @@ deny-network/private-root checks, stdin/JSON protocol) to the unmodified
 libraries, same as the CPU worker; this module itself stays stdlib-importable
 so it can be imported for control-boundary tests without optional deps.
 
-Experimental only: no production promotion, day-driver, download, scheduler
-or retry/fallback feature is implied. CPU and accelerated checkpoints bind to
-different ``runtime_digest`` values and must reject each other.
+Offline operation rejects day ledgers by default. The explicit ``--day-ledger``
+mode accepts only a matching CoreML ledger/reference/config/resume lineage.
+There is no CPU fallback. CPU and accelerated checkpoints bind to different
+``runtime_digest`` values and must reject each other.
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ from tools.ft_perf_kernel import YoloXDecoder
 from tools.ft_state_codec import StateError
 from tools.ft_day_state import runtime_digest as cpu_runtime_digest
 
-POLICY_VERSION = "offline_coreml_worker_v1"
+POLICY_VERSION = "coreml_worker_day_lineage_v2"
 
 
 def _canonical_digest(cpu_runtime_digest, identity_value, reference_sha256, wrapper_sha256):
@@ -94,6 +95,35 @@ def _require_new_checkpoint_source(root, message):
                and all(c in "0123456789abcdef" for c in source), "invalid source digest")
     f._require(not os.path.lexists(Path(root) / "checkpoints" / (source + ".json")),
                "source checkpoint already exists")
+
+
+def _require_day_lineage(root, config, reference, resume):
+    """Read-only ledger proof before creating a cache or loading inference."""
+    from tools.ft_day_run import prepare_ledger, validate_existing_identity
+    from tools.ft_day_acquire import DayError
+    from tools.ft_day_summary import read_ledger
+    try:
+        reference_hash = f._file_sha256(reference)
+        validate_existing_identity(root, "coreml", reference_hash, config=config)
+        data = read_ledger(Path(root) / "ledger.json")
+        # Reuse the driver's complete prefix/group/checkpoint checks without
+        # inventing a new inventory, mutating it, or opening the camera.
+        info = dict(clips=data["clips"], inventory_digest=data["inventory_digest"])
+        prepare_ledger(root, info, config, data["date"].replace("-", ""),
+                       backend="coreml", expected_reference=reference_hash)
+        if data["checkpoint"] != resume:
+            raise StateError("resume must equal the committed day checkpoint")
+        folder = Path(root) / "checkpoints"
+        if os.path.lexists(folder):
+            saved = folder.lstat()
+            if (not stat.S_ISDIR(saved.st_mode) or saved.st_uid != os.getuid()
+                    or saved.st_mode & 0o077):
+                raise StateError("private checkpoint directory required")
+        # Orphans at cursor zero are left intact here. The driver may prune
+        # them only after the live worker has accepted the bound runtime.
+        return data.get("count_runtime")
+    except (DayError, f.ValidationError, OSError, ValueError, KeyError, TypeError):
+        raise StateError("day ledger identity mismatch") from None
 
 
 class AcceleratedEngine(CPUEngine):
@@ -186,12 +216,19 @@ class AcceleratedEngine(CPUEngine):
         return result
 
 
-def worker_main(root, config, model, reference, resume=None):
+def worker_main(root, config, model, reference, resume=None, day_ledger=False):
     original_engine = ft_day_count.Engine
 
     def bound_engine(root_, config_, model_, reference_):
-        _require_offline_lineage(root_, resume)
-        return AcceleratedEngine(root_, config_, model_, reference_, _private_cache_dir(root_))
+        runtime = None
+        if day_ledger:
+            runtime = _require_day_lineage(root_, config_, reference_, resume)
+        else:
+            _require_offline_lineage(root_, resume)
+        engine = AcceleratedEngine(root_, config_, model_, reference_, _private_cache_dir(root_))
+        if runtime is not None and runtime != engine.runtime_digest:
+            raise StateError("day runtime identity mismatch")
+        return engine
 
     ft_day_count.Engine = bound_engine
     try:
@@ -208,10 +245,12 @@ def main(argv=None):
     parser.add_argument("--model", required=True)
     parser.add_argument("--reference", required=True)
     parser.add_argument("--resume-json", default=None)
+    parser.add_argument("--day-ledger", action="store_true")
     args = parser.parse_args(argv)
     try:
+        options = {"day_ledger": True} if args.day_ledger else {}
         return worker_main(args.root, args.config, args.model, args.reference,
-                           json.loads(args.resume_json) if args.resume_json else None)
+                           json.loads(args.resume_json) if args.resume_json else None, **options)
     except StateError:
         print('{"status":"blocked","reason":"CHECKPOINT_MISMATCH"}', flush=True)
         return 2

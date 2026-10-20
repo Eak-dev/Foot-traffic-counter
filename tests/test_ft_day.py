@@ -405,7 +405,7 @@ class ParentTransactionTests(unittest.TestCase):
             root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
             cfg,path,info=self.setup_job(root);calls=[]
             class FakeWorker:
-                def __init__(self,*a):pass
+                def __init__(self,*a):self.config_hash=config_digest(cfg);self.runtime='f'*64
                 def count(self,m):
                     calls.append(m)
                     return dict(status='ok',frames=50,events=[event(m['start']+1,salt=m['source_ref'])],
@@ -432,7 +432,7 @@ class ParentTransactionTests(unittest.TestCase):
 
     def transaction_worker(self,root,cfg,calls):
         class FakeWorker:
-            def __init__(self,*args):pass
+            def __init__(self,*args):self.config_hash=config_digest(cfg);self.runtime='f'*64
             def count(self,m):
                 calls.append(m)
                 return dict(status='ok',frames=50,events=[event(m['start']+1,salt=m['source_ref'])],
@@ -588,6 +588,212 @@ class ParentTransactionTests(unittest.TestCase):
             self.assertEqual(raised.exception.code,reason)
 
 
+COREML_REF='9'*64
+
+
+class BackendIdentityTests(unittest.TestCase):
+    def test_missing_day_ledger_cannot_adopt_or_delete_existing_offline_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();folder=root/'checkpoints';folder.mkdir(mode=0o700)
+            saved=folder/('a'*64+'.json');saved.write_bytes(b'historical-state')
+            with patch.object(run,'SessionManager') as manager,redirect_stdout(io.StringIO()):
+                result=run.main(['--run','--root',str(root),'--date','20010101',
+                    '--config','c','--reference','r','--backend','coreml','--reference-sha256',COREML_REF])
+            self.assertEqual(result,2);manager.assert_not_called()
+            self.assertFalse((root/'ledger.json').exists())
+            self.assertEqual(saved.read_bytes(),b'historical-state')
+
+    def test_partial_identity_and_linked_ledgers_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();cfg,path,info=self.setup_job(root)
+            data=run.prepare_ledger(root,info,cfg,sd.FIXED_DATE)
+            del data['count_backend'];del data['reference_sha256']
+            run.save(root,data)
+            with self.assertRaises(da.DayError):
+                run.validate_existing_identity(root,'cpu',run.REFERENCE_SHA256)
+            data=run.prepare_ledger(root/'unused',info,cfg,sd.FIXED_DATE)
+            run.save(root,data);os.link(root/'ledger.json',root/'alias.json')
+            with self.assertRaises(da.DayError):
+                run.validate_existing_identity(root,'cpu',run.REFERENCE_SHA256)
+
+    def test_bound_cursor_zero_runtime_mismatch_preserves_orphans_work_and_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();(root/'work').mkdir(mode=0o700);(root/'checkpoints').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            data=run.prepare_ledger(root,info,cfg,sd.FIXED_DATE,'coreml',COREML_REF)
+            data['count_runtime']='a'*64;run.save(root,data)
+            for name in ('checkpoints/'+H+'.json','work/fixed.mp4','count-config.json','ledger.json.part'):
+                ds.atomic_write(root/name,'retain-this')
+            before={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            wrong=self.worker_double(root,cfg,calls,runtime='b'*64,reference=COREML_REF)
+            with self.patches(root,cfg,info,calls,wrong,reference=COREML_REF):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1,
+                                        backend='coreml',expected_reference=COREML_REF)
+            self.assertEqual(result['reason'],'CHECKPOINT_MISMATCH')
+            self.assertEqual(before,{str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()})
+
+    def setup_job(self,root):
+        cfg=config();path=root/'config.json';path.write_text(json.dumps(cfg));path.chmod(0o600)
+        sources=[dict(ref=ds.digest([a,b]),start=a,end=b) for a,b in [(0,10),(10,20)]]
+        info=dict(clips=sources,inventory_digest='c'*64);return cfg,path,info
+
+    def worker_double(self,root,cfg,calls,runtime='f'*64,reference=run.REFERENCE_SHA256):
+        class FakeWorker:
+            def __init__(self,*a):self.config_hash=config_digest(cfg);self.runtime=runtime
+            def count(self,m):
+                calls.append(m)
+                return dict(status='ok',frames=50,events=[event(m['start']+1,salt=m['source_ref'])],
+                    input_sha256='b'*64,config_sha256=config_digest(cfg),clock_verified=True,lens_verified=True,
+                    checkpoint=fake_checkpoint_runtime(root,m,cfg,runtime,reference))
+            def close(self):pass
+        return FakeWorker
+
+    def patches(self,root,cfg,info,calls,worker,reference=run.REFERENCE_SHA256):
+        from contextlib import ExitStack
+        stack=ExitStack()
+        for target,kwargs in [('inventory',dict(return_value=(info,'synthetic',7))),
+            ('download',dict(return_value='b'*64)),('check_space',{}),('Worker',dict(new=worker))]:
+            stack.enter_context(patch.object(run,target,**kwargs))
+        stack.enter_context(patch.object(run.f,'_validate_input_file'))
+        stack.enter_context(patch.object(run.f,'_file_sha256',return_value=reference))
+        stack.enter_context(redirect_stdout(io.StringIO()))
+        return stack
+
+    def test_worker_command_routes_module_and_environment_by_backend_and_opts_in_day_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            fake=Mock();fake.stdout=io.BytesIO();fake.stdin=io.BytesIO()
+            with patch.object(run.subprocess,'Popen',return_value=fake) as popen, \
+                 patch.object(run.selectors,'DefaultSelector'), \
+                 patch.object(run.Worker,'receive',return_value=dict(status='ready',config_sha256=H,runtime='f'*64)):
+                run.Worker(root,'cfg','ref').close()
+                cmd=popen.call_args.args[0]
+                self.assertIn(str(run.REPO/'.venv/ft-counting/bin/python'),cmd)
+                self.assertIn('tools.ft_day_count',cmd);self.assertNotIn('--day-ledger',cmd)
+            with patch.object(run.subprocess,'Popen',return_value=fake) as popen, \
+                 patch.object(run.selectors,'DefaultSelector'), \
+                 patch.object(run.Worker,'receive',return_value=dict(status='ready',config_sha256=H,runtime='f'*64)):
+                run.Worker(root,'cfg','ref','coreml').close()
+                cmd=popen.call_args.args[0]
+                self.assertIn(str(run.REPO/'.venv/ft-accel/bin/python'),cmd)
+                self.assertIn('tools.ft_day_count_accel',cmd)
+                self.assertEqual(cmd[-1],'--day-ledger')
+
+    def test_invalid_backend_or_reference_hash_is_rejected_before_any_spawn_network_or_mutation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            with patch.object(run,'SessionManager') as manager,patch.object(run.subprocess,'Popen') as popen, \
+                 redirect_stdout(io.StringIO()):
+                self.assertEqual(run.main(['--run','--root',str(root),'--config','c','--reference','r',
+                    '--date','20010101','--backend','coreml']),2)
+                manager.assert_not_called();popen.assert_not_called()
+                self.assertEqual(run.main(['--run','--root',str(root),'--config','c','--reference','r',
+                    '--date','20010101','--backend','cpu','--reference-sha256','a'*64]),2)
+                manager.assert_not_called();popen.assert_not_called()
+            self.assertFalse((root/'ledger.json').exists())
+
+    def test_cpu_default_ledger_binds_legacy_backend_and_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            worker=self.worker_double(root,cfg,calls)
+            with self.patches(root,cfg,info,calls,worker):
+                run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            data=ds.read_ledger(root/'ledger.json')
+            self.assertEqual((data['count_backend'],data['reference_sha256'],data['count_runtime']),
+                              ('cpu',run.REFERENCE_SHA256,'f'*64))
+
+    def test_coreml_explicit_lineage_binds_runtime_and_reference_at_commit_and_resume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            worker=self.worker_double(root,cfg,calls,runtime='a'*64,reference=COREML_REF)
+            with self.patches(root,cfg,info,calls,worker,reference=COREML_REF):
+                first=run.run_selected('t','u',{},lambda:None,root,path,'ref',1,
+                    backend='coreml',expected_reference=COREML_REF)
+                self.assertEqual(first['status'],'PARTIAL')
+                second=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000,
+                    backend='coreml',expected_reference=COREML_REF)
+                self.assertEqual(second['status'],'SUCCESS')
+            data=ds.read_ledger(root/'ledger.json')
+            self.assertEqual((data['count_backend'],data['reference_sha256'],data['count_runtime']),
+                              ('coreml',COREML_REF,'a'*64))
+
+    def test_coreml_refuses_a_legacy_cpu_ledger_even_at_cursor_zero(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);cfg,path,info=self.setup_job(root)
+            legacy=run.prepare_ledger(root,info,cfg,sd.FIXED_DATE)
+            for key in ('count_backend','reference_sha256','count_runtime'):del legacy[key]
+            run.save(root,legacy)
+            with self.assertRaises(da.DayError) as raised:
+                run.prepare_ledger(root,info,cfg,sd.FIXED_DATE,backend='coreml',expected_reference=COREML_REF)
+            self.assertEqual(raised.exception.code,'CHECKPOINT_MISMATCH')
+
+    def test_backend_or_reference_or_runtime_mismatch_fails_preserving_ledger_and_snapshot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            worker=self.worker_double(root,cfg,calls,runtime='a'*64,reference=COREML_REF)
+            with self.patches(root,cfg,info,calls,worker,reference=COREML_REF):
+                run.run_selected('t','u',{},lambda:None,root,path,'ref',1,backend='coreml',expected_reference=COREML_REF)
+            committed=ds.read_ledger(root/'ledger.json')
+            # Same persisted lineage, but the worker now reports a different runtime.
+            mismatched=self.worker_double(root,cfg,calls,runtime='b'*64,reference=COREML_REF)
+            with self.patches(root,cfg,info,calls,mismatched,reference=COREML_REF):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000,
+                    backend='coreml',expected_reference=COREML_REF)
+            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH'))
+            self.assertEqual(ds.read_ledger(root/'ledger.json'),committed)
+            self.assertEqual(len(list((root/'checkpoints').glob('*.json'))),1)
+            # A ledger bound to one backend refuses a run requested with the other.
+            with self.patches(root,cfg,info,calls,worker,reference=run.REFERENCE_SHA256):
+                cpu_result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(cpu_result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH'))
+            self.assertEqual(ds.read_ledger(root/'ledger.json'),committed)
+
+    def test_backend_mismatch_on_existing_root_is_rejected_before_session_and_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);cfg,path,info=self.setup_job(root)
+            data=run.prepare_ledger(root,info,cfg,'20010101',backend='coreml',expected_reference=COREML_REF)
+            run.save(root,data)
+            part=root/'ledger.json.part';part.write_text('stale');part.chmod(0o600)
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
+                 redirect_stdout(io.StringIO()):
+                self.assertEqual(run.main(['--run','--root',str(root),'--config',str(path),'--reference','r',
+                    '--date','20010101','--max-clips','1','--max-batches','1']),2)
+            manager.assert_not_called();self.assertTrue(part.exists())
+
+    def test_worker_startup_runtime_mismatch_closes_worker_without_touching_disk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root);calls=[]
+            bound=self.worker_double(root,cfg,calls,runtime='a'*64)
+            with self.patches(root,cfg,info,calls,bound):
+                run.run_selected('t','u',{},lambda:None,root,path,'ref',1)
+            self.assertEqual(len(list((root/'checkpoints').glob('*.json'))),1)
+            closed=[]
+            class ClosingWorker:
+                def __init__(self,*a):self.config_hash=config_digest(cfg);self.runtime='b'*64
+                def close(self):closed.append(True)
+            with self.patches(root,cfg,info,calls,ClosingWorker):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH'))
+            self.assertEqual(closed,[True])
+            self.assertEqual(ds.read_ledger(root/'ledger.json')['cursor'],1)
+
+
+def fake_checkpoint_runtime(root,message,cfg,runtime,reference):
+    import hashlib
+    folder=Path(root)/'checkpoints';folder.mkdir(mode=0o700,exist_ok=True)
+    data=dict(schema=1,source_ref=message['source_ref'],input_sha256=message['input_sha256'],
+              runtime=runtime,reference_sha256=reference,
+              config_sha256=config_digest(cfg),state=None)
+    raw=json.dumps(data,separators=(',',':'))
+    ds.atomic_write(folder/(message['source_ref']+'.json'),raw)
+    return dict(source_ref=message['source_ref'],input_sha256=message['input_sha256'],
+                runtime=runtime,coverage_end=message['end'],sha256=hashlib.sha256(raw.encode()).hexdigest())
+
+
 class FailureDiagnosticTests(unittest.TestCase):
     def test_exception_messages_and_untrusted_attributes_never_become_diagnostics(self):
         secret='SYNTHETIC_PRIVATE_PATH_AND_PASSWORD'
@@ -609,6 +815,36 @@ class FailureDiagnosticTests(unittest.TestCase):
 
 
 class FiniteDriverTests(unittest.TestCase):
+    def test_actual_batch_callback_forwards_backend_reference_on_each_batch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();calls=[]
+            class Session:
+                def command(self,action,target,**kwargs):
+                    return dict(status='SUCCESS',callback=kwargs['on_selected_camera']('t','u',{},lambda:None))
+            def batch(*args,**kwargs):
+                calls.append(kwargs)
+                return (dict(status='PARTIAL',reason='INVOCATION_BUDGET') if len(calls)==1
+                        else dict(status='SUCCESS'))
+            with patch.object(run,'SessionManager',return_value=Session()),patch.object(run,'load_target',return_value=H), \
+                 patch.object(run,'check_space'),patch.object(run,'load_zones_config',return_value=config()), \
+                 patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=COREML_REF), \
+                 patch.object(run,'run_selected',side_effect=batch),redirect_stdout(io.StringIO()):
+                self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','2',
+                    '--backend','coreml','--reference-sha256',COREML_REF)),0)
+            self.assertEqual(len(calls),2)
+            for call in calls:self.assertEqual((call['backend'],call['expected_reference']),('coreml',COREML_REF))
+
+    def test_coreml_delivery_preserves_old_cpu_report_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();destination=root/'delivery'
+            for name in ('summary.html','summary.csv'):ds.atomic_write(root/name,'cpu-result')
+            run.deliver_reports(root,destination,'2001-01-01',False)
+            for name in ('summary.html','summary.csv'):ds.atomic_write(root/name,'coreml-result')
+            run.deliver_reports(root,destination,'2001-01-01',False,backend='coreml')
+            self.assertEqual(len(list(destination.iterdir())),4)
+            for path in destination.iterdir():
+                self.assertEqual(path.read_text(),'coreml-result' if '-COREML-' in path.name else 'cpu-result')
+
     def arguments(self,root,*extra):
         return ['--run','--root',str(root),'--config','synthetic-config','--reference','synthetic-reference',
                 '--date','20010101',*extra]

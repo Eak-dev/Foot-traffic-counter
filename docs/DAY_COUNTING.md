@@ -1,5 +1,36 @@
 # นับคนย้อนหลังรายวัน (OD-59)
 
+OD-71 /2026-10-20 current: Owner approves the validated CoreML FP32 batch2 worker
+for a fresh date17 whole-day trial on the existing Mac. The finite driver and
+supervisor now accept explicit `--backend coreml --reference-sha256 <sha256>`.
+Both options must remain identical on every batch/cycle. CPU remains the CLI
+default; there is no automatic CPU fallback. The CoreML worker uses the isolated
+acceleration environment, original model/5fps/geometry/counters, and deny-network
+sandbox. Its explicit `--day-ledger` mode requires a matching ledger; ordinary
+offline worker mode still refuses all day ledgers.
+
+New ledgers bind backend, reference and runtime. Metadata is checked before
+session use; the actual worker checks runtime and restores the committed
+checkpoint before cleanup, pruning, another download or counting. A fresh
+ledger has cursor0 and no runtime until the chosen worker is ready. Existing
+snapshots without a ledger cannot be adopted/deleted as a new day. A cursor0
+ledger with orphan snapshots can recover only after accepting its runtime.
+Changing backend/reference/config/runtime fails closed, including completed
+ledgers. The approved driver source change intentionally changes the CPU source
+fingerprint too: old CPU checkpoints remain historical evidence, not resumable
+under the new source. No checkpoint migration or fingerprint bypass is provided.
+
+The new trial keeps a separate private root and numeric report names:
+`FootTraffic-Day-2026-10-17-COREML-PARTIAL.html/.csv`, then `COMPLETE` only after
+all discovered clips pass. Old CPU reports remain intact. Two current
+empty-terminated inventory sweeps still return503clips/63929seconds/166groups,
+00:04:05–23:51:53 Bangkok. These are discovered recordings, not proof of full
+original24hour retention or unique people. Whole-day completion, manual accuracy
+and under10hours/day remain unverified. See STATUS/PERFORMANCE for actual checks
+and execution state. The earlier OD59/60 CPU-only, group-replay and48h-lease
+statements below are historical; OD61 exact clip resume and OD65 vendor-managed
+session policy supersede them. This is one finite trial, not a recurring day job.
+
 OD-67: completeness audit distinguishes discovery, sequential processing and original-day retention. OD66 fixes the confirmed acquisition bug (short nonempty page was treated as terminal); actual date17 discovery is503Fixed intervals/63929s after two empty-terminated sweeps. The job downloads and validates one listed source, processes and atomically commits it, then deletes that staged media before the next source. Having only the current file on disk is not evidence that503sources were dropped or already downloaded. Existing unsupported/lens/clock/download/checkpoint errors stop with committed sources preserved; they cannot advance the cursor or produce a complete report. Synthetic503source inventory-to-ledger coverage guards against the original58-prefix regression.
 
 Reports now label an empty expected range NO_RECORDINGS and display no confirmed count, including CSV, static HTML and custom JavaScript filters. Empty ledgers cannot claim full_day_complete. Expected/processed/unprocessed clips and union recorded/processed/gap seconds are explicit; overlaps are not summed twice. COMPLETE_RECORDINGS/complete_discovered_recordings still means the returned sources were processed, while original_day_complete remains unknown and original_day_coverage=NOT_VERIFIED. The legacy full_day_complete field is retained only for API compatibility; it does not prove24hours of source retention, unique people or manual accuracy. Runtime fingerprint sources/counting rules are unchanged by this reporting correction.

@@ -1,5 +1,46 @@
 # Offline throughput experiments (OD-68 / OD-69 / OD-70)
 
+## OD-71: actual day-driver integration, 2026-10-20
+
+Owner approved the FP32 batch2 worker for one fresh date17 full-day trial.
+The actual day CLI now selects the isolated backend explicitly and binds its
+reference/config/runtime/checkpoint. Default offline mode still rejects day
+ledgers. No CPU fallback or checkpoint migration is implemented; changing the
+day driver intentionally invalidates the old CPU source fingerprint while
+preserving that stopped ledger and snapshot as historical evidence.
+
+A private local integration test ran four actual driver invocations: first10s,
+wrong backend, wrong reference, and new-process resume for the adjacent10s.
+Only session/inventory/acquisition were synthetic; the real deny-network worker,
+counting, atomic ledger commit, snapshot restore, CLI and reporting ran unchanged.
+The two positive invocations used one CoreML worker at a time, committed cursors1
+and2, and retained all5semantic events plus exact encoded active tracker/counter
+state from the earlier native CPU/CoreML controls. Both negative invocations
+stopped before session/target/inventory/download/worker and preserved ledger,
+checkpoint and staged-work bytes. No camera request was made by this test.
+Positive invocation times16.838s and14.120s include startup/fixture-copy/reporting;
+these are integration checks, not a new throughput benchmark.
+
+PO final regression1067tests in13.711s:931PASS/136optionalSKIP. Dependency suite
+201tests in18.918s:201PASS/0SKIP covers all skipped modules. Python3.9AST,
+diff checks and independent static driver/worker reviews pass. Claude's scoped
+edit task ended exit3/RESULT_PERMISSION_DENIALS despite child0; PO completed
+integration/guards/tests and independently verified the final implementation.
+
+Two current readonly date17 inventory sweeps still return503clips/63929seconds,
+166groups,00:04:05–23:51:53Bangkok. Existing session reused without login or
+explicit refresh. Original CPU64/503ledger bytes remain unchanged. Before launch,
+free disk was32GiB; a native CoreML case used about103MiB cache. Keep existing
+350MiB/job,1GiB approved job-root aggregate and10GiB free-space checks. Numeric
+CoreML report filenames remain distinct from historical CPU reports.
+
+This is READY_TO_START after a reviewed publication checkpoint. The OD70
+six-clip25.931% processing reduction remains the measured comparative evidence;
+whole-day timing/completion, whole-machine energy, human accuracy and a daily
+runtime below10hours are not established. Runtime sources stay frozen once
+started; completion follow-up monitors this one job only.
+
+
 ## OD-70 continuation: real-video validation, 2026-10-20
 
 Owner subsequently approved the bounded sample request. Six date17 Fixed clips
