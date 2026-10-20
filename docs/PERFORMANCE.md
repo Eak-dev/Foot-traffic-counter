@@ -1,4 +1,154 @@
-# Offline throughput experiments (OD-68 / OD-69)
+# Offline throughput experiments (OD-68 / OD-69 / OD-70)
+
+## OD-70: same-Mac acceleration checkpoint, 2026-10-20
+
+Owner authorizes necessary free libraries and development with Claude. The
+verified machine is an Intel i7-4870HQ MacBookPro11,5, 16 GiB RAM, macOS14.8.9,
+not Apple Silicon. The new scope supersedes the old package restriction below.
+This checkpoint implements and screens acceleration; it does **not** deliver
+a validated faster production counter or an under10hour day.
+
+Real Claude sessions implemented and revised the pure kernel and ONNX graph
+helpers. PO reviewed them, corrected test assumptions, integrated the isolated
+runner and independently ran dependency-backed tests. Two scoped sessions
+completed cleanly. Two others delivered allowed files but their launcher status
+was `FAILED / RESULT_PERMISSION_DENIALS` because unnecessary exploratory shell
+commands or a temporary test path were denied. No broader permissions were
+granted and no lock remains. Do not describe all four launcher results as PASS.
+
+### Implemented changes
+
+- `ft_perf_kernel`: cached YOLOX grids and person-score filtering before box
+  decoding; preserved float32 rounding, row order and threshold semantics.
+  Blob preparation makes one contiguous allocation.
+- `ft_perf_accel`: explicit CPU ORT, CoreML MLProgram/NeuralNetwork and OpenVINO
+  CPU backends in fresh workers with network access denied. Six detector-stage
+  timers distinguish preprocessing, blob, model, decoding, NMS and output
+  construction. Residual time includes video decode, lens verification,
+  tracking, counters and loop overhead; it is not attributed solely to decode.
+- `ft_perf_projection`: a separately hashed derivative exposes only coordinates,
+  objectness and person score (6 of85 columns). An adapter restores unused
+  columns as zero for the existing decoder. Original weights remain unchanged.
+- A separate batch2 derivative processes two independent640x640 inputs together.
+  Three validated head Reshapes copy the input batch dimension. This reduces
+  calls, not image compute. **Batch2 is synthetic-only**, enforced both at CLI
+  and worker entry; it is not connected to video tracking or the day job.
+- Experiment identities bind backend options, derived/original model hashes,
+  package versions, machine/OS and source hashes. Source changes during a run
+  reject the report. Derived files are atomically published in a private cache.
+- Exact event comparison checks multiplicity, zone, lane, status, timestamp and
+  review reasons. Matching counts alone cannot pass.
+
+Production sources, original counting environment, stopped date17 ledger and
+checkpoints remain unchanged. Every new report is experimental, not checkpoint
+compatible, not eligible for production and has human accuracy `NOT_VERIFIED`.
+The date17 ledger hash and original runtime digest still match their recorded
+values. No new camera/authentication request or counting job was started.
+
+### Dependency isolation
+
+The original package set was copied into a separate ignored experiment
+environment; its files do not link back to the counting environment. Added
+hash-pinned public wheels: OpenVINO2025.4.1, openvino-telemetry2025.2.0,
+ONNX1.19.1, ml_dtypes0.5.4 and typing_extensions4.15.0. All34 installed packages
+pass dependency checks. Wheel provenance and hashes remain in ignored local
+records; no package, model or media binary is committed.
+
+OpenVINO imports can initialize OVC telemetry. Before importing it, the
+deny-network worker sets process-local `CI=true`, which this pinned OVC
+integration treats as declined consent. It verifies declined consent and an
+empty sender queue. No persistent consent or account setting is changed.
+OpenVINO runs explicit CPU/FP32/ACCURACY with one stream. This fourth-generation
+CPU is outside its documented validated CPU list; successful execution here
+does not establish vendor-supported hardware compatibility.
+
+Sources: [OpenVINO system requirements](https://docs.openvino.ai/2024/about-openvino/release-notes-openvino/system-requirements.html),
+[pinned OVC telemetry integration](https://github.com/openvinotoolkit/openvino/blob/2025.4.1/tools/ovc/openvino/tools/ovc/telemetry_utils.py),
+[CoreML provider](https://onnxruntime.ai/docs/execution-providers/CoreML-ExecutionProvider.html).
+
+### Measured screening, not video throughput
+
+Three deterministic synthetic inputs (padding114, checkerboard and seeded
+noise), three warmup calls, then30 measured calls per candidate. One worker at
+a time; independent short runs under variable system load. Batch1 measures30
+images and batch2 measures60. Times below exclude session initialization and
+warmup. CPU means this worker's user+system CPU time, not whole-machine work.
+
+| Backend / method | Model ms per image | Processing ms per image | Worker CPU core-s per image |
+|---|---:|---:|---:|
+| ORT CPU4, legacy |104.403|106.334|0.424305|
+| ORT CPU4, cached kernel |104.899|106.311|0.424095|
+| CoreML MLProgram, cached kernel |90.973|93.429|0.017314|
+| CoreML MLProgram, person6 |88.668|91.119|0.012732|
+| CoreML MLProgram, person6/batch2 |84.666|88.124|0.009608|
+| OpenVINO CPU4, cached kernel |113.400|114.570|0.450491|
+| OpenVINO CPU2, cached kernel |197.472|198.594|0.393435|
+| CoreML NeuralNetwork, cached kernel |118.365|120.147|0.052939|
+
+The cached decoder falls from about1.19ms to0.28–0.33ms in this screen, while
+total CPU processing remains essentially unchanged: model inference dominates.
+The best synthetic batch2 model latency is18.9% below the original CPU screen;
+including measured loop work, amortized time is17.1% lower. These are observed
+short-run differences, not sustained gains or a daily completion estimate.
+Batch2's total processing is5.287434s for60 images, not for30 images.
+Its peak worker RSS is312.555MiB versus186.734MiB for the original CPU screen.
+GPU/system-service energy, temperature and total computer load are unmeasured.
+
+All synthetic inputs produce **zero retained person detections**. Original ORT
+and cached ORT outputs match exactly. CoreML differs from CPU by up to
+0.00006038 in used output columns; OpenVINO by0.00019008 and NeuralNetwork by
+0.4943275. Threshold masks are unchanged on these empty synthetic detections,
+which gives no evidence of actual counting compatibility.
+
+All six batch2 items match the corresponding single-image CoreML person6 used
+columns bit-for-bit in this screen. The mapping checked is `(2*batch+i)%3`;
+it detects cross-image mixups but does not establish real-video accuracy.
+Reports must be keyed by batch size and experiment identity as well as
+`candidate`, whose label alone does not distinguish batch1 from batch2.
+
+### Reproduction and remaining gate
+
+Use the isolated experiment Python with the pinned original local model:
+
+```text
+python -m tools.ft_perf_accel --backend ort --kernel legacy --threads 4 \
+  --synthetic --iterations 30 --output <new-private-output>
+python -m tools.ft_perf_accel --backend coreml --kernel cached \
+  --person-output --batch-size 2 --threads 4 \
+  --synthetic --iterations 30 --output <different-new-private-output>
+```
+
+For an explicitly selected existing clip, batch1 supports the unchanged5fps
+video pipeline with input/config/reference arguments and a180second maximum:
+
+```text
+python -m tools.ft_perf_accel --backend coreml --kernel cached --person-output \
+  --input <local-fixed.mp4> --config <private-zones.json> \
+  --reference <local-fixed-reference.mp4> \
+  --seconds 180 --output <new-private-output>
+```
+
+The old temporary180second source and reference video are absent from their
+recorded locations and the task-owned temporary folders checked. Retained
+numeric reports and the private configuration are not substitutes for footage.
+An Owner question is pending for up to6 date17 Fixed clips, total18minutes,
+or an explicitly supplied local backup. No download or authentication starts
+while that scope is pending.
+
+Next: run repeatable real-clip comparisons including far-lane pedestrians,
+crowds/occlusion and different light; compare all events and review reasons at
+zero tolerance, then obtain human-labeled evidence. If batch2 remains promising,
+integrate it into the isolated video experiment before considering production.
+Keep all trackers and event clocks separate. Only representative evidence can
+justify a new production backend and fresh state lineage.
+
+PO validation for this checkpoint: system-Python regression956tests in12.931s,
+875PASS/81optional-runtimeSKIP. Isolated dependency-backed105tests pass in17.309s
+with zero skips, covering all81 skipped cases. Independent static integration
+and batch reviews find no blocking issue. Python3.9 syntax and diff checks
+pass. Under10h/day remains NOT_ACHIEVED; human accuracy NOT_VERIFIED.
+
+## Historical OD-68 / OD-69 scope and results
 
 Owner authorized experiments after the proposal to test smaller detectors,
 shared detection and INT8. This work uses retained local media, existing
