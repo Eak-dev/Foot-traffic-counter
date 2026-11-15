@@ -1,0 +1,5 @@
+# Additional CoreML batch2 model-conversion requirements; combine with counting requirements and constraints.
+# This file alone is NOT a complete runtime lock. Generate a destination-compatible hashed lock before syncing.
+onnx==1.19.1
+ml_dtypes==0.5.4
+typing_extensions==4.15.0
