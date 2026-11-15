@@ -588,6 +588,113 @@ class ParentTransactionTests(unittest.TestCase):
             self.assertEqual(raised.exception.code,reason)
 
 
+class CoverageProofTests(unittest.TestCase):
+    """Zero worker frames only proves coverage already owned by the same group."""
+    def setup_job(self,root,sources):
+        cfg=config();path=root/'config.json';path.write_text(json.dumps(cfg));path.chmod(0o600)
+        clips=[dict(ref=ds.digest([a,b]),start=a,end=b) for a,b in sources]
+        info=dict(clips=clips,inventory_digest='c'*64);return cfg,path,info
+
+    def worker(self,root,cfg,frames_sequence,calls):
+        class FakeWorker:
+            def __init__(self,*a):self.config_hash=config_digest(cfg);self.runtime='f'*64
+            def count(self,m):
+                frames=frames_sequence[len(calls)];calls.append(m)
+                return dict(status='ok',frames=frames,
+                    events=[event(m['end']-.2,salt=m['source_ref'])] if frames else [],
+                    input_sha256='b'*64,config_sha256=config_digest(cfg),clock_verified=True,lens_verified=True,
+                    checkpoint=fake_checkpoint(root,m,cfg))
+            def close(self):pass
+        return FakeWorker
+
+    def patches(self,root,cfg,info,worker_cls):
+        from contextlib import ExitStack
+        stack=ExitStack()
+        for target,kwargs in [('inventory',dict(return_value=(info,'synthetic',7))),
+            ('download',dict(return_value='b'*64)),('check_space',{}),
+            ('Worker',dict(new=worker_cls))]:
+            stack.enter_context(patch.object(run,target,**kwargs))
+        stack.enter_context(patch.object(run.f,'_validate_input_file'))
+        stack.enter_context(patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256))
+        stack.enter_context(redirect_stdout(io.StringIO()))
+        return stack
+
+    def test_zero_frame_clip_extending_prior_coverage_is_blocked_not_covered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            # [0,10] commits normally; the overlapping [6,11] only reaches real
+            # content up to 10s (source_duration_valid still accepts the 1s
+            # shortfall) so the worker returns zero owned frames past 10.
+            cfg,path,info=self.setup_job(root,[(0,10),(6,11)]);calls=[]
+            with self.patches(root,cfg,info,self.worker(root,cfg,[50,0],calls)):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                diagnostic=dict(stage='COUNT',kind='CHECKPOINT',code='COVERAGE_PROOF')))
+            committed=ds.read_ledger(root/'ledger.json')
+            self.assertEqual(committed['cursor'],1)
+            self.assertEqual(committed['clips'][0]['status'],'counted')
+            self.assertEqual(committed['clips'][1]['status'],'pending')
+            ledger_bytes=(root/'ledger.json').read_bytes()
+            checkpoint_bytes=(root/'checkpoints'/(committed['clips'][0]['ref']+'.json')).read_bytes()
+            # Repeating the same failure never touches the already-committed bytes.
+            calls=[]
+            with self.patches(root,cfg,info,self.worker(root,cfg,[0],calls)):
+                again=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(again['reason'],'CHECKPOINT_MISMATCH')
+            self.assertEqual((root/'ledger.json').read_bytes(),ledger_bytes)
+            self.assertEqual((root/'checkpoints'/(committed['clips'][0]['ref']+'.json')).read_bytes(),checkpoint_bytes)
+
+    def test_retry_with_real_frames_after_a_blocked_zero_frame_clip_continues(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root,[(0,10),(6,11)]);calls=[]
+            with self.patches(root,cfg,info,self.worker(root,cfg,[50,0],calls)):
+                blocked=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(blocked['status'],'BLOCKED')
+            calls=[]
+            with self.patches(root,cfg,info,self.worker(root,cfg,[5],calls)):
+                resumed=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(resumed['status'],'SUCCESS')
+            final=ds.read_ledger(root/'ledger.json')
+            self.assertEqual([c['status'] for c in final['clips']],['counted','counted'])
+
+    def test_fully_covered_zero_frame_duplicate_still_advances_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            # [5,10] is entirely inside the already-owned [0,10]; zero frames here
+            # is a genuine, provable duplicate and must not block or extend coverage.
+            cfg,path,info=self.setup_job(root,[(0,10),(5,10)]);calls=[]
+            with self.patches(root,cfg,info,self.worker(root,cfg,[50,0],calls)):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(result['status'],'SUCCESS')
+            final=ds.read_ledger(root/'ledger.json')
+            self.assertEqual(final['clips'][1]['status'],'covered')
+            self.assertEqual(final['clips'][1]['events'],[])
+
+    def test_zero_frame_first_clip_on_reset_is_blocked_not_covered(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700);(root/'work').mkdir(mode=0o700)
+            cfg,path,info=self.setup_job(root,[(0,10)]);calls=[]
+            with self.patches(root,cfg,info,self.worker(root,cfg,[0],calls)):
+                result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
+            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                diagnostic=dict(stage='COUNT',kind='CHECKPOINT',code='COVERAGE_PROOF')))
+            self.assertEqual(ds.read_ledger(root/'ledger.json')['cursor'],0)
+
+
+class SaveValidationTests(unittest.TestCase):
+    def test_invalid_candidate_ledger_cannot_replace_the_committed_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            good=ledger(clips=[clip(0,10)])
+            run.save(root,good)
+            before=(root/'ledger.json').read_bytes()
+            bad=copy.deepcopy(good);bad['clips'][0]['status']='not-a-real-status'
+            with self.assertRaises(ValidationError):run.save(root,bad)
+            self.assertEqual((root/'ledger.json').read_bytes(),before)
+            self.assertFalse((root/'ledger.json.part').exists())
+
+
 COREML_REF='9'*64
 
 
@@ -927,3 +1034,75 @@ class FiniteDriverTests(unittest.TestCase):
             run.deliver_reports(root,destination,'2001-01-01',False)
             self.assertEqual(sorted(p.suffix for p in destination.iterdir()),['.csv','.html'])
             self.assertTrue(all('PARTIAL' in p.name for p in destination.iterdir()))
+
+
+class StatusRecoveryTests(unittest.TestCase):
+    """A crashed job-status.json.part must not block every future status write."""
+    def arguments(self,root,*extra):
+        return ['--run','--root',str(root),'--config','synthetic-config','--reference','synthetic-reference',
+                '--date',sd.FIXED_DATE,*extra]
+
+    def anchor(self,root):
+        cfg=config()
+        source=dict(ref=ds.digest([0,10]),start=0,end=10)
+        info=dict(clips=[source],inventory_digest='c'*64)
+        data=run.prepare_ledger(root,info,cfg,sd.FIXED_DATE)
+        checkpoint=fake_checkpoint(root,dict(source_ref=source['ref'],input_sha256='b'*64,end=10),cfg)
+        data['clips'][0].update(status='counted',input_sha256=checkpoint['input_sha256'],
+            config_sha256=data['config_sha256'],clock_verified=True,lens_verified=True)
+        data.update(cursor=1,checkpoint=checkpoint,count_runtime=checkpoint['runtime'],
+            completed_groups=[run.groups(info['clips'])[0]['ref']])
+        run.save(root,data)
+        return cfg
+
+    def test_fresh_root_recovers_stale_status_temp_before_session_use(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            part=root/'job-status.json.part';part.write_text('crashed-mid-write');part.chmod(0o600)
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
+                 patch.object(run,'check_space'),redirect_stdout(io.StringIO()):
+                manager.return_value.command.return_value=dict(status='SUCCESS',
+                    callback=dict(status='SUCCESS',summary=dict(full_day_complete=True)))
+                self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','1')),0)
+            manager.return_value.command.assert_called_once()
+            self.assertFalse(part.exists())
+            self.assertFalse(json.loads((root/'job-status.json').read_text())['running'])
+
+    def test_anchored_resume_root_recovers_stale_status_temp_before_session_use(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            cfg=self.anchor(root);ledger_before=(root/'ledger.json').read_bytes()
+            snapshot=next((root/'checkpoints').glob('*.json'))
+            snapshot_before=snapshot.read_bytes()
+            other_part=root/'ledger.json.part';other_part.write_text('retain-until-runtime-proof');other_part.chmod(0o600)
+            part=root/'job-status.json.part';part.write_text('crashed-mid-write');part.chmod(0o600)
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
+                 patch.object(run,'check_space'),patch.object(run,'load_zones_config',return_value=cfg), \
+                 patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256), \
+                 redirect_stdout(io.StringIO()):
+                manager.return_value.command.return_value=dict(status='SUCCESS',
+                    callback=dict(status='SUCCESS',summary=dict(full_day_complete=True)))
+                self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','1')),0)
+            manager.return_value.command.assert_called_once()
+            self.assertFalse(part.exists())
+            self.assertFalse(json.loads((root/'job-status.json').read_text())['running'])
+            self.assertEqual((root/'ledger.json').read_bytes(),ledger_before)
+            self.assertEqual(snapshot.read_bytes(),snapshot_before)
+            self.assertEqual(other_part.read_text(),'retain-until-runtime-proof')
+
+    def test_unsafe_status_temp_is_rejected_and_kept_without_entering_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(os.path.realpath(tmp));root.chmod(0o700)
+            cfg=self.anchor(root)
+            before={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            part=root/'job-status.json.part';part.write_text('crashed-mid-write');part.chmod(0o600)
+            os.link(part,root/'alias.json.part')  # extra hardlink makes the temp unsafe
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
+                 patch.object(run,'check_space'),patch.object(run,'load_zones_config',return_value=cfg), \
+                 patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256), \
+                 redirect_stdout(io.StringIO()):
+                self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','1')),2)
+            manager.assert_not_called()
+            self.assertEqual(part.read_text(),'crashed-mid-write')
+            self.assertFalse((root/'job-status.json').exists())
+            for name,content in before.items():self.assertEqual((root/name).read_bytes(),content)

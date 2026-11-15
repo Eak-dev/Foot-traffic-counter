@@ -18,7 +18,7 @@ from tools import ft_count as f, ft_media_probe as media, ft_sd_probe as sd
 from tools.ft_count_zones import load_zones_config
 from tools.ft_day_acquire import inventory, groups, DayError, INVENTORY_CLIP_FIELDS
 from tools.ft_day_count import config_digest
-from tools.ft_day_summary import atomic_write, read_ledger, write_reports, digest, HEX
+from tools.ft_day_summary import atomic_write, read_ledger, write_reports, validate_ledger, digest, HEX
 from tools.ft_session import SessionManager, SessionError, load_target
 from tools.ft_day_state import read_checkpoint, StateError
 
@@ -268,6 +268,9 @@ def prepare_ledger(root,info,config,date,backend='cpu',expected_reference=REFERE
 
 
 def save(root,data):
+    # Reject an invalid candidate before it can replace the previously
+    # committed ledger; a report write failure afterwards does not roll back.
+    validate_ledger(data)
     atomic_write(Path(root)/'ledger.json',json.dumps(data,ensure_ascii=False,indent=2,allow_nan=False))
     return write_reports(root,data)
 
@@ -329,6 +332,15 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
                 input_hash=download(token,terminal,device,uid,clip,root,guard,date=date)
                 stage='COUNT'
                 result=worker.count(dict(start=start,end=end,reset=reset,source_ref=clip['ref'],input_sha256=input_hash))
+                # Zero frames only proves coverage when the clip's nominal span is
+                # already inside prior owned coverage of this same tracking group.
+                # A reset (new group) or a span extending past prior_end with no
+                # observed frames is not a verified "covered" duplicate; block
+                # without advancing cursor/coverage/checkpoint and without a
+                # covered status rather than fabricating owned coverage for a
+                # clip the worker never actually saw.
+                if not result['frames'] and (reset or end>prior_end):
+                    raise CheckpointMismatch(stage,'COVERAGE_PROOF')
                 stage='CHECKPOINT'
                 cp=result.get('checkpoint')
                 if (not isinstance(cp,dict) or cp.get('source_ref')!=clip['ref']
@@ -380,15 +392,29 @@ def job_lock(root):
     finally:os.close(fd)
 
 
+def _reject_unsafe_part(path):
+    """Shared crash-temp guard: regular, owned, single-linked, private only."""
+    s=path.lstat()
+    if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.getuid() or s.st_nlink!=1 or s.st_mode&0o077:
+        raise DayError('STORAGE')
+
+
 def recover_parts(root):
     """Only after the exclusive job lock; retain the previous atomic checkpoint."""
     for name in ('ledger.json','summary.html','summary.csv','summary.json','count-config.json'):
         path=Path(root)/(name+'.part')
         if path.exists() or path.is_symlink():
-            s=path.lstat()
-            if not stat.S_ISREG(s.st_mode) or s.st_uid!=os.getuid() or s.st_nlink!=1 or s.st_mode&0o077:
-                raise DayError('STORAGE')
-            path.unlink()
+            _reject_unsafe_part(path);path.unlink()
+
+
+def recover_status_part(root):
+    """Recover only a stale job-status temp, before the first status write or
+    session use; ledger/summary/config/work recovery stays where runtime proof
+    exists. An unsafe (symlink/hardlink/shared) temp is rejected and kept,
+    never entering the session."""
+    path=Path(root)/'job-status.json.part'
+    if path.exists() or path.is_symlink():
+        _reject_unsafe_part(path);path.unlink()
 
 
 def prune_checkpoints(root,active):
@@ -508,6 +534,7 @@ def main(argv=None):
         # snapshot recovery/pruning and before the session/network is touched; the
         # live worker runtime binding can only be proven later, inside run_selected.
         validate_existing_identity(root,args.backend,expected_reference)
+        recover_status_part(root)
         check_space(root)
         if args.keep_awake:
             awake=subprocess.Popen(['/usr/bin/caffeinate','-i','-w',str(os.getpid()),'-t',str(DRIVER_SECONDS)],

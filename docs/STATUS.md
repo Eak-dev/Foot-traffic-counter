@@ -7,7 +7,8 @@
 - [x] ทดสอบ baseline 933 ผ่าน/136 ข้าม, arm64 dependency suite 1,069 ผ่าน/0 ข้าม และ Python 3.9 syntax ผ่าน
 - [x] ทดสอบ lossless 20 วินาทีผ่าน day driver ใหม่พร้อม acquisition stub และ worker ปิดเครือข่าย สถานะ CoreML ตรงทุกค่าหลังเปิด process ใหม่ เหตุการณ์เดียวกันตรงกับ full clip และ CPU
 - [x] วัด fixture 100 sampled frames ฝ่ายละ 3 รอบ CPU มัธยฐาน 26.934s → CoreML 4.778s ตรวจ ORT profile ว่าประมวลผลบน CoreML EP
-- [ ] Claude sign-in และ scoped Dev invocation บนเครื่องนี้ รายงาน `NOT_RUN_BY_DEVELOPER` จาก PO ที่รันทดสอบเอง
+- [x] ยืนยัน Claude sign-in และรัน scoped Dev tests ผ่าน launcher บนเครื่องนี้
+- [x] แก้ ledger ที่ไม่ผ่าน validation และการกู้ไฟล์สถานะค้าง เพิ่ม regression tests 8 รายการ
 - [ ] ทดสอบกับคลิป/geometry/reference Fixed ของร้านและ manual labels แล้วจึงประเมินวันเต็มรอบใหม่
 
 2026-11-14 Apple Silicon migration handoff: Owner confirms the destination is a new Apple Silicon Mac. Prepared docs/NEW_MACHINE_PROMPT.md with native arm64 setup, actual pinned dependencies, Codex/Claude ownership, optional plugins, private-input requirements, checkpoint blocker regression and benchmark/live acceptance steps. Added public historical acquisition lock, CoreML extra input pins and package-only environment inventory under docs/migration/. Source and remote work branch were both32f889c7 before this documentation handoff. OD71 remains historical BLOCKED at48/503 with CHECKPOINT_MISMATCH/diagnostic null; its recorded temporary root/log and checked OD69/70/71 temporary evidence locations are now absent, cause UNKNOWN. No camera/session operation, runtime edit or restart. PO regression1067tests:931PASS/136optionalSKIP (14.111s); these are source-Mac results, destination installation/hardware/performance NOT_RUN. Independent documentation/path/privacy review and publication status are recorded at handoff.
@@ -354,6 +355,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: OnTapo SD relay research/adaptation ตาม REMOTE_SD_RESEARCH; secure input/pinned audited transport/region/Fixed/storage ยังต้องผ่าน. ไม่รอ Owner เลือก paid cloud-source และไม่เปิด worker/live/production เอง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+2026-11-15: แก้ P1 ให้ตรวจ candidate ledger ก่อนเขียน และหยุดเมื่อคลิปซ้อนที่ขยาย coverage ไม่มีเฟรมใหม่ โดยรักษา cursor และ checkpoint ล่าสุด แก้ P2 ให้กู้ status temp ที่ปลอดภัยหลังถือ job lock ก่อนเข้า session. Claude รอบยืนยันจบ exit 0 และ launcher `COMPLETED_LOCAL`; PO รัน arm64 suite 1,077 ผ่าน/0 ข้าม และยืนยัน regression หลัก 3 รายการล้มบน `acc6818` ก่อนแก้. เกตคลิปร้านและวันเต็มยังรอผลจริง.
 
 2026-11-15: ย้ายและทดสอบออฟไลน์บน M1 สำเร็จ แก้ batch 5 ที่ทำซ้ำได้ ตรวจ x264/H.264 remux และเตรียม runbook เกตกล้อง/วันเต็มยังรอข้อมูลและ scope รอบใหม่ ผล push อ่านจาก delivery record ในเครื่อง
 
