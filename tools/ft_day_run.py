@@ -13,6 +13,7 @@ import stat
 import subprocess
 import sys
 import time
+import tempfile
 
 from tools import ft_count as f, ft_media_probe as media, ft_sd_probe as sd
 from tools.ft_count_zones import load_zones_config
@@ -483,6 +484,33 @@ def validate_existing_identity(root,backend,expected_reference,config=None,date=
             raise CheckpointMismatch('PREPARE','PREFIX_COVERAGE')
 
 
+def verify_resume_runtime(root, config, reference, backend):
+    ledger = root / 'ledger.json'
+    if not ledger.exists():
+        return
+    data = read_ledger(ledger)
+    checkpoint = data['checkpoint']
+    runtime = data.get('count_runtime') or (checkpoint and checkpoint['runtime'])
+    if runtime is None:
+        return
+    # Worker initialization can write caches. Probe against a private copy
+    # so an incompatible runtime leaves the original job evidence intact.
+    with tempfile.TemporaryDirectory(prefix='ft-runtime-proof-') as directory:
+        probe = Path(directory).resolve()
+        atomic_write(probe / 'ledger.json', json.dumps(data, allow_nan=False))
+        if checkpoint is not None:
+            (probe / 'checkpoints').mkdir(mode=0o700)
+            filename = checkpoint['source_ref'] + '.json'
+            shutil.copyfile(root / 'checkpoints' / filename, probe / 'checkpoints' / filename)
+            (probe / 'checkpoints' / filename).chmod(0o600)
+        worker = Worker(probe, config, reference, backend, checkpoint)
+        try:
+            if worker.runtime != runtime or worker.config_hash != data['config_sha256']:
+                raise CheckpointMismatch('WORKER_START','RUNTIME')
+        finally:
+            worker.close()
+
+
 def deliver_reports(root,destination,date,complete,backend='cpu'):
     if backend not in BACKEND_ENV:raise DayError('CHECKPOINT_MISMATCH')
     folder=Path(destination)
@@ -507,7 +535,7 @@ def main(argv=None):
     p.add_argument('--backend',choices=('cpu','coreml'),default='cpu')
     p.add_argument('--reference-sha256',default=None,help='explicit expected hash of --reference; required for coreml')
     args=p.parse_args(argv);awake=None;root=None;lock=None;lock_held=False;result=dict(status='BLOCKED',reason='DAY_START_FAILED')
-    started=time.monotonic();batch=0;date=None;expected_reference=None
+    started=time.monotonic();batch=0;date=None;expected_reference=None;status_started=False
     def interrupted(signum,frame):raise KeyboardInterrupt
     previous_term=signal.signal(signal.SIGTERM,interrupted)
     try:
@@ -527,13 +555,12 @@ def main(argv=None):
             if f._file_sha256(args.reference)!=expected_reference:raise DayError('LENS_OR_CLOCK_UNVERIFIED')
         root.mkdir(mode=0o700,parents=False,exist_ok=True)
         st=root.lstat();f._require(stat.S_ISDIR(st.st_mode) and st.st_uid==os.getuid() and not st.st_mode&0o077,'private job root required')
+        lock=job_lock(root);lock.__enter__();lock_held=True
+        validate_existing_identity(root,args.backend,expected_reference)
+        check_space(root)
+        verify_resume_runtime(root,args.config,args.reference,args.backend)
         work=root/'work';work.mkdir(mode=0o700,exist_ok=True)
         f._require(not work.is_symlink() and work.stat().st_uid==os.getuid() and not work.stat().st_mode&0o077,'private work folder required')
-        lock=job_lock(root);lock.__enter__();lock_held=True
-        # Identity (backend/reference/checkpoint metadata) is validated before any
-        # snapshot recovery/pruning and before the session/network is touched; the
-        # live worker runtime binding can only be proven later, inside run_selected.
-        validate_existing_identity(root,args.backend,expected_reference)
         recover_status_part(root)
         check_space(root)
         if args.keep_awake:
@@ -546,6 +573,7 @@ def main(argv=None):
             atomic_write(root/'job-status.json',json.dumps(dict(running=True,pid=os.getpid(),batch=batch,
                 date=date,backend=args.backend,reference_sha256=expected_reference,
                 updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))
+            status_started=True
             def run_batch(token,terminal,selected,lease_guard):
                 def guarded():
                     lease_guard()
@@ -584,13 +612,14 @@ def main(argv=None):
             except subprocess.TimeoutExpired:
                 with contextlib.suppress(OSError):awake.kill()
                 awake.wait(timeout=3)
-        if lock_held:
+        if status_started:
             with contextlib.suppress(Exception):
                 atomic_write(root/'job-status.json',json.dumps(dict(running=False,pid=os.getpid(),batch=batch,
                     date=date,backend=args.backend,reference_sha256=expected_reference,
                     status=result.get('status'),reason=result.get('reason') or result.get('callback',{}).get('reason'),
                     diagnostic=result.get('diagnostic') or result.get('callback',{}).get('diagnostic'),
                     updated_at_utc=dt.datetime.now(dt.timezone.utc).isoformat())))
+        if lock_held:
             lock.__exit__(None,None,None)
 
 

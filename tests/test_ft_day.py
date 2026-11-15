@@ -1078,6 +1078,7 @@ class StatusRecoveryTests(unittest.TestCase):
             part=root/'job-status.json.part';part.write_text('crashed-mid-write');part.chmod(0o600)
             with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
                  patch.object(run,'check_space'),patch.object(run,'load_zones_config',return_value=cfg), \
+                 patch.object(run,'Worker',return_value=Mock(runtime='f'*64,config_hash=config_digest(cfg))), \
                  patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256), \
                  redirect_stdout(io.StringIO()):
                 manager.return_value.command.return_value=dict(status='SUCCESS',
@@ -1099,6 +1100,7 @@ class StatusRecoveryTests(unittest.TestCase):
             os.link(part,root/'alias.json.part')  # extra hardlink makes the temp unsafe
             with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target',return_value=H), \
                  patch.object(run,'check_space'),patch.object(run,'load_zones_config',return_value=cfg), \
+                 patch.object(run,'Worker',return_value=Mock(runtime='f'*64,config_hash=config_digest(cfg))), \
                  patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256), \
                  redirect_stdout(io.StringIO()):
                 self.assertEqual(run.main(self.arguments(root,'--max-clips','1','--max-batches','1')),2)
@@ -1106,3 +1108,25 @@ class StatusRecoveryTests(unittest.TestCase):
             self.assertEqual(part.read_text(),'crashed-mid-write')
             self.assertFalse((root/'job-status.json').exists())
             for name,content in before.items():self.assertEqual((root/name).read_bytes(),content)
+
+    def test_runtime_mismatch_stops_before_target_and_leaves_committed_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve()
+            cfg=self.anchor(root)
+            part=root/'job-status.json.part'
+            part.write_text('interrupted')
+            part.chmod(0o600)
+            before={p:p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            worker=Mock(runtime='e'*64,config_hash=config_digest(cfg))
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target') as target, \
+                 patch.object(run,'check_space'),patch.object(run,'load_zones_config',return_value=cfg), \
+                 patch.object(run.f,'_validate_input_file'),patch.object(run.f,'_file_sha256',return_value=run.REFERENCE_SHA256), \
+                 patch.object(run,'Worker',return_value=worker) as start,redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(run.main(self.arguments(root)),2)
+            self.assertEqual(json.loads(output.getvalue())['diagnostic']['code'],'RUNTIME')
+            self.assertNotEqual(start.call_args.args[0],root)
+            worker.close.assert_called_once()
+            target.assert_not_called()
+            manager.assert_not_called()
+            self.assertFalse((root/'job-status.json').exists())
+            self.assertEqual({p:p.read_bytes() for p in before},before)
