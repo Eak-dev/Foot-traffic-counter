@@ -575,17 +575,77 @@ class DayLineageTests(unittest.TestCase):
             cfg, ref, data = self.setup_day(root)
             refhash = data["reference_sha256"]
             source = data["clips"][0]
+            inventory = {key: source[key] for key in ("ref", "start", "end")}
             message = dict(source_ref=source["ref"], input_sha256="e" * 64, end=10)
             cp = fake_checkpoint_runtime(root, message, cfg, "f" * 64, refhash)
             source.update(status="counted", input_sha256="e" * 64, config_sha256=data["config_sha256"],
                           clock_verified=True, lens_verified=True)
             data.update(cursor=1, checkpoint=cp, count_runtime="f" * 64,
-                        completed_groups=[g["ref"] for g in run.groups(data["clips"])])
+                        completed_groups=[g["ref"] for g in run.groups([inventory])])
             run.save(root, data)
             self.assertEqual(accel._require_day_lineage(root, cfg, ref, cp), "f" * 64)
             for bad in (None, dict(cp, coverage_end=9), dict(cp, extra=True)):
                 with self.assertRaises(accel.StateError):
                     accel._require_day_lineage(root, cfg, ref, bad)
+
+    def test_fifth_batch_restores_after_daytime_group_completes_in_batch_four(self):
+        from contextlib import redirect_stdout
+        import io
+        from tests.test_ft_day import config, fake_checkpoint_runtime
+        from tools import ft_day_run as run, ft_day_summary as summary
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            (root / "work").mkdir(mode=0o700)
+            cfg = config()
+            reference = root / "reference.mp4"
+            reference.write_bytes(b"synthetic reference")
+            reference.chmod(0o600)
+            refhash = hashlib.sha256(reference.read_bytes()).hexdigest()
+            intervals = [(0, 10), (30000, 30010), (30005, 30015),
+                         (30015, 30025), (30025, 30035), (40000, 40010)]
+            clips = [dict(ref=summary.digest([a, b]), start=a, end=b,
+                          capture_start=a, capture_end=b) for a, b in intervals]
+            info = dict(clips=clips, inventory_digest=summary.digest(clips))
+            runtime = "f" * 64
+            calls = []
+
+            class Worker:
+                def __init__(self, root, path, reference, backend, checkpoint):
+                    self.config_hash = run.config_digest(cfg)
+                    self.runtime = runtime
+                    restored = accel._require_day_lineage(root, cfg, reference, checkpoint)
+                    if checkpoint is not None:
+                        assert restored == runtime
+
+                def count(self, message):
+                    calls.append((message["start"], message["reset"]))
+                    return dict(frames=50, events=[], config_sha256=self.config_hash,
+                                clock_verified=True, lens_verified=True,
+                                checkpoint=fake_checkpoint_runtime(root, message, cfg, runtime, refhash))
+
+                def close(self):
+                    pass
+
+            with patch.object(run, "load_zones_config", return_value=cfg), \
+                    patch.object(run, "inventory", return_value=(info, "synthetic", 1)), \
+                    patch.object(run, "download", return_value="e" * 64), \
+                    patch.object(run, "check_space"), patch.object(run, "Worker", Worker), \
+                    redirect_stdout(io.StringIO()):
+                for batch in range(1, 7):
+                    result = run.run_selected(None, None, None, lambda: None, root,
+                                              "config", reference, 1, date="20010101",
+                                              daytime_first=True, backend="coreml",
+                                              expected_reference=refhash)
+                    self.assertEqual(result["status"], "PARTIAL" if batch < 6 else "SUCCESS", result)
+                    data = summary.read_ledger(root / "ledger.json")
+                    self.assertEqual(data["cursor"], batch)
+                    self.assertEqual(len(list((root / "checkpoints").glob("*.json"))), 1)
+                    if batch == 4:
+                        self.assertEqual(data["completed_groups"], [run.groups(clips)[1]["ref"]])
+                        self.assertEqual(data["checkpoint"]["coverage_end"], 30035)
+            self.assertEqual(calls, [(30000, True), (30005, False), (30015, False),
+                                     (30025, False), (40000, True), (0, True)])
 
     def test_live_runtime_mismatch_prevents_ready_without_changing_ledger(self):
         from tools.ft_day_summary import atomic_write

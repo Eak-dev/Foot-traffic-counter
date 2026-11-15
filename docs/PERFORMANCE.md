@@ -1,5 +1,16 @@
 # Offline throughput experiments (OD-68 / OD-69 / OD-70)
 
+## Apple Silicon migration, 2026-11-15
+
+M1 arm64, CPU versus CoreML FP32 batch 2 on the same 20-second local test
+fixture, three timed runs per backend after warm-up. Median processing was
+26.934 s CPU and 4.778 s CoreML with the same 100 samples and one identical
+event each run. Native split and new-process CoreML resume preserve exact
+encoded state. ORT profiling records one executed CoreML partition for a
+synthetic batch. Store footage accuracy and full-day throughput await real
+input. See the [migration runbook](APPLE_SILICON_SETUP.md) for setup, timing
+ranges and resource measures.
+
 ## OD-71: actual day-driver integration, 2026-10-20
 
 Owner approved the FP32 batch2 worker for one fresh date17 full-day trial.

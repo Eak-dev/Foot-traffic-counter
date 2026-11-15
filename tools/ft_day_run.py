@@ -16,7 +16,7 @@ import time
 
 from tools import ft_count as f, ft_media_probe as media, ft_sd_probe as sd
 from tools.ft_count_zones import load_zones_config
-from tools.ft_day_acquire import inventory, groups, DayError
+from tools.ft_day_acquire import inventory, groups, DayError, INVENTORY_CLIP_FIELDS
 from tools.ft_day_count import config_digest
 from tools.ft_day_summary import atomic_write, read_ledger, write_reports, digest, HEX
 from tools.ft_session import SessionManager, SessionError, load_target
@@ -34,6 +34,11 @@ FAILURE_STAGES=frozenset(('CONFIG','INVENTORY','PREPARE','GUARD','WORKER_START',
 MEDIA_CODES=frozenset(('TIMEOUT','QUOTA','DISK_SPACE','STORAGE','SAMPLE_EXISTS',
     'NO_ELIGIBLE_CLIP','IDENTITY','HTTP','TLS','CONNECT','PROTOCOL','INCOMPLETE',
     'VALIDATION','PUBLIC_ENDPOINT_REQUIRED','PREREQUISITE'))
+
+class CheckpointMismatch(DayError):
+    def __init__(self,stage,detail):
+        super().__init__('CHECKPOINT_MISMATCH')
+        self.diagnostic=dict(stage=stage,kind='CHECKPOINT',code=detail)
 
 
 def failure_diagnostic(stage,exc):
@@ -143,7 +148,8 @@ class Worker:
                                        cwd=str(REPO),bufsize=0,env={'PATH':'/usr/bin:/bin','LANG':'en_US.UTF-8','PYTHONDONTWRITEBYTECODE':'1'})
             self.selector.register(self.proc.stdout,selectors.EVENT_READ)
             ready=self.receive(120)
-            if isinstance(ready,dict) and ready.get('reason')=='CHECKPOINT_MISMATCH':raise DayError('CHECKPOINT_MISMATCH')
+            if isinstance(ready,dict) and ready.get('reason')=='CHECKPOINT_MISMATCH':
+                raise CheckpointMismatch('WORKER_START','LINEAGE_OR_RESTORE')
             if not isinstance(ready,dict) or ready.get('status')!='ready':raise DayError('WORKER_FAILED')
             if any(not isinstance(ready.get(k),str) or not HEX.fullmatch(ready[k])
                    for k in ('config_sha256','runtime')):raise DayError('WORKER_FAILED')
@@ -172,7 +178,7 @@ class Worker:
             raise DayError(result['reason'])
         if not isinstance(result,dict) or result.get('status')!='ok' or result.get('config_sha256')!=self.config_hash:raise DayError('WORKER_FAILED')
         if not isinstance(result.get('checkpoint'),dict) or result['checkpoint'].get('runtime')!=self.runtime:
-            raise DayError('CHECKPOINT_MISMATCH')
+            raise CheckpointMismatch('COUNT','RUNTIME')
         return result
 
     def close(self):
@@ -195,6 +201,11 @@ def prefix_coverage_end(clips,cursor):
     group=next(g for g in groups(clips) if any(c['ref']==last for c in g['clips']))
     refs={c['ref'] for c in group['clips']}
     return max(c.get('capture_end',c['end']) for c in clips[:cursor] if c['ref'] in refs)
+
+def completed_group_refs(planned_groups,clips,cursor):
+    prefix_refs={clip['ref'] for clip in clips[:cursor]}
+    return [group['ref'] for group in planned_groups
+            if all(clip['ref'] in prefix_refs for clip in group['clips'])]
 
 
 def identity_mismatch(data,backend,expected_reference):
@@ -221,12 +232,11 @@ def prepare_ledger(root,info,config,date,backend='cpu',expected_reference=REFERE
     if os.path.lexists(existing):
         validate_existing_identity(root,backend,expected_reference,config=config,date=date)
         data=read_ledger(existing)
-        if identity_mismatch(data,backend,expected_reference):raise DayError('CHECKPOINT_MISMATCH')
-        if data['config_sha256']!=hash_ or data['inventory_digest']!=info['inventory_digest'] or data['date']!=iso:
-            raise DayError('CHECKPOINT_MISMATCH')
-        keys=('ref','start','end','capture_start','capture_end')
+        if data['inventory_digest']!=info['inventory_digest']:
+            raise CheckpointMismatch('PREPARE','INVENTORY')
+        keys=INVENTORY_CLIP_FIELDS
         if [{k:c.get(k) for k in keys} for c in data['clips']]!=[{k:c.get(k) for k in keys} for c in info['clips']]:
-            raise DayError('CHECKPOINT_MISMATCH')
+            raise CheckpointMismatch('PREPARE','SOURCE_ORDER_OR_INTERVAL')
         cursor=data.get('cursor');cp=data.get('checkpoint')
         if (type(cursor) is not int or not 0<=cursor<=len(data['clips'])
                 or data.get('checkpoint_mode')!='exact_json_v1'):
@@ -249,10 +259,6 @@ def prepare_ledger(root,info,config,date,backend='cpu',expected_reference=REFERE
                     raise DayError('CHECKPOINT_MISMATCH')
             except (StateError,OSError,ValueError):raise DayError('CHECKPOINT_MISMATCH') from None
         elif cp is not None:raise DayError('CHECKPOINT_MISMATCH')
-        prefix_refs={p['ref'] for p in data['clips'][:cursor]}
-        expected_groups=[g['ref'] for g in groups(info['clips'])
-                         if all(c['ref'] in prefix_refs for c in g['clips'])]
-        if data.get('completed_groups')!=expected_groups:raise DayError('CHECKPOINT_MISMATCH')
         return data
     return dict(schema_version=1,date=iso,timezone='+07:00',config_sha256=hash_,
                 inventory_complete=True,inventory_digest=info['inventory_digest'],boundary_mode='continuous_state',
@@ -291,7 +297,7 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
             if data['checkpoint'] is not None and data['checkpoint'].get('runtime')!=worker.runtime:
                 raise DayError('CHECKPOINT_MISMATCH')
             data['count_runtime']=worker.runtime
-        elif data['count_runtime']!=worker.runtime:raise DayError('CHECKPOINT_MISMATCH')
+        elif data['count_runtime']!=worker.runtime:raise CheckpointMismatch(stage,'RUNTIME')
         data.update(count_backend=backend,reference_sha256=expected_reference)
         # Only a chosen worker that has accepted the resumed checkpoint and whose
         # bound runtime matches the persisted binding may prune/recover/commit.
@@ -336,8 +342,7 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
                             input_sha256=input_hash,config_sha256=result['config_sha256'],
                             clock_verified=result['clock_verified'],lens_verified=result['lens_verified'])
                 data.update(cursor=index+1,checkpoint=cp)
-                prefix_refs={c['ref'] for c in data['clips'][:index+1]}
-                data['completed_groups']=[g['ref'] for g in planned_groups if all(c['ref'] in prefix_refs for c in g['clips'])]
+                data['completed_groups']=completed_group_refs(planned_groups,data['clips'],data['cursor'])
                 # The immutable new snapshot exists first. Atomic ledger replacement
                 # commits its pointer and events together. Report failure must never
                 # roll this transaction back or mark a committed source uncounted.
@@ -353,7 +358,10 @@ def run_selected(token,terminal,selected,guard,root,config_path,reference,max_cl
         stage='COMMIT'
         summary=save(root,data)
         return dict(status='SUCCESS' if summary['full_day_complete'] else 'PARTIAL',summary=summary)
-    except StateError:return dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH')
+    except StateError:return dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                                  diagnostic=dict(stage=stage,kind='CHECKPOINT',code='PROOF'))
+    except CheckpointMismatch as exc:
+        return dict(status='BLOCKED',reason=exc.code,diagnostic=exc.diagnostic)
     except DayError as exc:return dict(status='BLOCKED',reason=exc.code)
     except SessionError:raise  # preserve the existing lease/reauth cleanup policy
     except Exception as exc:
@@ -416,13 +424,16 @@ def validate_existing_identity(root,backend,expected_reference,config=None,date=
     st=path.lstat()
     if not stat.S_ISREG(st.st_mode) or st.st_nlink!=1:raise DayError('CHECKPOINT_MISMATCH')
     data=read_ledger(path)
-    if identity_mismatch(data,backend,expected_reference):raise DayError('CHECKPOINT_MISMATCH')
+    if identity_mismatch(data,backend,expected_reference):
+        raise CheckpointMismatch('PREPARE','BACKEND_OR_REFERENCE')
     if config is not None and data['config_sha256']!=config_digest(config):raise DayError('CHECKPOINT_MISMATCH')
     if date is not None and data['date']!=date[:4]+'-'+date[4:6]+'-'+date[6:]:
         raise DayError('CHECKPOINT_MISMATCH')
     cursor=data.get('cursor')
     if (type(cursor) is not int or not 0<=cursor<=len(data['clips'])
             or data.get('checkpoint_mode')!='exact_json_v1'):raise DayError('CHECKPOINT_MISMATCH')
+    if data.get('completed_groups')!=completed_group_refs(groups(data['clips']),data['clips'],cursor):
+        raise CheckpointMismatch('PREPARE','COMPLETED_GROUPS')
     runtime=data.get('count_runtime')
     explicit='count_backend' in data
     if explicit and (runtime is None and cursor or runtime is not None
@@ -437,12 +448,13 @@ def validate_existing_identity(root,backend,expected_reference,config=None,date=
         if not folder.is_dir() or folder.is_symlink():raise DayError('CHECKPOINT_MISMATCH')
         try:
             proof=read_checkpoint(root,checkpoint)
-        except (StateError,OSError,ValueError):raise DayError('CHECKPOINT_MISMATCH') from None
+        except (StateError,OSError,ValueError):raise CheckpointMismatch('PREPARE','PROOF') from None
         if (proof['reference_sha256']!=expected_reference or proof['config_sha256']!=data['config_sha256']
                 or checkpoint.get('source_ref')!=data['clips'][cursor-1]['ref']
-                or checkpoint.get('input_sha256')!=data['clips'][cursor-1].get('input_sha256')
-                or checkpoint.get('coverage_end')!=prefix_coverage_end(data['clips'],cursor)):
-            raise DayError('CHECKPOINT_MISMATCH')
+                or checkpoint.get('input_sha256')!=data['clips'][cursor-1].get('input_sha256')):
+            raise CheckpointMismatch('PREPARE','PROOF_IDENTITY')
+        if checkpoint.get('coverage_end')!=prefix_coverage_end(data['clips'],cursor):
+            raise CheckpointMismatch('PREPARE','PREFIX_COVERAGE')
 
 
 def deliver_reports(root,destination,date,complete,backend='cpu'):
@@ -533,6 +545,7 @@ def main(argv=None):
         result=dict(status='INTERRUPTED',reason='CHECKPOINT_RETAINED');print(json.dumps(result));return 130
     except (DayError,StateError) as exc:
         result=dict(status='BLOCKED',reason=exc.code if isinstance(exc,DayError) else 'CHECKPOINT_MISMATCH')
+        if isinstance(exc,CheckpointMismatch):result['diagnostic']=exc.diagnostic
         print(json.dumps(result));return 2
     except Exception:
         result=dict(status='BLOCKED',reason='DAY_START_FAILED');print(json.dumps(result));return 2

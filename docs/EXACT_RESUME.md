@@ -1,5 +1,7 @@
 # Exact clip checkpoints and the finite daily job (OD-61)
 
+Apple Silicon migration (2026-11-15): completed group IDs are derived from inventory facts, so the finalized ledger and original inventory yield identical IDs. Previously CoreML rehashed the ledger clips with their mutable results and could reject the next batch after the first group completed. The driver checks completed group IDs before session use. Runtime identity includes OS, architecture and OS release. Use a fresh root for the changed sources and machine. See the [migration runbook](APPLE_SILICON_SETUP.md).
+
 The daily job now resumes at the next uncommitted source, including the middle of a long continuous recording group. It no longer replays a whole9hour group after a36hour invocation limit. Gates, model,640pixel inference,5fps sampling, lane/pink definitions and bbox review policy remain unchanged. This fixes completion/recovery; it does not make the older Mac realtime or establish counting accuracy.
 
 ## Transaction and compatibility

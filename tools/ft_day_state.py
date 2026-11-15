@@ -5,6 +5,7 @@ import json
 import math
 import os
 from pathlib import Path
+import platform
 import stat
 import sys
 
@@ -47,7 +48,8 @@ def runtime_digest():
     import scipy
     import cv2
     from supervision.tracker.byte_tracker import core, single_object_track, kalman_filter, utils, matching
-    return digest(dict(python=list(sys.version_info[:3]), numpy=numpy.__version__,
+    return digest(dict(python=list(sys.version_info[:3]), platform=platform.system(),
+        machine=platform.machine(), os_release=platform.release(), numpy=numpy.__version__,
         supervision=supervision.__version__, ort=onnxruntime.__version__, scipy=scipy.__version__,
         cv2=cv2.__version__, engine_sources=[hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest()
           for name in ('ft_day_count.py','ft_day_state.py','ft_state_codec.py','ft_count.py',

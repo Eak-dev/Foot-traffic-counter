@@ -8,6 +8,7 @@ from tools.ft_day_summary import digest
 MAX_PAGES=200
 MAX_REQUESTS=410
 LIST_SECONDS=900
+INVENTORY_CLIP_FIELDS=('ref','start','end','capture_start','capture_end')
 
 
 class DayError(Exception):
@@ -90,7 +91,12 @@ def groups(clips):
             result.append(dict(start=clip['start'],end=clip['end'],clips=[clip]))
         else:
             result[-1]['end']=max(result[-1]['end'],clip['end']);result[-1]['clips'].append(clip)
-    for group in result:group['ref']=digest(group)
+    for group in result:
+        # A ledger adds status, events and hashes to each source as it counts.
+        # Group identity is bound to the inventory fields shared by both views.
+        sources=[{key:clip[key] for key in INVENTORY_CLIP_FIELDS if key in clip}
+                 for clip in group['clips']]
+        group['ref']=digest(dict(start=group['start'],end=group['end'],clips=sources))
     return result
 
 

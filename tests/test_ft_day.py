@@ -742,13 +742,15 @@ class BackendIdentityTests(unittest.TestCase):
             with self.patches(root,cfg,info,calls,mismatched,reference=COREML_REF):
                 result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000,
                     backend='coreml',expected_reference=COREML_REF)
-            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH'))
+            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                diagnostic=dict(stage='WORKER_START',kind='CHECKPOINT',code='RUNTIME')))
             self.assertEqual(ds.read_ledger(root/'ledger.json'),committed)
             self.assertEqual(len(list((root/'checkpoints').glob('*.json'))),1)
             # A ledger bound to one backend refuses a run requested with the other.
             with self.patches(root,cfg,info,calls,worker,reference=run.REFERENCE_SHA256):
                 cpu_result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
-            self.assertEqual(cpu_result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH'))
+            self.assertEqual(cpu_result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                diagnostic=dict(stage='PREPARE',kind='CHECKPOINT',code='BACKEND_OR_REFERENCE')))
             self.assertEqual(ds.read_ledger(root/'ledger.json'),committed)
 
     def test_backend_mismatch_on_existing_root_is_rejected_before_session_and_recovery(self):
@@ -762,6 +764,22 @@ class BackendIdentityTests(unittest.TestCase):
                 self.assertEqual(run.main(['--run','--root',str(root),'--config',str(path),'--reference','r',
                     '--date','20010101','--max-clips','1','--max-batches','1']),2)
             manager.assert_not_called();self.assertTrue(part.exists())
+
+    def test_wrong_completed_groups_are_rejected_before_target_or_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp).resolve();cfg,path,info=self.setup_job(root)
+            data=run.prepare_ledger(root,info,cfg,'20010101')
+            data['completed_groups']=['c'*64]
+            run.save(root,data)
+            ledger_path=root/'ledger.json';before=ledger_path.read_bytes();output=io.StringIO()
+            with patch.object(run,'SessionManager') as manager,patch.object(run,'load_target') as target, \
+                 redirect_stdout(output):
+                self.assertEqual(run.main(['--run','--root',str(root),'--config',str(path),
+                    '--reference','r','--date','20010101']),2)
+            manager.assert_not_called();target.assert_not_called()
+            self.assertEqual(ledger_path.read_bytes(),before)
+            self.assertEqual(json.loads(output.getvalue()),dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                diagnostic=dict(stage='PREPARE',kind='CHECKPOINT',code='COMPLETED_GROUPS')))
 
     def test_worker_startup_runtime_mismatch_closes_worker_without_touching_disk(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -777,7 +795,8 @@ class BackendIdentityTests(unittest.TestCase):
                 def close(self):closed.append(True)
             with self.patches(root,cfg,info,calls,ClosingWorker):
                 result=run.run_selected('t','u',{},lambda:None,root,path,'ref',1000)
-            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH'))
+            self.assertEqual(result,dict(status='BLOCKED',reason='CHECKPOINT_MISMATCH',
+                diagnostic=dict(stage='WORKER_START',kind='CHECKPOINT',code='RUNTIME')))
             self.assertEqual(closed,[True])
             self.assertEqual(ds.read_ledger(root/'ledger.json')['cursor'],1)
 

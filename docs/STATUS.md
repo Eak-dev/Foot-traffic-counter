@@ -1,5 +1,15 @@
 # สถานะงานและจุดส่งต่อให้ Claude
 
+2026-11-15 Apple Silicon migration: [คู่มือติดตั้งและผลวัด](APPLE_SILICON_SETUP.md)
+
+- [x] ยืนยัน checkout ส่งต่อ และติดตั้ง arm64 บน Apple M1/8 GiB เครื่องนี้
+- [x] ทำซ้ำ `CHECKPOINT_MISMATCH` ที่ขอบ batch 4→5 และแก้รหัสกลุ่มให้ตรงระหว่าง inventory กับ ledger
+- [x] ทดสอบ baseline 933 ผ่าน/136 ข้าม, arm64 dependency suite 1,069 ผ่าน/0 ข้าม และ Python 3.9 syntax ผ่าน
+- [x] ทดสอบ lossless 20 วินาทีผ่าน day driver ใหม่พร้อม acquisition stub และ worker ปิดเครือข่าย สถานะ CoreML ตรงทุกค่าหลังเปิด process ใหม่ เหตุการณ์เดียวกันตรงกับ full clip และ CPU
+- [x] วัด fixture 100 sampled frames ฝ่ายละ 3 รอบ CPU มัธยฐาน 26.934s → CoreML 4.778s ตรวจ ORT profile ว่าประมวลผลบน CoreML EP
+- [ ] Claude sign-in และ scoped Dev invocation บนเครื่องนี้ รายงาน `NOT_RUN_BY_DEVELOPER` จาก PO ที่รันทดสอบเอง
+- [ ] ทดสอบกับคลิป/geometry/reference Fixed ของร้านและ manual labels แล้วจึงประเมินวันเต็มรอบใหม่
+
 2026-11-14 Apple Silicon migration handoff: Owner confirms the destination is a new Apple Silicon Mac. Prepared docs/NEW_MACHINE_PROMPT.md with native arm64 setup, actual pinned dependencies, Codex/Claude ownership, optional plugins, private-input requirements, checkpoint blocker regression and benchmark/live acceptance steps. Added public historical acquisition lock, CoreML extra input pins and package-only environment inventory under docs/migration/. Source and remote work branch were both32f889c7 before this documentation handoff. OD71 remains historical BLOCKED at48/503 with CHECKPOINT_MISMATCH/diagnostic null; its recorded temporary root/log and checked OD69/70/71 temporary evidence locations are now absent, cause UNKNOWN. No camera/session operation, runtime edit or restart. PO regression1067tests:931PASS/136optionalSKIP (14.111s); these are source-Mac results, destination installation/hardware/performance NOT_RUN. Independent documentation/path/privacy review and publication status are recorded at handoff.
 
 OD-71 monitor /2026-10-20T17:59Z: terminal BLOCKED confirmed at17:36:30Z in batch5, reason CHECKPOINT_MISMATCH; diagnostic is null (stage/kind/code/http_status not recorded). Actual process scan confirms no supervisor/driver/CoreML worker for the approved root remains. Committed48/503clips (455unprocessed),7444processed seconds across07:06:01–08:43:43 and11:29:23–11:55:45Bangkok; elapsed04:10:34 from launch to recorded stop. Partial passage counts: near363/far372/front735/front_review113; side615/side_review0. Ledger reference/runtime and18source hashes match; checkpoint read integrity/runtime/reference also pass, so the specific checkpoint mismatch remains UNKNOWN. CoreML PARTIAL HTML/CSV agree at48/503 and7444seconds, last modified17:36:30Z. Original-day completeness and human accuracy remain unverified; no token-expiry inference. Follow-up10 PAUSED with read-back verified for terminal blocker report; no restart or runtime/auth change. Monitor observation LOCAL_ONLY.
@@ -344,6 +354,8 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 - Next action: OnTapo SD relay research/adaptation ตาม REMOTE_SD_RESEARCH; secure input/pinned audited transport/region/Fixed/storage ยังต้องผ่าน. ไม่รอ Owner เลือก paid cloud-source และไม่เปิด worker/live/production เอง
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
+
+2026-11-15: ย้ายและทดสอบออฟไลน์บน M1 สำเร็จ แก้ batch 5 ที่ทำซ้ำได้ ตรวจ x264/H.264 remux และเตรียม runbook เกตกล้อง/วันเต็มยังรอข้อมูลและ scope รอบใหม่ ผล push อ่านจาก delivery record ในเครื่อง
 
 - 2026-10-19 · PO · เปรียบเทียบคลิปเดียว180sครบ6variantsพร้อมCPU/RSS: CoreMLตรงreference50/50เหตุการณ์ ใช้CPUworkerลด89.07% แต่เวลาลดเพียง5.99%และRAMเพิ่ม54.24MiB; โมเดลเล็กไม่ผ่านcompatibility. CPU1threadช่วง20sช้าลง3.20x. เพิ่มเครื่องมือopt-in/หลักฐาน/ข้อจำกัด;875tests/861PASS/14SKIPและ19isolatedPASS. ไม่มีproduction/checkpoint/camera/auth changesหรือworkerค้าง; ยังไม่ผ่านเป้า10h/day.
 
