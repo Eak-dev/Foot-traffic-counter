@@ -356,6 +356,9 @@ D0: [FT_D0_EVIDENCE.md](FT_D0_EVIDENCE.md) — 52 tests และ 7 independent 
 
 ## บันทึกล่าสุด (ใหม่สุดอยู่บน)
 
+
+2026-11-16: macOS arm64 offline recheck PASS. The day driver verifies a persisted runtime using a deny-network worker and a temporary copy before session use. Runtime mismatch regression preserves the committed files. Final system suite 942 PASS/136 SKIP and arm64 suite 1,078 PASS/0 SKIP, exit 0. Claude implementation attempt timed out, PO implemented the change and a separate test-only Claude invocation exited 0 (COMPLETED_LOCAL). Native driver fixture passed interruption after commit, six clips in two groups and batch 4→5 with exact final ledger and encoded state. Three paired 20s fixture runs after warm-up produced matching events and median processing CPU 25.301s / CoreML 4.705s. ORT profile executed one CoreML partition. Owner authorized the 14 November 2026 shop-camera test. Local target config is missing and session status is REAUTH_REQUIRED. Shop geometry/reference, current inventory, human accuracy and full-day timing are pending.
+
 2026-11-15: แก้ P1 ให้ตรวจ candidate ledger ก่อนเขียน และหยุดเมื่อคลิปซ้อนที่ขยาย coverage ไม่มีเฟรมใหม่ โดยรักษา cursor และ checkpoint ล่าสุด แก้ P2 ให้กู้ status temp ที่ปลอดภัยหลังถือ job lock ก่อนเข้า session. Claude รอบยืนยันจบ exit 0 และ launcher `COMPLETED_LOCAL`; PO รัน arm64 suite 1,077 ผ่าน/0 ข้าม และยืนยัน regression หลัก 3 รายการล้มบน `acc6818` ก่อนแก้. เกตคลิปร้านและวันเต็มยังรอผลจริง.
 
 2026-11-15: ย้ายและทดสอบออฟไลน์บน M1 สำเร็จ แก้ batch 5 ที่ทำซ้ำได้ ตรวจ x264/H.264 remux และเตรียม runbook เกตกล้อง/วันเต็มยังรอข้อมูลและ scope รอบใหม่ ผล push อ่านจาก delivery record ในเครื่อง
